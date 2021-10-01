@@ -4,10 +4,11 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
 import pandas as pd
+from scipy.optimize import fmin
 
-from datetime import timezone
+from datetime import timezone, tzinfo
 import astropy.units as u
-from astropy.time import Time
+from astropy.time import Time, TimeDelta
 from astropy.coordinates import SkyCoord, EarthLocation, AltAz
 
 ccatp_loc = EarthLocation(lat='-22d59m08.30s', lon='-67d44m25.00s', height=5611.8*u.m)
@@ -103,25 +104,60 @@ class CurvyPong:
             'x_acc': x_acc, 'y_acc': y_acc
         })
     
-    def set_setting(self, time0, ra=None, dec=None, az=None, alt=None, location=ccatp_loc):
+    def set_setting(self, ra, dec, alt, date, location=ccatp_loc):
+        """ 
+        Given an object (ra, dec) and a desired alt, find the az/alt coordinates
+        for a specific date and location. Formulas from http://www.stargazing.net/kepler/altaz.html
         
-        # configure datetime into UTC
-        time0 = pd.Timestamp(time0, tzinfo=timezone.utc)
+        Later, possibly, include option of given object (ra, dec) and a desired datetime. 
+
+        ra (hours), dec (deg), alt (deg), date (str e.g. 'YYYY-MM-DD')
+        """
+
+        # unit conversions
+        ra = ra*u.hourangle
+        dec = dec*u.deg
+        alt = alt*u.deg
+
+        # determine possible range of altitudes for the givens
+
+        # determine possible hour angles
+        lat = ccatp_loc.lat
+        cos_ha = (sin(alt.to(u.rad).value) - sin(dec.to(u.rad).value)*sin(lat.to(u.rad).value)) / (cos(dec.to(u.rad).value)*cos(lat.to(u.rad).value))
+        ha = math.acos(cos_ha)*u.rad
+
+        # choose hour angle going up (FIXME to make more flexible)
+        ha1_alt = self._alt(dec, lat, ha)
+        ha1_delta = self._alt(dec, lat, ha + 1*u.deg) - ha1_alt
+        ha1_up = True if ha1_delta > 0 else False
+        print(f'hour angle = {ha.to(u.hourangle).value}, altitude = {ha1_alt.to(u.deg).value}, delta = {ha1_delta}')
+
+        ha2_alt = self._alt(dec, lat, -ha)
+        ha2_delta = self._alt(dec, lat, -ha + 1*u.deg) - ha2_alt
+        ha2_up = True if ha2_delta > 0 else False
+        print(f'hour angle = {-ha.to(u.hourangle).value}, altitude = {ha2_alt.to(u.deg).value}, delta = {ha2_delta}')
+
+        if (ha1_up and ha2_up) or (not ha1_up and not ha2_up):
+            raise Exception('An issue arised regarding hour angle and altitude.')
+        elif ha2_up:
+            ha = -ha
+
+        # find ut (universal time after midnight of chosen date) 
+        lon = ccatp_loc.lon
+        time0 = Time(date, scale='utc')
+        num_days = (time0 - Time(2000, format='jyear')).value # days from J2000
+        lst = ha + ra
+        ut = (lst.to(u.deg).value - 100.46 - 0.98564*num_days - lon.to(u.deg).value)/15
+
+        # apply datetime to time_offsets
+        time0 = pd.Timestamp(date, tzinfo=timezone.utc) + pd.Timedelta(ut%24, 'hour')
         print(f'start time = {time0.strftime("%Y-%m-%d %H:%M:%S.%f%z")}')
         df_datetime = pd.to_timedelta(self.df['time_offset'], unit='sec') + time0
         self.df.insert(0, 'datetime', df_datetime)
 
         # convert to altitude/azimuth
-        if (not az is None) and (not alt is None):
-            desired_coord = AltAz(az=az*u.deg, alt=alt*u.deg, obstime=time0, location=location)
-            desired_coord = desired_coord.transform_to(SkyCoord(ra=math.nan*u.deg, dec=math.nan*u.deg)) # data in SkyCoord needs to be present, but is not used
-            ra = desired_coord.ra.deg
-            dec = desired_coord.dec.deg
-
-        print(f'ra={ra}, dec={dec}')
-
-        x_coord = self.df['x_coord']/3600 + ra
-        y_coord = self.df['y_coord']/3600 + dec
+        x_coord = self.df['x_coord']/3600 + ra.to(u.deg).value
+        y_coord = self.df['y_coord']/3600 + dec.to(u.deg).value
         obs = SkyCoord(ra=x_coord*u.deg, dec=y_coord*u.deg, frame='icrs')
         print('converting to altitude/azimuth, this may take some time...')
         obs = obs.transform_to(AltAz(obstime=df_datetime, location=location))
@@ -133,30 +169,32 @@ class CurvyPong:
         az_acc = self._central_diff(az_vel, self.sample_interval)
         alt_acc = self._central_diff(alt_vel, self.sample_interval)
 
-        # get hour angle
-        obs_time = Time(df_datetime, scale='utc', location=location)
-        lst = obs_time.sidereal_time('mean').deg
-
         # get parallactic angle and rotation angle
-        dec_rad = math.radians(dec)
-        hour_angles_rad = np.radians(lst - ra)
+        obs_time = Time(df_datetime, scale='utc', location=location)
+        lst = obs_time.sidereal_time('apparent')
+        hour_angles = lst - ra
         para = np.degrees(
             np.arctan2( 
-                np.sin(hour_angles_rad), 
-                (cos(dec_rad)*tan(ccatp_loc.lat.rad) - sin(dec_rad)*np.cos(hour_angles_rad)) 
+                np.sin(hour_angles.to(u.rad).value), 
+                cos(dec.to(u.rad).value)*tan(ccatp_loc.lat.rad) - sin(dec.to(u.rad).value)*np.cos(hour_angles.to(u.rad).value) 
             )
         )
         rot = para + obs.alt.deg
 
+        # populate dataframe
         self.df['az_coord'] = obs.az.deg
         self.df['alt_coord'] = obs.alt.deg
         self.df['az_vel'] = az_vel
         self.df['alt_vel'] = alt_vel
         self.df['az_acc'] = az_acc
         self.df['alt_acc'] = alt_acc
-        self.df['hour_angle'] = (lst - ra)/360*24
+        self.df['hour_angle'] = hour_angles.to(u.hourangle).value
         self.df['para_angle'] = para
         self.df['rot_angle'] = rot
+
+    def _alt(self, dec, lat, ha):
+        sin_alt = sin(dec.to(u.rad).value)*sin(lat.to(u.rad).value) + cos(dec.to(u.rad).value)*cos(lat.to(u.rad).value)*cos(ha.to(u.rad).value)
+        return math.asin(sin_alt)*u.rad
 
     def _fourier_expansion(self, num_terms, amp, t_count, peri):
         N = num_terms*2 - 1
@@ -215,7 +253,7 @@ class CurvyPong:
         fig.tight_layout()
         plt.show()
 
-    def hitmap(self, pixelpos_files, rot=0, max_acc=None, plate_scale=52):
+    def hitmap(self, pixelpos_files, rot=0, max_acc=None, plate_scale=52, percent=1):
         
         # remove points with high acceleration 
         total_azalt_acc = np.sqrt(self.df['az_acc']**2 + self.df['alt_acc']**2)
@@ -256,12 +294,15 @@ class CurvyPong:
 
         hist = np.zeros( (len(x_edges)-1 , len(y_edges)-1) )
 
+        # get only first x percent of scan
+        last_sample = math.ceil(len(x_coord)*percent)
+
         # sort all positions with individual detector offset into a 2D histogram
         for x_off, y_off in zip(x_pixel, y_pixel):
             x_off_rot = x_off*cos(rot) + y_off*sin(rot)
             y_off_rot = -x_off*sin(rot) + y_off*cos(rot)
 
-            hist_temp, _, _ = np.histogram2d(x_coord + x_off_rot, y_coord + y_off_rot, bins=[x_edges, y_edges])
+            hist_temp, _, _ = np.histogram2d(x_coord[:last_sample] + x_off_rot, y_coord[:last_sample] + y_off_rot, bins=[x_edges, y_edges])
             hist += hist_temp
 
         print('shape:', np.shape(hist), '<->', len(x_edges), len(y_edges))
@@ -294,7 +335,6 @@ class CurvyPong:
 
         plt.show()
 
-
     def to_csv(self, path, columns=None):
         if columns is None:
             self.df.to_csv(path)
@@ -302,9 +342,10 @@ class CurvyPong:
             self.df.to_csv(path, columns=columns)
         
 if __name__ == '__main__':
-    #scan = CurvyPong(width=7200, height=7000, spacing=500, sample_interval=0.002, velocity=1000, angle=0, num_terms=5)
-    #scan.set_setting(time0='2001-12-09 03:00:00', az=100, alt=60)
-    #scan.to_csv('curvy_pong_100az_60alt_20011209030000.csv')
-    scan = CurvyPong(from_csv='curvy_pong_100az_30alt_20011209030000.csv', sample_interval=0.002)
-    scan.hitmap(pixelpos_files=['pixelpos1.txt', 'pixelpos2.txt', 'pixelpos3.txt'], rot=0, max_acc=0.4, plate_scale=52)
-    #scan.plot([('hour_angle', 'para_angle'), ('hour_angle', 'rot_angle')])
+    scan = CurvyPong(width=7200, height=7000, spacing=500, sample_interval=0.002, velocity=1000, angle=0, num_terms=5)
+    scan.set_setting(ra=0, dec=0, alt=60, date='2001-12-09')
+    scan.to_csv('curvy_pong_ra0dec0alt60_20011209.csv')
+
+    #scan = CurvyPong(from_csv='curvy_pong_ra0dec0alt30_20011209.csv', sample_interval=0.002)
+    #scan.hitmap(pixelpos_files=['pixelpos1.txt', 'pixelpos2.txt', 'pixelpos3.txt'], rot=0, max_acc=0.4, plate_scale=26, percent=0.01)
+    scan.plot([('x_coord', 'y_coord'), ('az_coord', 'alt_coord')])
