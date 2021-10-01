@@ -269,6 +269,9 @@ class CurvyPong:
             mask = total_azalt_acc < 0.4
             x_coord = self.df.loc[mask, 'x_coord'].to_numpy()
             y_coord = self.df.loc[mask, 'y_coord'].to_numpy()
+
+            x_coord_removed = self.df.loc[~mask, 'x_coord'].to_numpy()
+            y_coord_removed = self.df.loc[~mask, 'y_coord'].to_numpy()
         
         # get pixel positions (convert meters->arcsec)
         x_pixel = np.array([])
@@ -312,26 +315,51 @@ class CurvyPong:
         print('shape:', np.shape(hist), '<->', len(x_edges), len(y_edges))
         print('total hits:', sum(hist.flatten()))
 
+        # -- PLOTTING --
+
+        fig = plt.figure(1)
+
         # plot histogram
-        fig, ax = plt.subplots(1, 2)
-
-        pcm = ax[0].imshow(hist.T, extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]], vmin=0, interpolation='nearest', origin='lower')
-        fig.colorbar(pcm, ax=ax[0])
-        ax[0].set_aspect('equal', 'box')
+        ax1 = plt.subplot(2, 2, 1)
+        pcm = ax1.imshow(hist.T, extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]], vmin=0, interpolation='nearest', origin='lower')
+        fig.colorbar(pcm, ax=ax1)
+        ax1.set_aspect('equal', 'box')
         field = patches.Rectangle((-7200/2, -7000/2), width=7200, height=7000, linewidth=1, edgecolor='r', facecolor='none') #FIXME
-        ax[0].add_patch(field)
+        ax1.add_patch(field)
         subtitle = f'rot={rot}, max_acc={max_acc}, plate_scale={plate_scale} \npixel_size={grid_size} (grid_size={np.shape(hist)}px)'
-        ax[0].set(xlabel='x offset (arcsec)', ylabel='y offset (arcsec)', title='Hits per Pixel\n' + subtitle)
-        ax[0].scatter(x_coord[:last_sample], y_coord[:last_sample], color='r', s=0.01)
+        ax1.set(xlabel='x offset (arcsec)', ylabel='y offset (arcsec)', title='Hits per pixel\n' + subtitle)
+        ax1.scatter(x_coord[:last_sample], y_coord[:last_sample], color='r', s=0.001)
 
+        # removed points
+        if not max_acc is None:
+            hist_removed = np.zeros( (len(x_edges)-1 , len(y_edges)-1) )
+            for x_off, y_off in zip(x_pixel, y_pixel):
+                x_off_rot = x_off*cos(rot) + y_off*sin(rot)
+                y_off_rot = -x_off*sin(rot) + y_off*cos(rot)
+
+                hist_temp, _, _ = np.histogram2d(x_coord_removed + x_off_rot, y_coord_removed + y_off_rot, bins=[x_edges, y_edges])
+                hist_removed += hist_temp
+
+            ax2 = plt.subplot(2, 2, 2)
+            pcm_removed = ax2.imshow(hist_removed.T, extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]], vmin=0, interpolation='nearest', origin='lower')
+            fig.colorbar(pcm_removed, ax=ax2)
+            ax2.set_aspect('equal', 'box')
+            field_removed = patches.Rectangle((-7200/2, -7000/2), width=7200, height=7000, linewidth=1, edgecolor='r', facecolor='none') #FIXME
+            ax2.add_patch(field_removed)
+            ax2.set(xlabel='x offset (arcsec)', ylabel='y offset (arcsec)', title='Removed hits per pixel\n' + subtitle)
+            ax2.scatter(x_coord_removed, y_coord_removed, color='r', s=0.001)
+
+        # bin line plot
+        ax3 = plt.subplot(2, 1, 2)
         bin_index = int(x_max/grid_size)
         y_values = hist[bin_index]
-        ax[1].plot(y_edges[:-1], y_values)
-        ax[1].axvline(x=-7200/2, c='r') #FIXME
-        ax[1].axvline(x=7200/2, c='r') #FIXME
-        ax[1].set(ylabel='Hits/Pixel', xlabel='y offset (arcsec)', title='Hit count in x=0 to x=10 bin')
-
-        fig.tight_layout()
+        ax3.plot(y_edges[:-1], y_values, label='Hits', drawstyle='steps')
+        y_values_removed = hist_removed[bin_index]
+        ax3.plot(y_edges[:-1], y_values_removed, label='Removed hits', drawstyle='steps')
+        ax3.axvline(x=-7200/2, c='r') #FIXME
+        ax3.axvline(x=7200/2, c='r') #FIXME
+        ax3.set(ylabel='Hits/Pixel', xlabel='y offset (arcsec)', title='Hit count in x=0 to x=10 bin')
+        ax3.legend(loc='upper right')
 
         # plot detector pixel positions
         #fig_det, ax_det = plt.subplots(1, 1)
@@ -340,6 +368,7 @@ class CurvyPong:
         #ax_det.set_aspect('equal', 'box')
         #fig_det.tight_layout()
 
+        fig.tight_layout()
         plt.show()
 
     def to_csv(self, path, columns=None):
@@ -354,5 +383,5 @@ if __name__ == '__main__':
     #scan.to_csv('curvy_pong_ra0dec0alt60_20011209.csv')
 
     scan = CurvyPong(from_csv='curvy_pong_ra0dec0alt30_20011209.csv', sample_interval=0.002)
-    scan.hitmap(pixelpos_files=['pixelpos1.txt', 'pixelpos2.txt', 'pixelpos3.txt'], rot=0, max_acc=0.4, plate_scale=52, percent=1, grid_size=52)
+    scan.hitmap(pixelpos_files=['pixelpos1.txt', 'pixelpos2.txt', 'pixelpos3.txt'], rot=0, max_acc=0.4, plate_scale=26, percent=1, grid_size=10)
     #scan.plot([('x_coord', 'y_coord'), ('az_coord', 'alt_coord')])
