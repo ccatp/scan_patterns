@@ -114,6 +114,8 @@ class CurvyPong:
         ra (hours), dec (deg), alt (deg), date (str e.g. 'YYYY-MM-DD')
         """
 
+        # GIVEN: RA, DEC, ALT, DATE
+
         # unit conversions
         ra = ra*u.hourangle
         dec = dec*u.deg
@@ -148,12 +150,14 @@ class CurvyPong:
         num_days = (time0 - Time(2000, format='jyear')).value # days from J2000
         lst = ha + ra
         ut = (lst.to(u.deg).value - 100.46 - 0.98564*num_days - lon.to(u.deg).value)/15
+        time0 = pd.Timestamp(date, tzinfo=timezone.utc) + pd.Timedelta(ut%24, 'hour')
 
         # apply datetime to time_offsets
-        time0 = pd.Timestamp(date, tzinfo=timezone.utc) + pd.Timedelta(ut%24, 'hour')
         print(f'start time = {time0.strftime("%Y-%m-%d %H:%M:%S.%f%z")}')
         df_datetime = pd.to_timedelta(self.df['time_offset'], unit='sec') + time0
         self.df.insert(0, 'datetime', df_datetime)
+
+        # GENERAL 
 
         # convert to altitude/azimuth
         x_coord = self.df['x_coord']/3600 + ra.to(u.deg).value
@@ -253,7 +257,7 @@ class CurvyPong:
         fig.tight_layout()
         plt.show()
 
-    def hitmap(self, pixelpos_files, rot=0, max_acc=None, plate_scale=52, percent=1):
+    def hitmap(self, pixelpos_files, rot=0, max_acc=None, plate_scale=52, percent=1, grid_size=10):
         
         # remove points with high acceleration 
         total_azalt_acc = np.sqrt(self.df['az_acc']**2 + self.df['alt_acc']**2)
@@ -285,10 +289,10 @@ class CurvyPong:
         det_max = max(dist_from_center)
         print('det_max =', det_max)
 
-        x_max = math.ceil((max(abs(x_coord)) + det_max)/plate_scale)*plate_scale
-        y_max = math.ceil((max(abs(y_coord)) + det_max)/plate_scale)*plate_scale
-        x_edges = np.arange(-x_max, x_max+1, plate_scale)
-        y_edges = np.arange(-y_max, y_max+1, plate_scale)
+        x_max = math.ceil((max(abs(x_coord)) + det_max)/grid_size)*grid_size
+        y_max = math.ceil((max(abs(y_coord)) + det_max)/grid_size)*grid_size
+        x_edges = np.arange(-x_max, x_max+1, grid_size)
+        y_edges = np.arange(-y_max, y_max+1, grid_size)
         print(x_edges[0], x_edges[-1])
         print(y_edges[0], y_edges[-1])
 
@@ -306,32 +310,35 @@ class CurvyPong:
             hist += hist_temp
 
         print('shape:', np.shape(hist), '<->', len(x_edges), len(y_edges))
+        print('total hits:', sum(hist.flatten()))
 
         # plot histogram
         fig, ax = plt.subplots(1, 2)
 
-        pcm = ax[0].imshow(hist.T, extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]])
+        pcm = ax[0].imshow(hist.T, extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]], vmin=0, interpolation='nearest', origin='lower')
         fig.colorbar(pcm, ax=ax[0])
         ax[0].set_aspect('equal', 'box')
         field = patches.Rectangle((-7200/2, -7000/2), width=7200, height=7000, linewidth=1, edgecolor='r', facecolor='none') #FIXME
         ax[0].add_patch(field)
-        ax[0].set(xlabel='x offset (arcsec)', ylabel='y offset (arcsec)', title='Hits per Pixel')
+        subtitle = f'rot={rot}, max_acc={max_acc}, plate_scale={plate_scale} \npixel_size={grid_size} (grid_size={np.shape(hist)}px)'
+        ax[0].set(xlabel='x offset (arcsec)', ylabel='y offset (arcsec)', title='Hits per Pixel\n' + subtitle)
+        ax[0].scatter(x_coord[:last_sample], y_coord[:last_sample], color='r', s=0.01)
 
-        bin_index = int(y_max/plate_scale)
-        x_values = hist.T[bin_index]
-        ax[1].plot(x_edges[:-1], x_values)
+        bin_index = int(x_max/grid_size)
+        y_values = hist[bin_index]
+        ax[1].plot(y_edges[:-1], y_values)
         ax[1].axvline(x=-7200/2, c='r') #FIXME
         ax[1].axvline(x=7200/2, c='r') #FIXME
-        ax[1].set(ylabel='Hits/Pixel', xlabel='x offset (arcsec)', title='Hit count in y=0 to y=10 bin')
+        ax[1].set(ylabel='Hits/Pixel', xlabel='y offset (arcsec)', title='Hit count in x=0 to x=10 bin')
 
         fig.tight_layout()
 
         # plot detector pixel positions
-        fig_det, ax_det = plt.subplots(1, 1)
-        ax_det.scatter(x_pixel*cos(rot) + y_pixel*sin(rot), -x_pixel*sin(rot) + y_pixel*cos(rot), s=0.5)
-        ax_det.set(xlabel='x offset (arcsec)', ylabel='y offset (arcsec)', title='Detector Pixel Positions')
-        ax_det.set_aspect('equal', 'box')
-        fig_det.tight_layout()
+        #fig_det, ax_det = plt.subplots(1, 1)
+        #ax_det.scatter(x_pixel*cos(rot) + y_pixel*sin(rot), -x_pixel*sin(rot) + y_pixel*cos(rot), s=0.5)
+        #ax_det.set(xlabel='x offset (arcsec)', ylabel='y offset (arcsec)', title='Detector Pixel Positions')
+        #ax_det.set_aspect('equal', 'box')
+        #fig_det.tight_layout()
 
         plt.show()
 
@@ -342,10 +349,10 @@ class CurvyPong:
             self.df.to_csv(path, columns=columns)
         
 if __name__ == '__main__':
-    scan = CurvyPong(width=7200, height=7000, spacing=500, sample_interval=0.002, velocity=1000, angle=0, num_terms=5)
-    scan.set_setting(ra=0, dec=0, alt=60, date='2001-12-09')
-    scan.to_csv('curvy_pong_ra0dec0alt60_20011209.csv')
+    #scan = CurvyPong(width=7200, height=7000, spacing=500, sample_interval=0.002, velocity=1000, angle=0, num_terms=5)
+    #scan.set_setting(ra=0, dec=0, alt=60, date='2001-12-09')
+    #scan.to_csv('curvy_pong_ra0dec0alt60_20011209.csv')
 
-    #scan = CurvyPong(from_csv='curvy_pong_ra0dec0alt30_20011209.csv', sample_interval=0.002)
-    #scan.hitmap(pixelpos_files=['pixelpos1.txt', 'pixelpos2.txt', 'pixelpos3.txt'], rot=0, max_acc=0.4, plate_scale=26, percent=0.01)
-    scan.plot([('x_coord', 'y_coord'), ('az_coord', 'alt_coord')])
+    scan = CurvyPong(from_csv='curvy_pong_ra0dec0alt30_20011209.csv', sample_interval=0.002)
+    scan.hitmap(pixelpos_files=['pixelpos1.txt', 'pixelpos2.txt', 'pixelpos3.txt'], rot=0, max_acc=0.4, plate_scale=52, percent=1, grid_size=52)
+    #scan.plot([('x_coord', 'y_coord'), ('az_coord', 'alt_coord')])
