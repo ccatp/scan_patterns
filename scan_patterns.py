@@ -1,27 +1,351 @@
 import math
-from math import pi, sin, cos, tan
+from math import pi, sin, cos, tan, sqrt
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
 import pandas as pd
 from scipy.optimize import fmin
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from datetime import timezone, tzinfo
+from datetime import timezone
 import astropy.units as u
-from astropy.time import Time, TimeDelta
+from astropy.time import Time
 from astropy.coordinates import SkyCoord, EarthLocation, AltAz
 
 ccatp_loc = EarthLocation(lat='-22d59m08.30s', lon='-67d44m25.00s', height=5611.8*u.m)
 
 """ TODO
--- units
+-- units and range
 -- checking input parameters
--- flexible plotting
--- hour angle and parallactic angle is correct (remove if...)
 """
 
-class CurvyPong:
+class ScanPattern:
 
+    def set_setting(self, ra, dec, alt, date, location=ccatp_loc):
+        """ 
+        Given an object (ra, dec) and a desired alt, find the az/alt coordinates
+        for a specific date and location. Formulas from http://www.stargazing.net/kepler/altaz.html
+        
+        Later, possibly, include option of given object (ra, dec) and a desired datetime. 
+
+        ra (hours), dec (deg), alt (deg), date (str e.g. 'YYYY-MM-DD')
+        """
+
+        # GIVEN: RA, DEC, ALT, DATE
+
+        # unit conversions
+        ra = ra*u.hourangle
+        dec = dec*u.deg
+        alt = alt*u.deg
+
+        # determine possible range of altitudes for the givens
+
+        # determine possible hour angles
+        lat = ccatp_loc.lat
+        cos_ha = (sin(alt.to(u.rad).value) - sin(dec.to(u.rad).value)*sin(lat.to(u.rad).value)) / (cos(dec.to(u.rad).value)*cos(lat.to(u.rad).value))
+        ha = math.acos(cos_ha)*u.rad
+
+        # choose hour angle going up (FIXME to make more flexible)
+        ha1_alt = self._alt(dec, lat, ha)
+        ha1_delta = self._alt(dec, lat, ha + 1*u.deg) - ha1_alt
+        ha1_up = True if ha1_delta > 0 else False
+        print(f'hour angle = {ha.to(u.hourangle).value}, altitude = {ha1_alt.to(u.deg).value}, delta = {ha1_delta}')
+
+        ha2_alt = self._alt(dec, lat, -ha)
+        ha2_delta = self._alt(dec, lat, -ha + 1*u.deg) - ha2_alt
+        ha2_up = True if ha2_delta > 0 else False
+        print(f'hour angle = {-ha.to(u.hourangle).value}, altitude = {ha2_alt.to(u.deg).value}, delta = {ha2_delta}')
+
+        if (ha1_up and ha2_up) or (not ha1_up and not ha2_up):
+            raise Exception('An issue arised regarding hour angle and altitude.')
+        elif ha2_up:
+            ha = -ha
+
+        # find ut (universal time after midnight of chosen date) 
+        lon = ccatp_loc.lon
+        time0 = Time(date, scale='utc')
+        num_days = (time0 - Time(2000, format='jyear')).value # days from J2000
+        lst = ha + ra
+        ut = (lst.to(u.deg).value - 100.46 - 0.98564*num_days - lon.to(u.deg).value)/15
+        time0 = pd.Timestamp(date, tzinfo=timezone.utc) + pd.Timedelta(ut%24, 'hour')
+
+        # apply datetime to time_offsets
+        print(f'start time = {time0.strftime("%Y-%m-%d %H:%M:%S.%f%z")}')
+        df_datetime = pd.to_timedelta(self.df['time_offset'], unit='sec') + time0
+        self.df.insert(0, 'datetime', df_datetime)
+
+        # GENERAL 
+
+        # convert to altitude/azimuth
+        x_coord = self.df['x_coord']/3600 + ra.to(u.deg).value
+        y_coord = self.df['y_coord']/3600 + dec.to(u.deg).value
+        obs = SkyCoord(ra=x_coord*u.deg, dec=y_coord*u.deg, frame='icrs')
+        print('converting to altitude/azimuth, this may take some time...')
+        obs = obs.transform_to(AltAz(obstime=df_datetime, location=location))
+        print('...converted!')
+
+        # get velocity and acceleration in alt/az
+        az_vel = self._central_diff(obs.az.deg, self.sample_interval)
+        alt_vel = self._central_diff(obs.alt.deg, self.sample_interval)
+        az_acc = self._central_diff(az_vel, self.sample_interval)
+        alt_acc = self._central_diff(alt_vel, self.sample_interval)
+
+        # get parallactic angle and rotation angle
+        obs_time = Time(df_datetime, scale='utc', location=location)
+        lst = obs_time.sidereal_time('apparent')
+        hour_angles = lst - ra
+        para = np.degrees(
+            np.arctan2( 
+                np.sin(hour_angles.to(u.rad).value), 
+                cos(dec.to(u.rad).value)*tan(ccatp_loc.lat.rad) - sin(dec.to(u.rad).value)*np.cos(hour_angles.to(u.rad).value) 
+            )
+        )
+        rot = para + obs.alt.deg
+
+        hour_angles = [hr - 24 if hr > 12 else hr for hr in hour_angles.to(u.hourangle).value]
+
+        # populate dataframe
+        self.df['az_coord'] = obs.az.deg
+        self.df['alt_coord'] = obs.alt.deg
+        self.df['az_vel'] = az_vel
+        self.df['alt_vel'] = alt_vel
+        self.df['az_acc'] = az_acc
+        self.df['alt_acc'] = alt_acc
+        self.df['hour_angle'] = hour_angles
+        self.df['para_angle'] = para
+        self.df['rot_angle'] = rot
+
+    def _alt(self, dec, lat, ha):
+        sin_alt = sin(dec.to(u.rad).value)*sin(lat.to(u.rad).value) + cos(dec.to(u.rad).value)*cos(lat.to(u.rad).value)*cos(ha.to(u.rad).value)
+        return math.asin(sin_alt)*u.rad
+
+    def _fourier_expansion(self, num_terms, amp, t_count, peri):
+        N = num_terms*2 - 1
+        a = (8*amp)/(pi**2)
+        b = 2*pi/peri
+
+        position = 0
+        velocity = 0
+        acc = 0
+        for n in range(1, N+1, 2):
+            c = math.pow(-1, (n-1)/2)/n**2 
+            position += c * sin(b*n*t_count)
+            velocity += c*n * cos(b*n*t_count)
+            acc      += c*n**2 * sin(b*n*t_count)
+
+        position *= a
+        velocity *= a*b
+        acc      *= -a*b**2
+        return position, velocity, acc
+
+    def _central_diff(self, a, h):
+        new_a = [(a[1] - a[0])/h]
+        for i in range(1, len(a)-1):
+            new_a.append( (a[i+1] - a[i-1])/(2*h) )
+        new_a.append( (a[-1] - a[-2])/h )
+        return np.array(new_a)
+
+    def plot(self, graphs=['coord']):
+        
+        if 'coord' in graphs:
+            fig_coord, ax_coord = plt.subplots(1, 2)
+            ax_coord[0].plot(self.df['x_coord']/3600, self.df['y_coord']/3600)
+            ax_coord[0].set_aspect('equal', 'box')
+            ax_coord[0].set(xlabel='Right Ascension (degrees)', ylabel='Declination (degrees)', title='RA/DEC')
+            ax_coord[1].plot(self.df['az_coord'], self.df['alt_coord'])
+            ax_coord[1].set_aspect('equal', 'box')
+            ax_coord[1].set(xlabel='Azimuth (degrees)', ylabel='Altitude (degrees)', title='AZ/ALT (2001-12-09 19:31:20 @ FYST)')
+            fig_coord.tight_layout()
+        
+        if 'vel' in graphs:
+            fig_vel, ax_vel = plt.subplots(2, 1, sharex=True, sharey=True)
+
+            total_vel = np.sqrt(self.df['x_vel']**2 + self.df['y_vel']**2)
+            ax_vel[0].plot(self.df['time_offset'], total_vel/3600, label='Total', c='black', ls='dashed', alpha=0.25)
+            ax_vel[0].plot(self.df['time_offset'], self.df['x_vel']/3600, label='RA')
+            ax_vel[0].plot(self.df['time_offset'], self.df['y_vel']/3600, label='DEC')
+            ax_vel[0].legend(loc='upper right')
+            ax_vel[0].set(xlabel='time offset (s)', ylabel='velocity (deg/s)', title='RA/DEC Velocity')
+            ax_vel[0].grid()
+
+            total_vel = np.sqrt(self.df['az_vel']**2 + self.df['alt_vel']**2)
+            ax_vel[1].plot(self.df['time_offset'], total_vel, label='Total', c='black', ls='dashed', alpha=0.25)
+            ax_vel[1].plot(self.df['time_offset'], self.df['az_vel'], label='AZ')
+            ax_vel[1].plot(self.df['time_offset'], self.df['alt_vel'], label='ALT')
+            ax_vel[1].legend(loc='upper right')
+            ax_vel[1].set(xlabel='time offset (s)', ylabel='velocity (deg/s)', title='ALT/AZ Velocity (2001-12-09 19:31:20 @ FYST)')
+            ax_vel[1].grid()
+
+            fig_vel.tight_layout()
+        
+        if 'acc' in graphs:
+            fig_acc, ax_acc = plt.subplots(2, 1, sharex=True, sharey=True)
+
+            total_acc = np.sqrt(self.df['x_acc']**2 + self.df['y_acc']**2)
+            ax_acc[0].plot(self.df['time_offset'], total_acc/3600, label='Total', c='black', ls='dashed', alpha=0.25)
+            ax_acc[0].plot(self.df['time_offset'], self.df['x_acc']/3600, label='RA')
+            ax_acc[0].plot(self.df['time_offset'], self.df['y_acc']/3600, label='DEC')
+            ax_acc[0].legend(loc='upper right')
+            ax_acc[0].set(xlabel='time offset (s)', ylabel='acceleration (deg/s^2)', title='RA/DEC Acceleration')
+            ax_acc[0].grid()
+
+            total_acc = np.sqrt(self.df['az_acc']**2 + self.df['alt_acc']**2)
+            ax_acc[1].plot(self.df['time_offset'], total_acc, label='Total', c='black', ls='dashed', alpha=0.25)
+            ax_acc[1].plot(self.df['time_offset'], self.df['az_acc'], label='AZ')
+            ax_acc[1].plot(self.df['time_offset'], self.df['alt_acc'], label='ALT')
+            ax_acc[1].legend(loc='upper right')
+            ax_acc[1].set(xlabel='time offset (s)', ylabel='acceleration (deg/s^2)', title='AZ/ALT Acceleration (2001-12-09 19:31:20 @ FYST)')
+            ax_acc[1].grid()
+
+            fig_acc.tight_layout()
+
+
+        plt.show()
+
+    def hitmap(self, pixelpos_files, rot=0, max_acc=None, plate_scale=52, percent=1, grid_size=10):
+        
+        # remove points with high acceleration 
+        total_azalt_acc = np.sqrt(self.df['az_acc']**2 + self.df['alt_acc']**2)
+
+        if max_acc is None:
+            x_coord = self.df['x_coord'].to_numpy() # arcsec
+            y_coord = self.df['y_coord'].to_numpy() # arcsec
+            rot_angle = self.df['rot_angle'].to_numpy()
+        else:
+            mask = total_azalt_acc < 0.4
+            x_coord = self.df.loc[mask, 'x_coord'].to_numpy()
+            y_coord = self.df.loc[mask, 'y_coord'].to_numpy()
+            rot_angle = self.df.loc[mask, 'rot_angle'].to_numpy()
+
+            x_coord_removed = self.df.loc[~mask, 'x_coord'].to_numpy()
+            y_coord_removed = self.df.loc[~mask, 'y_coord'].to_numpy()
+            rot_angle_removed = self.df.loc[~mask, 'rot_angle'].to_numpy()
+        
+        # get pixel positions (convert meters->arcsec)
+        x_pixel = np.array([])
+        y_pixel = np.array([])
+
+        for f in pixelpos_files:
+            x, y = np.loadtxt(f, unpack=True)
+            x_pixel = np.append(x_pixel, x)
+            y_pixel = np.append(y_pixel, y)
+
+        pixel_size = math.sqrt((x_pixel[0] - x_pixel[1])**2 + (y_pixel[0] - y_pixel[1])**2)
+        print('pixel_size =', pixel_size)
+        print('total number of detector pixels =', len(x_pixel))
+        x_pixel = x_pixel/pixel_size*plate_scale # arcsec
+        y_pixel = y_pixel/pixel_size*plate_scale # arcsec
+        
+        # define bin edges
+        dist_from_center = np.sqrt(x_pixel**2 + y_pixel**2)
+        det_max = max(dist_from_center)
+
+        x_max = math.ceil((max(abs(x_coord)) + det_max)/grid_size)*grid_size
+        y_max = math.ceil((max(abs(y_coord)) + det_max)/grid_size)*grid_size
+        x_edges = np.arange(-x_max, x_max+1, grid_size)
+        y_edges = np.arange(-y_max, y_max+1, grid_size)
+        print('x max min =', x_edges[0], x_edges[-1])
+        print('y max min =', y_edges[0], y_edges[-1])
+
+        hist = np.zeros( (len(x_edges)-1 , len(y_edges)-1) )
+        hist_removed = np.zeros( (len(x_edges)-1 , len(y_edges)-1) )
+
+        # get only first x percent of scan
+        last_sample = math.ceil(len(x_coord)*percent)
+
+        # sort all positions with individual detector offset into a 2D histogram
+        for x_off, y_off in zip(x_pixel, y_pixel):
+            x_off_rot = x_off*cos(rot) + y_off*sin(rot)
+            y_off_rot = -x_off*sin(rot) + y_off*cos(rot)
+
+            hist_temp, _, _ = np.histogram2d(x_coord[:last_sample] + x_off_rot, y_coord[:last_sample] + y_off_rot, bins=[x_edges, y_edges])
+            hist += hist_temp
+
+            if not max_acc is None:
+                hist_temp_rem, _, _ = np.histogram2d(x_coord_removed + x_off_rot, y_coord_removed + y_off_rot, bins=[x_edges, y_edges])
+                hist_removed += hist_temp_rem
+
+        print('shape:', np.shape(hist), '<->', len(x_edges), len(y_edges))
+
+        # -- PLOTTING --
+
+        fig = plt.figure(1)
+
+        # plot histogram
+        ax1 = plt.subplot2grid((3, 3), (0, 1), rowspan=2)
+        pcm = ax1.imshow(hist.T, extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]], vmin=0, interpolation='nearest', origin='lower')
+        ax1.set_aspect('equal', 'box')
+        field = patches.Rectangle((-7200/2, -7000/2), width=7200, height=7000, linewidth=1, edgecolor='r', facecolor='none') #FIXME
+        ax1.add_patch(field)
+        subtitle = f'max acc={max_acc}, plate scale={plate_scale}, pixel size={grid_size}'
+        ax1.set(xlabel='x offset (arcsec)', ylabel='y offset (arcsec)')
+        ax1.set_title('Kept hits per pixel\n'+subtitle, fontsize=12)
+        ax1.scatter(x_coord[:last_sample], y_coord[:last_sample], color='r', s=0.001)
+        ax1.axvline(x=0, c='black')
+        ax1.axhline(y=0, c='black')
+        divider1 = make_axes_locatable(ax1)
+        cax1 = divider1.append_axes("bottom", size="3%", pad=0.5)
+        fig.colorbar(pcm, cax=cax1, orientation='horizontal')
+
+        kept_hits = sum(hist.flatten())
+        removed_hits = sum(hist_removed.flatten())
+        print(f'{kept_hits}/{kept_hits + removed_hits}')
+        textstr = f'{round(kept_hits/(kept_hits+removed_hits)*100, 2)}% hits kept'
+        props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+        ax1.text(0.1, 0.9, textstr, transform=ax1.transAxes, bbox=props)
+
+        # plot detector pixel positions
+        subtitle4 = f'rot={rot}, pixel dist={round(pixel_size, 5)}, num pixels={len(x_pixel)}'
+        ax4 = plt.subplot2grid((3, 3), (0, 0), rowspan=2, sharex=ax1, sharey=ax1)
+        ax4.scatter(x_pixel*cos(rot) + y_pixel*sin(rot), -x_pixel*sin(rot) + y_pixel*cos(rot), s=0.01)
+        ax4.set_aspect('equal', 'box')
+        ax4.set(xlabel='x offset (arcsec)', ylabel='y offset (arcsec)')
+        ax4.set_title('Detector Pixel Positions\n'+subtitle4, fontsize=12)
+        divider4 = make_axes_locatable(ax4)
+        cax4 = divider4.append_axes("bottom", size="3%", pad=0.5)
+        cax4.axis('off')
+
+        # bin line plot
+        ax3 = plt.subplot2grid((3, 3), (2, 0), colspan=3)
+        bin_index = int(x_max/grid_size)
+        y_values = hist[bin_index]
+        ax3.plot(y_edges[:-1], y_values, label='Kept hits', drawstyle='steps')
+        ax3.axvline(x=-7200/2, c='r') #FIXME
+        ax3.axvline(x=7200/2, c='r') #FIXME
+        ax3.set(ylabel='Hits/Pixel', xlabel='y offset (arcsec)')
+        ax3.set_title('Hit count in x=0 to x=10 bin', fontsize=12)
+
+        # removed points
+        if not max_acc is None:
+            ax2 = plt.subplot2grid((3, 3), (0, 2), rowspan=2, sharex=ax1, sharey=ax1)
+            pcm_removed = ax2.imshow(hist_removed.T, extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]], vmin=0, interpolation='nearest', origin='lower')
+            ax2.set_aspect('equal', 'box')
+            field_removed = patches.Rectangle((-7200/2, -7000/2), width=7200, height=7000, linewidth=1, edgecolor='r', facecolor='none') #FIXME
+            ax2.add_patch(field_removed)
+            ax2.set(xlabel='x offset (arcsec)', ylabel='y offset (arcsec)')
+            ax2.set_title('Removed hits per pixel\n'+subtitle, fontsize=12)
+            ax2.scatter(x_coord_removed, y_coord_removed, color='r', s=0.001)
+            ax2.axvline(x=0, c='black')
+            ax2.axhline(y=0, c='black')
+            divider2 = make_axes_locatable(ax2)
+            cax2 = divider2.append_axes("bottom", size="3%", pad=0.5)
+            fig.colorbar(pcm_removed, cax=cax2, orientation='horizontal')
+
+            y_values_removed = hist_removed[bin_index]
+            ax3.plot(y_edges[:-1], y_values_removed, label='Removed hits', drawstyle='steps')
+            ax3.plot(y_edges[:-1], y_values + y_values_removed, label='Total hits', drawstyle='steps', color='black')
+
+        ax3.legend(loc='upper right')
+        fig.tight_layout()
+        plt.show()
+
+    def to_csv(self, path, columns=None):
+        if columns is None:
+            self.df.to_csv(path)
+        else:
+            self.df.to_csv(path, columns=columns)
+
+class CurvyPong(ScanPattern):
     def __init__(self, from_csv=None, width=None, height=None, spacing=None, sample_interval=0.002, velocity=1000, angle=0, num_terms=5):
 
         if not from_csv is None:
@@ -104,284 +428,93 @@ class CurvyPong:
             'x_acc': x_acc, 'y_acc': y_acc
         })
     
-    def set_setting(self, ra, dec, alt, date, location=ccatp_loc):
-        """ 
-        Given an object (ra, dec) and a desired alt, find the az/alt coordinates
-        for a specific date and location. Formulas from http://www.stargazing.net/kepler/altaz.html
+class Daisy(ScanPattern):
+    def __init__(self, from_csv=None, speed=200, R0=120, y=0, Rt=120, Ra=100, acc=300, T=100, dt=0.005):
         
-        Later, possibly, include option of given object (ra, dec) and a desired datetime. 
-
-        ra (hours), dec (deg), alt (deg), date (str e.g. 'YYYY-MM-DD')
-        """
-
-        # GIVEN: RA, DEC, ALT, DATE
-
-        # unit conversions
-        ra = ra*u.hourangle
-        dec = dec*u.deg
-        alt = alt*u.deg
-
-        # determine possible range of altitudes for the givens
-
-        # determine possible hour angles
-        lat = ccatp_loc.lat
-        cos_ha = (sin(alt.to(u.rad).value) - sin(dec.to(u.rad).value)*sin(lat.to(u.rad).value)) / (cos(dec.to(u.rad).value)*cos(lat.to(u.rad).value))
-        ha = math.acos(cos_ha)*u.rad
-
-        # choose hour angle going up (FIXME to make more flexible)
-        ha1_alt = self._alt(dec, lat, ha)
-        ha1_delta = self._alt(dec, lat, ha + 1*u.deg) - ha1_alt
-        ha1_up = True if ha1_delta > 0 else False
-        print(f'hour angle = {ha.to(u.hourangle).value}, altitude = {ha1_alt.to(u.deg).value}, delta = {ha1_delta}')
-
-        ha2_alt = self._alt(dec, lat, -ha)
-        ha2_delta = self._alt(dec, lat, -ha + 1*u.deg) - ha2_alt
-        ha2_up = True if ha2_delta > 0 else False
-        print(f'hour angle = {-ha.to(u.hourangle).value}, altitude = {ha2_alt.to(u.deg).value}, delta = {ha2_delta}')
-
-        if (ha1_up and ha2_up) or (not ha1_up and not ha2_up):
-            raise Exception('An issue arised regarding hour angle and altitude.')
-        elif ha2_up:
-            ha = -ha
-
-        # find ut (universal time after midnight of chosen date) 
-        lon = ccatp_loc.lon
-        time0 = Time(date, scale='utc')
-        num_days = (time0 - Time(2000, format='jyear')).value # days from J2000
-        lst = ha + ra
-        ut = (lst.to(u.deg).value - 100.46 - 0.98564*num_days - lon.to(u.deg).value)/15
-        time0 = pd.Timestamp(date, tzinfo=timezone.utc) + pd.Timedelta(ut%24, 'hour')
-
-        # apply datetime to time_offsets
-        print(f'start time = {time0.strftime("%Y-%m-%d %H:%M:%S.%f%z")}')
-        df_datetime = pd.to_timedelta(self.df['time_offset'], unit='sec') + time0
-        self.df.insert(0, 'datetime', df_datetime)
-
-        # GENERAL 
-
-        # convert to altitude/azimuth
-        x_coord = self.df['x_coord']/3600 + ra.to(u.deg).value
-        y_coord = self.df['y_coord']/3600 + dec.to(u.deg).value
-        obs = SkyCoord(ra=x_coord*u.deg, dec=y_coord*u.deg, frame='icrs')
-        print('converting to altitude/azimuth, this may take some time...')
-        obs = obs.transform_to(AltAz(obstime=df_datetime, location=location))
-        print('...converted!')
-
-        # get velocity and acceleration in alt/az
-        az_vel = self._central_diff(obs.az.deg, self.sample_interval)
-        alt_vel = self._central_diff(obs.alt.deg, self.sample_interval)
-        az_acc = self._central_diff(az_vel, self.sample_interval)
-        alt_acc = self._central_diff(alt_vel, self.sample_interval)
-
-        # get parallactic angle and rotation angle
-        obs_time = Time(df_datetime, scale='utc', location=location)
-        lst = obs_time.sidereal_time('apparent')
-        hour_angles = lst - ra
-        para = np.degrees(
-            np.arctan2( 
-                np.sin(hour_angles.to(u.rad).value), 
-                cos(dec.to(u.rad).value)*tan(ccatp_loc.lat.rad) - sin(dec.to(u.rad).value)*np.cos(hour_angles.to(u.rad).value) 
-            )
-        )
-        rot = para + obs.alt.deg
-
-        # populate dataframe
-        self.df['az_coord'] = obs.az.deg
-        self.df['alt_coord'] = obs.alt.deg
-        self.df['az_vel'] = az_vel
-        self.df['alt_vel'] = alt_vel
-        self.df['az_acc'] = az_acc
-        self.df['alt_acc'] = alt_acc
-        self.df['hour_angle'] = hour_angles.to(u.hourangle).value
-        self.df['para_angle'] = para
-        self.df['rot_angle'] = rot
-
-    def _alt(self, dec, lat, ha):
-        sin_alt = sin(dec.to(u.rad).value)*sin(lat.to(u.rad).value) + cos(dec.to(u.rad).value)*cos(lat.to(u.rad).value)*cos(ha.to(u.rad).value)
-        return math.asin(sin_alt)*u.rad
-
-    def _fourier_expansion(self, num_terms, amp, t_count, peri):
-        N = num_terms*2 - 1
-        a = (8*amp)/(pi**2)
-        b = 2*pi/peri
-
-        position = 0
-        velocity = 0
-        acc = 0
-        for n in range(1, N+1, 2):
-            c = math.pow(-1, (n-1)/2)/n**2 
-            position += c * sin(b*n*t_count)
-            velocity += c*n * cos(b*n*t_count)
-            acc      += c*n**2 * sin(b*n*t_count)
-
-        position *= a
-        velocity *= a*b
-        acc      *= -a*b**2
-        return position, velocity, acc
-
-    def _central_diff(self, a, h):
-        new_a = [(a[1] - a[0])/h]
-        for i in range(1, len(a)-1):
-            new_a.append( (a[i+1] - a[i-1])/(2*h) )
-        new_a.append( (a[-1] - a[-2])/h )
-        return np.array(new_a)
-
-    def plot(self, graphs):
-        # [('x_coord', 'y_coord'), ('az_coord', 'alt_coord')]
-        # [[('time_offset', 'x_vel'), ('time_offset', 'y_vel')], [('time_offset', 'az_vel'), ('time_offset', 'alt_vel')]]
-        # [[('time_offset', 'x_acc'), ('time_offset', 'y_acc')], [('time_offset', 'az_acc'), ('time_offset', 'alt_acc')]]
-        # [('hour_angle', 'para_angle'), ('hour_angle', 'rot_angle')]
-
-        graph_shape = np.shape(graphs)
-
-        # more than one row
-        if len(graph_shape) == 3:
-            nrows = graph_shape[0]
-            ncols = graph_shape[1]
-            fig, axes = plt.subplots(nrows, ncols)
-
-            for row, graph_row in zip(axes, graphs):
-                for ax, graph in zip(row, graph_row):
-                    ax.plot(self.df[graph[0]], self.df[graph[1]])
-                    ax.set(xlabel=graph[0], ylabel=graph[1])
-
-        # one row
-        elif len(graph_shape) == 2:
-            ncols = graph_shape[0]
-            fig, axes = plt.subplots(1, ncols)
-
-            for ax, graph in zip(axes, graphs):
-                ax.plot(self.df[graph[0]], self.df[graph[1]])
-                ax.set(xlabel=graph[0], ylabel=graph[1])
-
-        fig.tight_layout()
-        plt.show()
-
-    def hitmap(self, pixelpos_files, rot=0, max_acc=None, plate_scale=52, percent=1, grid_size=10):
+        if not from_csv is None:
+            self.df = pd.read_csv(from_csv)
+            self.sample_interval = self.df['time_offset'].iloc[0] if dt is None else dt
+            return
         
-        # remove points with high acceleration 
-        total_azalt_acc = np.sqrt(self.df['az_acc']**2 + self.df['alt_acc']**2)
+        self.sample_interval = dt
 
-        if max_acc is None:
-            x_coord = self.df['x_coord'].to_numpy() # arcsec
-            y_coord = self.df['y_coord'].to_numpy() # arcsec
-        else:
-            mask = total_azalt_acc < 0.4
-            x_coord = self.df.loc[mask, 'x_coord'].to_numpy()
-            y_coord = self.df.loc[mask, 'y_coord'].to_numpy()
+        xval = np.array([]) # x,y arrays for plotting 
+        yval = np.array([]) 
+        x_vel = np.array([]) # speed array for plotting 
+        y_vel = np.array([])
 
-            x_coord_removed = self.df.loc[~mask, 'x_coord'].to_numpy()
-            y_coord_removed = self.df.loc[~mask, 'y_coord'].to_numpy()
-        
-        # get pixel positions (convert meters->arcsec)
-        x_pixel = np.array([])
-        y_pixel = np.array([])
+        (vx, vy) = (1.0, 0.0) # Tangent vector & start value
+        (x, y) = (0.0, y) # Position vector & start value
+        N = int(T/dt) + 1 # number of steps 
+        R1 = min(R0, Ra) # Effective avoidance radius so Ra is not used if Ra > R0 
 
-        for f in pixelpos_files:
-            x, y = np.loadtxt(f, unpack=True)
-            x_pixel = np.append(x_pixel, x)
-            y_pixel = np.append(y_pixel, y)
+        print("# R0: ", R0 )
+        print("# Rt: ", Rt)
+        print("# R1: ", R1, "Ra: ", Ra) 
+        print("# xstart: ", x, " ystart: ", y)
+        print("# Time: ", T, " dt : ", dt) 
+        print("# speed: ", speed, " acc: ", acc) 
+        s0 = speed 
+        speed = 0 # set start speed 
 
-        pixel_size = math.sqrt((x_pixel[0] - x_pixel[1])**2 + (y_pixel[0] - y_pixel[1])**2)
-        print('pixel_size =', pixel_size)
-        x_pixel = x_pixel/pixel_size*plate_scale # arcsec
-        y_pixel = y_pixel/pixel_size*plate_scale # arcsec
-        
-        # define bin edges
-        dist_from_center = np.sqrt(x_pixel**2 + y_pixel**2)
-        det_max = max(dist_from_center)
-        print('det_max =', det_max)
+        for step in range(1, N): 
+            speed += acc*dt # ramp up speed with acceleration acc 
+            if speed >= s0: # to limit startup transients . Telescope 
+                speed = s0  # has zero speed at startup. 
 
-        x_max = math.ceil((max(abs(x_coord)) + det_max)/grid_size)*grid_size
-        y_max = math.ceil((max(abs(y_coord)) + det_max)/grid_size)*grid_size
-        x_edges = np.arange(-x_max, x_max+1, grid_size)
-        y_edges = np.arange(-y_max, y_max+1, grid_size)
-        print(x_edges[0], x_edges[-1])
-        print(y_edges[0], y_edges[-1])
+            r = sqrt(x*x + y*y) # compute distance from center 
 
-        hist = np.zeros( (len(x_edges)-1 , len(y_edges)-1) )
+            if r < R0: # Straight motion inside R0 
+                x += vx*speed*dt 
+                y += vy*speed*dt 
+            else: 
+                (xn,yn) = (x/r,y/r) # Compute unit radial vector 
+                if (-xn*vx - yn*vy) > sqrt(1 - R1*R1/r/r): # If aming close to center 
+                    x += vx*speed*dt # resume straight motion 
+                    y += vy*speed*dt 
+                else: 
+                    if (-xn*vy + yn*vx) > 0: # Decide turning direction 
+                        Nx = vy 
+                        Ny = -vx 
+                    else: 
+                        Nx = -vy 
+                        Ny = vx 
 
-        # get only first x percent of scan
-        last_sample = math.ceil(len(x_coord)*percent)
+                    # Compute curved trajectory using serial exansion in step length s 
+                    s = speed*dt 
+                    x += (s - s*s*s/Rt/Rt/6)*vx + s*s/Rt/2*Nx 
+                    y += (s - s*s*s/Rt/Rt/6)*vy + s*s/Rt/2*Ny 
+                    vx += -s*s/Rt/Rt/2*vx + (s/Rt + s*s*s/Rt/Rt/Rt/6)*Nx 
+                    vy += -s*s/Rt/Rt/2*vy + (s/Rt + s*s*s/Rt/Rt/Rt/6)*Ny 
 
-        # sort all positions with individual detector offset into a 2D histogram
-        for x_off, y_off in zip(x_pixel, y_pixel):
-            x_off_rot = x_off*cos(rot) + y_off*sin(rot)
-            y_off_rot = -x_off*sin(rot) + y_off*cos(rot)
+            # Store result for plotting and statistics 
+            xval = np.append(xval, x) 
+            yval = np.append(yval, y) 
+            x_vel = np.append(x_vel, speed*vx)
+            y_vel = np.append(y_vel, speed*vy)
 
-            hist_temp, _, _ = np.histogram2d(x_coord[:last_sample] + x_off_rot, y_coord[:last_sample] + y_off_rot, bins=[x_edges, y_edges])
-            hist += hist_temp
+        # Compute arrays for plotting 
+        ax = -2*xval[1: -1] + xval[0:-2] + xval[2:] # numerical acc in x 
+        ay = -2*yval[1: -1] + yval[0:-2] + yval[2:] # numerical acc in y 
+        x_acc = np.append(np.array([0]), ax/dt/dt)
+        y_acc = np.append(np.array([0]), ay/dt/dt)
+        x_acc = np.append(x_acc, 0)
+        y_acc = np.append(y_acc, 0)
+    
+        #rval = np.array(np.sqrt(xval**2 + yval**2))
 
-        print('shape:', np.shape(hist), '<->', len(x_edges), len(y_edges))
-        print('total hits:', sum(hist.flatten()))
+        self.df = pd.DataFrame({
+            'time_offset': np.arange(0, T, dt), 
+            'x_coord': xval, 'y_coord': yval, 
+            'x_vel': x_vel, 'y_vel': y_vel,
+            'x_acc': x_acc, 'y_acc': y_acc 
+        })
 
-        # -- PLOTTING --
-
-        fig = plt.figure(1)
-
-        # plot histogram
-        ax1 = plt.subplot(2, 2, 1)
-        pcm = ax1.imshow(hist.T, extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]], vmin=0, interpolation='nearest', origin='lower')
-        fig.colorbar(pcm, ax=ax1)
-        ax1.set_aspect('equal', 'box')
-        field = patches.Rectangle((-7200/2, -7000/2), width=7200, height=7000, linewidth=1, edgecolor='r', facecolor='none') #FIXME
-        ax1.add_patch(field)
-        subtitle = f'rot={rot}, max_acc={max_acc}, plate_scale={plate_scale} \npixel_size={grid_size} (grid_size={np.shape(hist)}px)'
-        ax1.set(xlabel='x offset (arcsec)', ylabel='y offset (arcsec)', title='Hits per pixel\n' + subtitle)
-        ax1.scatter(x_coord[:last_sample], y_coord[:last_sample], color='r', s=0.001)
-
-        # removed points
-        if not max_acc is None:
-            hist_removed = np.zeros( (len(x_edges)-1 , len(y_edges)-1) )
-            for x_off, y_off in zip(x_pixel, y_pixel):
-                x_off_rot = x_off*cos(rot) + y_off*sin(rot)
-                y_off_rot = -x_off*sin(rot) + y_off*cos(rot)
-
-                hist_temp, _, _ = np.histogram2d(x_coord_removed + x_off_rot, y_coord_removed + y_off_rot, bins=[x_edges, y_edges])
-                hist_removed += hist_temp
-
-            ax2 = plt.subplot(2, 2, 2)
-            pcm_removed = ax2.imshow(hist_removed.T, extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]], vmin=0, interpolation='nearest', origin='lower')
-            fig.colorbar(pcm_removed, ax=ax2)
-            ax2.set_aspect('equal', 'box')
-            field_removed = patches.Rectangle((-7200/2, -7000/2), width=7200, height=7000, linewidth=1, edgecolor='r', facecolor='none') #FIXME
-            ax2.add_patch(field_removed)
-            ax2.set(xlabel='x offset (arcsec)', ylabel='y offset (arcsec)', title='Removed hits per pixel\n' + subtitle)
-            ax2.scatter(x_coord_removed, y_coord_removed, color='r', s=0.001)
-
-        # bin line plot
-        ax3 = plt.subplot(2, 1, 2)
-        bin_index = int(x_max/grid_size)
-        y_values = hist[bin_index]
-        ax3.plot(y_edges[:-1], y_values, label='Hits', drawstyle='steps')
-        y_values_removed = hist_removed[bin_index]
-        ax3.plot(y_edges[:-1], y_values_removed, label='Removed hits', drawstyle='steps')
-        ax3.axvline(x=-7200/2, c='r') #FIXME
-        ax3.axvline(x=7200/2, c='r') #FIXME
-        ax3.set(ylabel='Hits/Pixel', xlabel='y offset (arcsec)', title='Hit count in x=0 to x=10 bin')
-        ax3.legend(loc='upper right')
-
-        # plot detector pixel positions
-        #fig_det, ax_det = plt.subplots(1, 1)
-        #ax_det.scatter(x_pixel*cos(rot) + y_pixel*sin(rot), -x_pixel*sin(rot) + y_pixel*cos(rot), s=0.5)
-        #ax_det.set(xlabel='x offset (arcsec)', ylabel='y offset (arcsec)', title='Detector Pixel Positions')
-        #ax_det.set_aspect('equal', 'box')
-        #fig_det.tight_layout()
-
-        fig.tight_layout()
-        plt.show()
-
-    def to_csv(self, path, columns=None):
-        if columns is None:
-            self.df.to_csv(path)
-        else:
-            self.df.to_csv(path, columns=columns)
-        
 if __name__ == '__main__':
     #scan = CurvyPong(width=7200, height=7000, spacing=500, sample_interval=0.002, velocity=1000, angle=0, num_terms=5)
     #scan.set_setting(ra=0, dec=0, alt=60, date='2001-12-09')
     #scan.to_csv('curvy_pong_ra0dec0alt60_20011209.csv')
-
     scan = CurvyPong(from_csv='curvy_pong_ra0dec0alt30_20011209.csv', sample_interval=0.002)
-    scan.hitmap(pixelpos_files=['pixelpos1.txt', 'pixelpos2.txt', 'pixelpos3.txt'], rot=0, max_acc=0.4, plate_scale=26, percent=1, grid_size=10)
-    #scan.plot([('x_coord', 'y_coord'), ('az_coord', 'alt_coord')])
+    
+    #scan.hitmap(pixelpos_files=['pixelpos1.txt', 'pixelpos2.txt', 'pixelpos3.txt'], rot=0, max_acc=0.4, plate_scale=26, percent=1, grid_size=10)
+    scan.plot(['vel', 'acc'])
