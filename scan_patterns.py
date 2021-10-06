@@ -2,6 +2,7 @@ import math
 from math import pi, sin, cos, tan, sqrt
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+
 import numpy as np
 import pandas as pd
 from scipy.optimize import fmin
@@ -154,7 +155,7 @@ class ScanPattern:
             ax_coord[0].set(xlabel='Right Ascension (degrees)', ylabel='Declination (degrees)', title='RA/DEC')
             ax_coord[1].plot(self.df['az_coord'], self.df['alt_coord'])
             ax_coord[1].set_aspect('equal', 'box')
-            ax_coord[1].set(xlabel='Azimuth (degrees)', ylabel='Altitude (degrees)', title='AZ/ALT (2001-12-09 19:31:20 @ FYST)')
+            ax_coord[1].set(xlabel='Azimuth (degrees)', ylabel='Altitude (degrees)', title='AZ/ALT (2001-12-09 ~60°ALT @ FYST)')
             fig_coord.tight_layout()
         
         if 'vel' in graphs:
@@ -173,7 +174,7 @@ class ScanPattern:
             ax_vel[1].plot(self.df['time_offset'], self.df['az_vel'], label='AZ')
             ax_vel[1].plot(self.df['time_offset'], self.df['alt_vel'], label='ALT')
             ax_vel[1].legend(loc='upper right')
-            ax_vel[1].set(xlabel='time offset (s)', ylabel='velocity (deg/s)', title='ALT/AZ Velocity (2001-12-09 19:31:20 @ FYST)')
+            ax_vel[1].set(xlabel='time offset (s)', ylabel='velocity (deg/s)', title='ALT/AZ Velocity (2001-12-09 ~60°ALT @ FYST)')
             ax_vel[1].grid()
 
             fig_vel.tight_layout()
@@ -194,10 +195,57 @@ class ScanPattern:
             ax_acc[1].plot(self.df['time_offset'], self.df['az_acc'], label='AZ')
             ax_acc[1].plot(self.df['time_offset'], self.df['alt_acc'], label='ALT')
             ax_acc[1].legend(loc='upper right')
-            ax_acc[1].set(xlabel='time offset (s)', ylabel='acceleration (deg/s^2)', title='AZ/ALT Acceleration (2001-12-09 19:31:20 @ FYST)')
+            ax_acc[1].set(xlabel='time offset (s)', ylabel='acceleration (deg/s^2)', title='AZ/ALT Acceleration (2001-12-09 ~60°ALT @ FYST)')
             ax_acc[1].grid()
 
             fig_acc.tight_layout()
+
+        if 'quiver' in graphs:
+            fig_quiver, ax_quiver = plt.subplots(1, 2, sharex=True, sharey=True)
+            subsample = 100
+            endpoint = None
+
+            # --- ACCELERATION ---
+
+            # plot acc
+            total_acc = np.sqrt(self.df['x_acc']**2 + self.df['y_acc']**2).to_numpy()/3600
+            ax_quiver[0].plot(self.df['x_coord']/3600, self.df['y_coord']/3600, alpha=0.25, color='black')
+            pcm = ax_quiver[0].quiver(
+                self.df['x_coord'].to_numpy()[:endpoint:subsample]/3600, self.df['y_coord'].to_numpy()[:endpoint:subsample]/3600, 
+                self.df['x_acc'].to_numpy()[:endpoint:subsample]/3600, self.df['y_acc'].to_numpy()[:endpoint:subsample]/3600,
+                total_acc[:endpoint:subsample], #clim=(0, 1)
+            )
+            ax_quiver[0].set_aspect('equal', 'box')
+            ax_quiver[0].set(xlabel='Map height [deg]', ylabel='Map width [deg]', title='RA/DEC acc [deg/s^2]')
+
+            # colorbar acc
+            divider = make_axes_locatable(ax_quiver[0])
+            cax = divider.append_axes("right", size="3%", pad=0.5)
+            fig_quiver.colorbar(pcm, cax=cax)
+
+            # --- JERK ---
+
+            # get jerk
+            x_jerk = self._central_diff(self.df['x_acc'].to_numpy(), self.sample_interval)
+            y_jerk = self._central_diff(self.df['y_acc'].to_numpy(), self.sample_interval)
+            total_jerk = np.sqrt(x_jerk**2 + y_jerk**2)/3600
+
+            # plot jerk
+            ax_quiver[1].plot(self.df['x_coord']/3600, self.df['y_coord']/3600, alpha=0.25, color='black')
+            pcm = ax_quiver[1].quiver(
+                self.df['x_coord'].to_numpy()[:endpoint:subsample]/3600, self.df['y_coord'].to_numpy()[:endpoint:subsample]/3600, 
+                x_jerk[:endpoint:subsample]/3600, y_jerk[:endpoint:subsample]/3600,
+                total_jerk[:endpoint:subsample], #clim=(0, 1)
+            )
+            ax_quiver[1].set_aspect('equal', 'box')
+            ax_quiver[1].set(xlabel='Map height [deg]', ylabel='Map width [deg]', title='RA/DEC jerk [deg/s^3]')
+
+            # colorbar
+            divider = make_axes_locatable(ax_quiver[1])
+            cax = divider.append_axes("right", size="3%", pad=0.5)
+            fig_quiver.colorbar(pcm, cax=cax)
+            
+            fig_quiver.tight_layout()
 
 
         plt.show()
@@ -210,16 +258,16 @@ class ScanPattern:
         if max_acc is None:
             x_coord = self.df['x_coord'].to_numpy() # arcsec
             y_coord = self.df['y_coord'].to_numpy() # arcsec
-            rot_angle = self.df['rot_angle'].to_numpy()
+            rot_angle = np.radians(self.df['rot_angle'].to_numpy())
         else:
             mask = total_azalt_acc < 0.4
             x_coord = self.df.loc[mask, 'x_coord'].to_numpy()
             y_coord = self.df.loc[mask, 'y_coord'].to_numpy()
-            rot_angle = self.df.loc[mask, 'rot_angle'].to_numpy()
+            rot_angle = np.radians(np.radians(self.df.loc[mask, 'rot_angle'].to_numpy()))
 
             x_coord_removed = self.df.loc[~mask, 'x_coord'].to_numpy()
             y_coord_removed = self.df.loc[~mask, 'y_coord'].to_numpy()
-            rot_angle_removed = self.df.loc[~mask, 'rot_angle'].to_numpy()
+            rot_angle_removed = np.radians(self.df.loc[~mask, 'rot_angle'].to_numpy())
         
         # get pixel positions (convert meters->arcsec)
         x_pixel = np.array([])
@@ -240,8 +288,10 @@ class ScanPattern:
         dist_from_center = np.sqrt(x_pixel**2 + y_pixel**2)
         det_max = max(dist_from_center)
 
-        x_max = math.ceil((max(abs(x_coord)) + det_max)/grid_size)*grid_size
-        y_max = math.ceil((max(abs(y_coord)) + det_max)/grid_size)*grid_size
+        #x_max = math.ceil((max(abs(x_coord)) + det_max)/grid_size)*grid_size
+        #y_max = math.ceil((max(abs(y_coord)) + det_max)/grid_size)*grid_size
+        x_max = 5500
+        y_max = 5500
         x_edges = np.arange(-x_max, x_max+1, grid_size)
         y_edges = np.arange(-y_max, y_max+1, grid_size)
         print('x max min =', x_edges[0], x_edges[-1])
@@ -254,15 +304,17 @@ class ScanPattern:
         last_sample = math.ceil(len(x_coord)*percent)
 
         # sort all positions with individual detector offset into a 2D histogram
+        # FIXME rotation, optimization
         for x_off, y_off in zip(x_pixel, y_pixel):
-            x_off_rot = x_off*cos(rot) + y_off*sin(rot)
-            y_off_rot = -x_off*sin(rot) + y_off*cos(rot)
-
+            x_off_rot = x_off*np.cos(rot_angle[:last_sample] + rot) + y_off*np.sin(rot_angle[:last_sample] + rot)
+            y_off_rot = -x_off*np.sin(rot_angle[:last_sample] + rot) + y_off*np.cos(rot_angle[:last_sample] + rot)
             hist_temp, _, _ = np.histogram2d(x_coord[:last_sample] + x_off_rot, y_coord[:last_sample] + y_off_rot, bins=[x_edges, y_edges])
             hist += hist_temp
 
             if not max_acc is None:
-                hist_temp_rem, _, _ = np.histogram2d(x_coord_removed + x_off_rot, y_coord_removed + y_off_rot, bins=[x_edges, y_edges])
+                x_off_rot_removed = x_off*np.cos(rot_angle_removed + rot) + y_off*np.sin(rot_angle_removed + rot)
+                y_off_rot_removed = -x_off*np.sin(rot_angle_removed + rot) + y_off*np.cos(rot_angle_removed + rot)     
+                hist_temp_rem, _, _ = np.histogram2d(x_coord_removed + x_off_rot_removed, y_coord_removed + y_off_rot_removed, bins=[x_edges, y_edges])
                 hist_removed += hist_temp_rem
 
         print('shape:', np.shape(hist), '<->', len(x_edges), len(y_edges))
@@ -277,7 +329,7 @@ class ScanPattern:
         ax1.set_aspect('equal', 'box')
         field = patches.Rectangle((-7200/2, -7000/2), width=7200, height=7000, linewidth=1, edgecolor='r', facecolor='none') #FIXME
         ax1.add_patch(field)
-        subtitle = f'max acc={max_acc}, plate scale={plate_scale}, pixel size={grid_size}'
+        subtitle = f'alt=30, max acc={max_acc}, pixel size={grid_size}'
         ax1.set(xlabel='x offset (arcsec)', ylabel='y offset (arcsec)')
         ax1.set_title('Kept hits per pixel\n'+subtitle, fontsize=12)
         ax1.scatter(x_coord[:last_sample], y_coord[:last_sample], color='r', s=0.001)
@@ -295,7 +347,7 @@ class ScanPattern:
         ax1.text(0.1, 0.9, textstr, transform=ax1.transAxes, bbox=props)
 
         # plot detector pixel positions
-        subtitle4 = f'rot={rot}, pixel dist={round(pixel_size, 5)}, num pixels={len(x_pixel)}'
+        subtitle4 = f'rot={rot}, pixel dist={round(pixel_size, 5)}, plate scale={plate_scale}'
         ax4 = plt.subplot2grid((3, 3), (0, 0), rowspan=2, sharex=ax1, sharey=ax1)
         ax4.scatter(x_pixel*cos(rot) + y_pixel*sin(rot), -x_pixel*sin(rot) + y_pixel*cos(rot), s=0.01)
         ax4.set_aspect('equal', 'box')
@@ -344,6 +396,7 @@ class ScanPattern:
             self.df.to_csv(path)
         else:
             self.df.to_csv(path, columns=columns)
+
 
 class CurvyPong(ScanPattern):
     def __init__(self, from_csv=None, width=None, height=None, spacing=None, sample_interval=0.002, velocity=1000, angle=0, num_terms=5):
@@ -427,7 +480,8 @@ class CurvyPong(ScanPattern):
             'x_vel': x_vel, 'y_vel': y_vel,
             'x_acc': x_acc, 'y_acc': y_acc
         })
-    
+
+
 class Daisy(ScanPattern):
     def __init__(self, from_csv=None, speed=200, R0=120, y=0, Rt=120, Ra=100, acc=300, T=100, dt=0.005):
         
@@ -510,6 +564,59 @@ class Daisy(ScanPattern):
             'x_acc': x_acc, 'y_acc': y_acc 
         })
 
+
+def elevation_offset(dist=1.7):
+    dist = math.radians(dist)
+
+    # create bins
+    bins = 1000
+    bins_a = np.linspace(0, math.radians(80), bins)
+    bins_theta1 = np.linspace(0, 2*pi, bins)
+    a_grid, theta1_grid = np.meshgrid(bins_a, bins_theta1)
+
+    # calculate
+    da_grid = np.sin(a_grid)*cos(dist) + sin(dist)*np.cos(a_grid)*np.sin(theta1_grid + a_grid)
+    da_grid = np.arcsin(da_grid) - a_grid
+
+    # unit conversion
+    da_grid = np.degrees(da_grid)
+    a_grid = np.degrees(a_grid)
+    theta1_grid = np.degrees(theta1_grid)
+
+    # plot
+    fig, ax = plt.subplots(1, 1)
+    pcm = ax.contourf(a_grid, theta1_grid, da_grid, levels=np.arange(-2, 2.1, 0.2), cmap='RdBu')
+    fig.colorbar(pcm, ax=ax)
+    ax.set(xlabel='Boresight elevation (deg)', ylabel='$θ_1$ (deg)', title=f'Optics tube offset: Elevation')
+    plt.show()
+
+def azimuth_offset(dist=1.7):
+    dist = math.radians(dist)
+
+    # create bins
+    bins = 1000
+    bins_a = np.linspace(0, math.radians(80), bins)
+    bins_theta1 = np.linspace(0, 2*pi, bins)
+    a_grid, theta1_grid = np.meshgrid(bins_a, bins_theta1)
+    A_grid = np.zeros((bins, bins))
+
+    # calculate
+    sinA1_grid = np.cos(a_grid)*np.sin(A_grid)*cos(dist) + np.cos(A_grid)*np.cos(theta1_grid + a_grid)*sin(dist) - np.sin(a_grid)*np.sin(A_grid)*sin(dist)*np.sin(theta1_grid + a_grid)
+    cosA1_grid = np.cos(a_grid)*np.cos(A_grid)*cos(dist) - np.sin(A_grid)*np.cos(theta1_grid + a_grid)*sin(dist) - np.sin(a_grid)*np.cos(A_grid)*sin(dist)*np.sin(theta1_grid + a_grid)
+    A1_grid = np.arctan2(sinA1_grid, cosA1_grid)
+
+    # unit conversions
+    a_grid = np.degrees(a_grid)
+    theta1_grid = np.degrees(theta1_grid)
+    A1_grid = np.degrees(A1_grid)
+
+    # plot
+    fig, ax = plt.subplots(1, 1)
+    pcm = ax.contourf(a_grid, theta1_grid, A1_grid, levels=np.arange(-10, 10.1, 1), cmap='RdBu')
+    fig.colorbar(pcm, ax=ax)
+    ax.set(xlabel='Boresight elevation (deg)', ylabel='$θ_1$ (deg)', title=f'Optics tube offset: Azimuth')
+    plt.show()
+
 if __name__ == '__main__':
     #scan = CurvyPong(width=7200, height=7000, spacing=500, sample_interval=0.002, velocity=1000, angle=0, num_terms=5)
     #scan.set_setting(ra=0, dec=0, alt=60, date='2001-12-09')
@@ -517,4 +624,4 @@ if __name__ == '__main__':
     scan = CurvyPong(from_csv='curvy_pong_ra0dec0alt30_20011209.csv', sample_interval=0.002)
     
     #scan.hitmap(pixelpos_files=['pixelpos1.txt', 'pixelpos2.txt', 'pixelpos3.txt'], rot=0, max_acc=0.4, plate_scale=26, percent=1, grid_size=10)
-    scan.plot(['vel', 'acc'])
+    scan.plot(['quiver'])
