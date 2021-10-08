@@ -73,7 +73,6 @@ class ScanPattern:
         # apply datetime to time_offsets
         print(f'start time = {time0.strftime("%Y-%m-%d %H:%M:%S.%f%z")}')
         df_datetime = pd.to_timedelta(self.df['time_offset'], unit='sec') + time0
-        self.df.insert(0, 'datetime', df_datetime)
 
         # GENERAL 
 
@@ -85,11 +84,13 @@ class ScanPattern:
         obs = obs.transform_to(AltAz(obstime=df_datetime, location=location))
         print('...converted!')
 
-        # get velocity and acceleration in alt/az
+        # get velocity and acceleration and jerk in alt/az
         az_vel = self._central_diff(obs.az.deg, self.sample_interval)
         alt_vel = self._central_diff(obs.alt.deg, self.sample_interval)
         az_acc = self._central_diff(az_vel, self.sample_interval)
         alt_acc = self._central_diff(alt_vel, self.sample_interval)
+        az_jerk = self._central_diff(az_acc, self.sample_interval)
+        alt_jerk = self._central_diff(alt_acc, self.sample_interval)
 
         # get parallactic angle and rotation angle
         obs_time = Time(df_datetime, scale='utc', location=location)
@@ -108,10 +109,12 @@ class ScanPattern:
         # populate dataframe
         self.df['az_coord'] = obs.az.deg
         self.df['alt_coord'] = obs.alt.deg
-        self.df['az_vel'] = az_vel
-        self.df['alt_vel'] = alt_vel
-        self.df['az_acc'] = az_acc
-        self.df['alt_acc'] = alt_acc
+        self.df['az_vel'] = az_vel*3600
+        self.df['alt_vel'] = alt_vel*3600
+        self.df['az_acc'] = az_acc*3600
+        self.df['alt_acc'] = alt_acc*3600
+        self.df['az_jerk'] = az_jerk*3600
+        self.df['alt_jerk'] = alt_jerk*3600
         self.df['hour_angle'] = hour_angles
         self.df['para_angle'] = para
         self.df['rot_angle'] = rot
@@ -119,25 +122,6 @@ class ScanPattern:
     def _alt(self, dec, lat, ha):
         sin_alt = sin(dec.to(u.rad).value)*sin(lat.to(u.rad).value) + cos(dec.to(u.rad).value)*cos(lat.to(u.rad).value)*cos(ha.to(u.rad).value)
         return math.asin(sin_alt)*u.rad
-
-    def _fourier_expansion(self, num_terms, amp, t_count, peri):
-        N = num_terms*2 - 1
-        a = (8*amp)/(pi**2)
-        b = 2*pi/peri
-
-        position = 0
-        velocity = 0
-        acc = 0
-        for n in range(1, N+1, 2):
-            c = math.pow(-1, (n-1)/2)/n**2 
-            position += c * sin(b*n*t_count)
-            velocity += c*n * cos(b*n*t_count)
-            acc      += c*n**2 * sin(b*n*t_count)
-
-        position *= a
-        velocity *= a*b
-        acc      *= -a*b**2
-        return position, velocity, acc
 
     def _central_diff(self, a, h):
         new_a = [(a[1] - a[0])/h]
@@ -157,6 +141,23 @@ class ScanPattern:
             ax_coord[1].set_aspect('equal', 'box')
             ax_coord[1].set(xlabel='Azimuth (degrees)', ylabel='Altitude (degrees)', title='AZ/ALT (2001-12-09 ~60°ALT @ FYST)')
             fig_coord.tight_layout()
+
+        if 'coord-time' in graphs:
+            fig_coord_time, ax_coord_time = plt.subplots(2, 1, sharex=True)
+
+            ax_coord_time[0].plot(self.df['time_offset'], self.df['x_coord']/3600, label='RA')
+            ax_coord_time[0].plot(self.df['time_offset'], self.df['y_coord']/3600, label='DEC')
+            ax_coord_time[0].legend(loc='upper right')
+            ax_coord_time[0].set(xlabel='time offset (s)', ylabel='Position (deg)', title='RA/DEC Position')
+            ax_coord_time[0].grid()
+
+            ax_coord_time[1].plot(self.df['time_offset'], self.df['az_coord'], label='AZ')
+            ax_coord_time[1].plot(self.df['time_offset'], self.df['alt_coord'], label='ALT')
+            ax_coord_time[1].legend(loc='upper right')
+            ax_coord_time[1].set(xlabel='time offset (s)', ylabel='Position (deg)', title='ALT/AZ Position (2001-12-09 ~60°ALT @ FYST)')
+            ax_coord_time[1].grid()
+
+            fig_coord_time.tight_layout()
         
         if 'vel' in graphs:
             fig_vel, ax_vel = plt.subplots(2, 1, sharex=True, sharey=True)
@@ -170,9 +171,9 @@ class ScanPattern:
             ax_vel[0].grid()
 
             total_vel = np.sqrt(self.df['az_vel']**2 + self.df['alt_vel']**2)
-            ax_vel[1].plot(self.df['time_offset'], total_vel, label='Total', c='black', ls='dashed', alpha=0.25)
-            ax_vel[1].plot(self.df['time_offset'], self.df['az_vel'], label='AZ')
-            ax_vel[1].plot(self.df['time_offset'], self.df['alt_vel'], label='ALT')
+            ax_vel[1].plot(self.df['time_offset'], total_vel/3600, label='Total', c='black', ls='dashed', alpha=0.25)
+            ax_vel[1].plot(self.df['time_offset'], self.df['az_vel']/3600, label='AZ')
+            ax_vel[1].plot(self.df['time_offset'], self.df['alt_vel']/3600, label='ALT')
             ax_vel[1].legend(loc='upper right')
             ax_vel[1].set(xlabel='time offset (s)', ylabel='velocity (deg/s)', title='ALT/AZ Velocity (2001-12-09 ~60°ALT @ FYST)')
             ax_vel[1].grid()
@@ -191,18 +192,39 @@ class ScanPattern:
             ax_acc[0].grid()
 
             total_acc = np.sqrt(self.df['az_acc']**2 + self.df['alt_acc']**2)
-            ax_acc[1].plot(self.df['time_offset'], total_acc, label='Total', c='black', ls='dashed', alpha=0.25)
-            ax_acc[1].plot(self.df['time_offset'], self.df['az_acc'], label='AZ')
-            ax_acc[1].plot(self.df['time_offset'], self.df['alt_acc'], label='ALT')
+            ax_acc[1].plot(self.df['time_offset'], total_acc/3600, label='Total', c='black', ls='dashed', alpha=0.25)
+            ax_acc[1].plot(self.df['time_offset'], self.df['az_acc']/3600, label='AZ')
+            ax_acc[1].plot(self.df['time_offset'], self.df['alt_acc']/3600, label='ALT')
             ax_acc[1].legend(loc='upper right')
             ax_acc[1].set(xlabel='time offset (s)', ylabel='acceleration (deg/s^2)', title='AZ/ALT Acceleration (2001-12-09 ~60°ALT @ FYST)')
             ax_acc[1].grid()
 
             fig_acc.tight_layout()
 
+        if 'jerk' in graphs:
+            fig_jerk, ax_jerk = plt.subplots(2, 1, sharex=True, sharey=True)
+
+            total_jerk = np.sqrt(self.df['x_jerk']**2 + self.df['y_jerk']**2)
+            ax_jerk[0].plot(self.df['time_offset'], self.df['x_jerk']/3600, label='RA')
+            ax_jerk[0].plot(self.df['time_offset'], self.df['y_jerk']/3600, label='DEC')
+            ax_jerk[0].plot(self.df['time_offset'], total_jerk/3600, label='Total', c='black', ls='dashed', alpha=0.25)
+            ax_jerk[0].legend(loc='upper right')
+            ax_jerk[0].set(xlabel='time offset (s)', ylabel='Jerk (deg/s^2)', title='RA/DEC Jerk')
+            ax_jerk[0].grid()
+
+            total_jerk = np.sqrt(self.df['az_jerk']**2 + self.df['alt_jerk']**2)
+            ax_jerk[1].plot(self.df['time_offset'], self.df['az_jerk']/3600, label='AZ')
+            ax_jerk[1].plot(self.df['time_offset'], self.df['alt_jerk']/3600, label='ALT')
+            ax_jerk[1].plot(self.df['time_offset'], total_jerk/3600, label='Total', c='black', ls='dashed', alpha=0.25)
+            ax_jerk[1].legend(loc='upper right')
+            ax_jerk[1].set(xlabel='time offset (s)', ylabel='Jerk (deg/s^2)', title='AZ/ALT Jerk (2001-12-09 ~60°ALT @ FYST)')
+            ax_jerk[1].grid()
+
+            fig_jerk.tight_layout()
+        
         if 'quiver' in graphs:
             fig_quiver, ax_quiver = plt.subplots(1, 2, sharex=True, sharey=True)
-            subsample = 100
+            subsample = 50
             endpoint = None
 
             # --- ACCELERATION ---
@@ -226,15 +248,15 @@ class ScanPattern:
             # --- JERK ---
 
             # get jerk
-            x_jerk = self._central_diff(self.df['x_acc'].to_numpy(), self.sample_interval)
-            y_jerk = self._central_diff(self.df['y_acc'].to_numpy(), self.sample_interval)
-            total_jerk = np.sqrt(x_jerk**2 + y_jerk**2)/3600
+            self.df['x_jerk'] = self._central_diff(self.df['x_acc'].to_numpy(), self.sample_interval)
+            self.df['y_jerk'] = self._central_diff(self.df['y_acc'].to_numpy(), self.sample_interval)
+            total_jerk = np.sqrt(self.df['x_jerk']**2 + self.df['y_jerk']**2).to_numpy()/3600
 
             # plot jerk
             ax_quiver[1].plot(self.df['x_coord']/3600, self.df['y_coord']/3600, alpha=0.25, color='black')
             pcm = ax_quiver[1].quiver(
                 self.df['x_coord'].to_numpy()[:endpoint:subsample]/3600, self.df['y_coord'].to_numpy()[:endpoint:subsample]/3600, 
-                x_jerk[:endpoint:subsample]/3600, y_jerk[:endpoint:subsample]/3600,
+                self.df['x_jerk'].to_numpy()[:endpoint:subsample]/3600, self.df['y_jerk'].to_numpy()[:endpoint:subsample]/3600,
                 total_jerk[:endpoint:subsample], #clim=(0, 1)
             )
             ax_quiver[1].set_aspect('equal', 'box')
@@ -459,10 +481,12 @@ class CurvyPong(ScanPattern):
         y_vel = []
         x_acc = []
         y_acc = []
+        x_jerk = []
+        y_jerk = []
 
         for i in range(pongcount + 1):
-            tx, ttx, tttx = self._fourier_expansion(num_terms, amp_x, t_count, peri_x)
-            ty, tty, ttty = self._fourier_expansion(num_terms, amp_y, t_count, peri_y)
+            tx, ttx, tttx, jerkx = self._fourier_expansion(num_terms, amp_x, t_count, peri_x)
+            ty, tty, ttty, jerky = self._fourier_expansion(num_terms, amp_y, t_count, peri_y)
 
             x_coord.append(tx*cos(angle) - ty*sin(angle))
             y_coord.append(tx*sin(angle) + ty*cos(angle))
@@ -470,6 +494,8 @@ class CurvyPong(ScanPattern):
             y_vel.append(ttx*sin(angle) + tty*cos(angle))
             x_acc.append(tttx*cos(angle) - ttty*sin(angle))
             y_acc.append(tttx*sin(angle) + ttty*cos(angle))
+            x_jerk.append(jerkx*cos(angle) - jerky*sin(angle))
+            y_jerk.append(jerkx*sin(angle) + jerky*cos(angle))
 
             time_offset.append(t_count)
             t_count += sample_interval
@@ -478,9 +504,31 @@ class CurvyPong(ScanPattern):
             'time_offset': time_offset, 
             'x_coord': x_coord, 'y_coord': y_coord, 
             'x_vel': x_vel, 'y_vel': y_vel,
-            'x_acc': x_acc, 'y_acc': y_acc
+            'x_acc': x_acc, 'y_acc': y_acc,
+            'x_jerk': x_jerk, 'y_jerk': y_jerk
         })
 
+    def _fourier_expansion(self, num_terms, amp, t_count, peri):
+        N = num_terms*2 - 1
+        a = (8*amp)/(pi**2)
+        b = 2*pi/peri
+
+        position = 0
+        velocity = 0
+        acc = 0
+        jerk = 0
+        for n in range(1, N+1, 2):
+            c = math.pow(-1, (n-1)/2)/n**2 
+            position += c * sin(b*n*t_count)
+            velocity += c*n * cos(b*n*t_count)
+            acc      += c*n**2 * sin(b*n*t_count)
+            jerk     += c*n**3 * cos(b*n*t_count)
+
+        position *= a
+        velocity *= a*b
+        acc      *= -a*b**2
+        jerk     *= -a*b**3
+        return position, velocity, acc, jerk
 
 class Daisy(ScanPattern):
     def __init__(self, from_csv=None, speed=200, R0=120, y=0, Rt=120, Ra=100, acc=300, T=100, dt=0.005):
@@ -598,11 +646,11 @@ def azimuth_offset(dist=1.7):
     bins_a = np.linspace(0, math.radians(80), bins)
     bins_theta1 = np.linspace(0, 2*pi, bins)
     a_grid, theta1_grid = np.meshgrid(bins_a, bins_theta1)
-    A_grid = np.zeros((bins, bins))
+    A_grid = 0
 
     # calculate
-    sinA1_grid = np.cos(a_grid)*np.sin(A_grid)*cos(dist) + np.cos(A_grid)*np.cos(theta1_grid + a_grid)*sin(dist) - np.sin(a_grid)*np.sin(A_grid)*sin(dist)*np.sin(theta1_grid + a_grid)
-    cosA1_grid = np.cos(a_grid)*np.cos(A_grid)*cos(dist) - np.sin(A_grid)*np.cos(theta1_grid + a_grid)*sin(dist) - np.sin(a_grid)*np.cos(A_grid)*sin(dist)*np.sin(theta1_grid + a_grid)
+    sinA1_grid = np.cos(a_grid)*sin(A_grid)*cos(dist) + cos(A_grid)*np.cos(theta1_grid + a_grid)*sin(dist) - np.sin(a_grid)*sin(A_grid)*sin(dist)*np.sin(theta1_grid + a_grid)
+    cosA1_grid = np.cos(a_grid)*cos(A_grid)*cos(dist) - sin(A_grid)*np.cos(theta1_grid + a_grid)*sin(dist) - np.sin(a_grid)*cos(A_grid)*sin(dist)*np.sin(theta1_grid + a_grid)
     A1_grid = np.arctan2(sinA1_grid, cosA1_grid)
 
     # unit conversions
@@ -618,10 +666,10 @@ def azimuth_offset(dist=1.7):
     plt.show()
 
 if __name__ == '__main__':
-    #scan = CurvyPong(width=7200, height=7000, spacing=500, sample_interval=0.002, velocity=1000, angle=0, num_terms=5)
-    #scan.set_setting(ra=0, dec=0, alt=60, date='2001-12-09')
-    #scan.to_csv('curvy_pong_ra0dec0alt60_20011209.csv')
-    scan = CurvyPong(from_csv='curvy_pong_ra0dec0alt30_20011209.csv', sample_interval=0.002)
+    scan = CurvyPong(width=7200, height=7000, spacing=500, sample_interval=0.002, velocity=1000, angle=0, num_terms=5)
+    scan.set_setting(ra=0, dec=0, alt=70, date='2001-12-09')
+    scan.to_csv('curvy_pong_ra0dec0alt70_20011209.csv')
+    #scan = CurvyPong(from_csv='curvy_pong_ra0dec0alt60_20011209.csv', sample_interval=0.002)
     
     #scan.hitmap(pixelpos_files=['pixelpos1.txt', 'pixelpos2.txt', 'pixelpos3.txt'], rot=0, max_acc=0.4, plate_scale=26, percent=1, grid_size=10)
-    scan.plot(['quiver'])
+    scan.plot(['jerk'])
