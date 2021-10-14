@@ -3,3 +3,4 @@ testing.ipynb
 /__pycache__
 scan_patterns_old.py
 /mapping.egg-info
+*.txt

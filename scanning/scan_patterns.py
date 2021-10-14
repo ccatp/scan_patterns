@@ -1,13 +1,23 @@
-from math import pi, sin, cos, tan, sqrt, acos, asin, radians, degrees, ceil, gcd, pow
-import numpy as np
-import pandas as pd
 import os
 import warnings 
+import cProfile
+import pstats
+import io
 
+import math
+from math import pi, sin, cos, tan, sqrt, radians, degrees, ceil
+from astropy.units.equivalencies import pixel_scale, plate_scale
+import numpy as np
+import pandas as pd
 from datetime import timezone
+
 import astropy.units as u
 from astropy.time import Time
 from astropy.coordinates import SkyCoord, EarthLocation, AltAz
+
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 FYST_LOC = EarthLocation(lat='-22d59m08.30s', lon='-67d44m25.00s', height=5611.8*u.m)
 
@@ -36,7 +46,7 @@ class ScanPattern():
     @u.quantity_input(dec='angle', lat='angle', ha='angle')
     def _find_altitude(self, dec, lat, ha):
         sin_alt = sin(dec.to(u.rad).value)*sin(lat.to(u.rad).value) + cos(dec.to(u.rad).value)*cos(lat.to(u.rad).value)*cos(ha.to(u.rad).value)
-        return asin(sin_alt)*u.rad
+        return math.asin(sin_alt)*u.rad
 
     def _central_diff(self, a):
         h = self.params['sample_interval']
@@ -161,7 +171,7 @@ class ScanPattern():
             lat = location.lat.to(u.rad).value
             cos_ha = (sin(alt) - sin(dec)*sin(lat)) / (cos(dec)*cos(lat))
             try:
-                ha = acos(cos_ha)
+                ha = math.acos(cos_ha)
             except ValueError as e:
                 raise ValueError('Altitude is not possible at provided RA, declination, and latitude.') from e
                 # FIXME list range of possible altitudes
@@ -249,6 +259,107 @@ class ScanPattern():
         self.data['para_angle'] = para
         self.data['rot_angle'] = rot
 
+    def hitmap(self, **kwargs):
+        current_path = os.path.dirname(os.path.abspath(__file__))
+        pixelpos_files = ['pixelpos1.txt', 'pixelpos2.txt', 'pixelpos3.txt']
+        pixelpos_files = [os.path.join(current_path, f) for f in pixelpos_files]
+        percent = u.Quantity(kwargs.get('percent', 1))
+
+        rot = u.Quantity(kwargs.get('rot', 0), u.deg).value
+        max_acc = kwargs.get('max_acc', None)
+        plate_scale = u.Quantity(kwargs.get('plate_scale', 26*u.arcsec), u.arcsec).value
+        pixel_size = int(u.Quantity(kwargs.get('pixel_size', 10*u.arcsec), u.arcsec).value)
+        
+        # remove points with high acceleration 
+        total_azalt_acc = np.sqrt(self.data['az_acc']**2 + self.data['alt_acc']**2)
+
+        if max_acc is None:
+            x_coord = self.data['x_coord'].to_numpy()*3600
+            y_coord = self.data['y_coord'].to_numpy()*3600
+            rot_angle = self.data['rot_angle'].to_numpy()
+        else:
+            max_acc = u.Quantity(max_acc, u.deg/u.s).value
+            mask = total_azalt_acc < max_acc
+            x_coord = self.data.loc[mask, 'x_coord'].to_numpy()*3600
+            y_coord = self.data.loc[mask, 'y_coord'].to_numpy()*3600
+            rot_angle = self.data.loc[mask, 'rot_angle'].to_numpy()
+        
+        # get pixel positions (convert meters->deg)
+        x_pixel = np.array([])
+        y_pixel = np.array([])
+
+        for f in pixelpos_files:
+            x, y = np.loadtxt(f, unpack=True)
+            x_pixel = np.append(x_pixel, x)
+            y_pixel = np.append(y_pixel, y)
+
+        dist_btwn_detectors = math.sqrt((x_pixel[0] - x_pixel[1])**2 + (y_pixel[0] - y_pixel[1])**2)
+        length = len(x_pixel)
+        print('pixel_size =', dist_btwn_detectors)
+        print('total number of detector pixels =', len(x_pixel))
+        x_pixel = x_pixel/dist_btwn_detectors*plate_scale 
+        y_pixel = y_pixel/dist_btwn_detectors*plate_scale 
+        
+        # define bin edges
+        x_max = 5400 #FIXME '
+        y_max = 5400
+        x_edges = range(-x_max, x_max+pixel_size, int(pixel_size))
+        y_edges = range(-y_max, y_max+pixel_size, int(pixel_size))
+        print('x max min =', x_edges[0], x_edges[-1])
+        print('y max min =', y_edges[0], y_edges[-1])
+
+        # get only first x percent of scan
+        last_sample = ceil(len(x_coord)*percent)
+
+        # sort all positions with individual detector offset into a 2D histogram
+        all_x_coords = np.zeros(last_sample * length)
+        all_y_coords = np.zeros(last_sample * length)
+        rot = radians(rot)
+
+
+        for i, x_coord1, y_coord1, rot1 in zip(range(0, last_sample), x_coord, y_coord, np.radians(rot_angle[:last_sample])):
+            all_x_coords[i*length: (i+1)*length] = x_coord1 + x_pixel*np.cos(rot1 + rot) + y_pixel*np.sin(rot1 + rot)
+            all_y_coords[i*length: (i+1)*length] = y_coord1 - x_pixel*np.sin(rot1 + rot) + y_pixel*np.cos(rot1 + rot)
+        
+        total_rot = np.radians(rot_angle[:last_sample] + rot)
+        for i, x_off, y_off in zip(range(0, length), x_pixel, y_pixel):
+            all_x_coords[i*last_sample: (i+1)*last_sample] = x_coord[:last_sample] + x_off*np.cos(total_rot) + y_off*np.sin(total_rot)
+            all_y_coords[i*last_sample: (i+1)*last_sample] = y_coord[:last_sample] - x_off*np.sin(total_rot) + y_off*np.cos(total_rot)
+
+        """hist = np.zeros( (len(x_edges)-1 , len(y_edges)-1) )
+        total_rot = np.radians(rot_angle[:last_sample] + rot)
+        for x_off, y_off in zip(x_pixel, y_pixel):
+            x_off_rot = x_off*np.cos(total_rot) + y_off*np.sin(total_rot)
+            y_off_rot = -x_off*np.sin(total_rot) + y_off*np.cos(total_rot)
+            hist += np.histogram2d(x_coord[:last_sample] + x_off_rot, y_coord[:last_sample] + y_off_rot, bins=[x_edges, y_edges])[0]"""
+
+        hist = np.histogram2d(all_x_coords, all_y_coords, bins=[x_edges, y_edges])[0]
+        print('shape:', np.shape(hist), '<->', len(x_edges), len(y_edges))
+
+        # -- PLOTTING --
+
+        fig = plt.figure(1)
+
+        # plot histogram
+        ax1 = plt.subplot2grid((3, 3), (0, 1), rowspan=2)
+        pcm = ax1.imshow(hist.T, extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]], vmin=0, interpolation='nearest', origin='lower')
+        ax1.set_aspect('equal', 'box')
+        field = patches.Rectangle((-self.params['width']*3600/2, -self.params['height']*3600/2), width=self.params['width']*3600, height=self.params['height']*3600, linewidth=1, edgecolor='r', facecolor='none') 
+        ax1.add_patch(field)
+        subtitle = f'alt=30, max acc={max_acc}, pixel size={round(pixel_size, 5)}'
+        ax1.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
+        ax1.set_title('Kept hits per pixel\n'+subtitle, fontsize=12)
+        ax1.scatter(x_coord[:last_sample], y_coord[:last_sample], color='r', s=0.001)
+        ax1.axvline(x=0, c='black')
+        ax1.axhline(y=0, c='black')
+        divider1 = make_axes_locatable(ax1)
+        cax1 = divider1.append_axes("bottom", size="3%", pad=0.5)
+        fig.colorbar(pcm, cax=cax1, orientation='horizontal')
+
+        fig.tight_layout()
+        #plt.show()
+
+
 class CurvyPong(ScanPattern):
     """
     The Curvy Pong pattern allows for an approximation of a Pong pattern while avoiding 
@@ -314,9 +425,32 @@ class CurvyPong(ScanPattern):
                 'angle': angle, 'sample_interval': sample_interval
             }
 
-            self._generate_scan(num_terms, width, height, spacing, velocity, angle, sample_interval)
+            self.data = self._generate_scan(num_terms, width, height, spacing, velocity, angle, sample_interval)
     
-    def _generate_scan(self, num_terms, width, height, spacing, velocity, angle, sample_interval):
+    def _fourier_expansion(self, num_terms, amp, t_count, peri):
+        N = num_terms*2 - 1
+        a = (8*amp)/(pi**2)
+        b = 2*pi/peri
+
+        position = 0
+        velocity = 0
+        acc = 0
+        jerk = 0
+        for n in range(1, N+1, 2):
+            c = math.pow(-1, (n-1)/2)/n**2 
+            position += c * sin(b*n*t_count)
+            velocity += c*n * cos(b*n*t_count)
+            acc      += c*n**2 * sin(b*n*t_count)
+            jerk     += c*n**3 * cos(b*n*t_count)
+
+        position *= a
+        velocity *= a*b
+        acc      *= -a*b**2
+        jerk     *= -a*b**3
+        return position, velocity, acc, jerk
+
+    @staticmethod
+    def generate_scan(self, num_terms, width, height, spacing, velocity, angle, sample_interval):
 
         # Determine number of vertices (reflection points) along each side of the
         # box which satisfies the common-factors criterion and the requested size / spacing    
@@ -335,12 +469,12 @@ class CurvyPong(ScanPattern):
         most_i = num_vert.index(max(x_numvert, y_numvert))
         least_i = num_vert.index(min(x_numvert, y_numvert))
 
-        while gcd(num_vert[most_i], num_vert[least_i]) != 1:
+        while math.gcd(num_vert[most_i], num_vert[least_i]) != 1:
             num_vert[most_i] += 2
         
         x_numvert = num_vert[0]
         y_numvert = num_vert[1]
-        assert(gcd(x_numvert, y_numvert) == 1)
+        assert(math.gcd(x_numvert, y_numvert) == 1)
         assert((x_numvert%2 == 0 and y_numvert%2 == 1) or (x_numvert%2 == 1 and y_numvert%2 == 0))
 
         # Calculate the approximate periods by assuming a Pong scan with
@@ -387,7 +521,7 @@ class CurvyPong(ScanPattern):
             time_offset.append(t_count)
             t_count += sample_interval
         
-        self.data = pd.DataFrame({
+        return pd.DataFrame({
             'time_offset': time_offset, 
             'x_coord': np.array(x_coord), 'y_coord': np.array(y_coord), 
             'x_vel': x_vel, 'y_vel': y_vel,
@@ -395,32 +529,33 @@ class CurvyPong(ScanPattern):
             'x_jerk': x_jerk, 'y_jerk': y_jerk
         })
 
-    def _fourier_expansion(self, num_terms, amp, t_count, peri):
-        N = num_terms*2 - 1
-        a = (8*amp)/(pi**2)
-        b = 2*pi/peri
 
-        position = 0
-        velocity = 0
-        acc = 0
-        jerk = 0
-        for n in range(1, N+1, 2):
-            c = pow(-1, (n-1)/2)/n**2 
-            position += c * sin(b*n*t_count)
-            velocity += c*n * cos(b*n*t_count)
-            acc      += c*n**2 * sin(b*n*t_count)
-            jerk     += c*n**3 * cos(b*n*t_count)
 
-        position *= a
-        velocity *= a*b
-        acc      *= -a*b**2
-        jerk     *= -a*b**3
-        return position, velocity, acc, jerk
+
+        
+        
+
+# ------------------------
+# PLOTTING FUNCTIONS
+# ------------------------
+
+
 
 if __name__ == '__main__':
-    #scan = CurvyPong(num_terms=5, width=2, height=7000*u.arcsec, spacing='500 arcsec', velocity='1000 arcsec/s', sample_interval=0.002)
-    scan = CurvyPong('curvy_pong_base.csv')
-    scan.set_setting(ra=0, dec=0, alt=60, date='2001-12-09')
+    #scan = CurvyPong(num_terms=5, width=2, height=7000*u.arcsec, spacing='500 arcsec', velocity='1000 arcsec/s', sample_interval=0.03)
+    #scan.set_setting(ra=0, dec=0, alt=60, date='2001-12-09')
+    #scan.to_csv('curvy_pong_less.csv')
+    scan = CurvyPong('curvy_pong_less.csv')
+
+    pr = cProfile.Profile()
+    pr.enable()
+    my_result = scan.hitmap(plate_scale=26*u.arcsec, pixel_scale=10*u.arcsec)
+    pr.disable()
+    s = io.StringIO()
+    ps = pstats.Stats(pr, stream=s).sort_stats('cumtime')
+    ps.print_stats()
+    with open('del.txt', 'w+') as f:
+        f.write(s.getvalue())
             
 
 
