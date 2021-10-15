@@ -259,105 +259,212 @@ class ScanPattern():
         self.data['para_angle'] = para
         self.data['rot_angle'] = rot
 
-    def hitmap(self, **kwargs):
-        current_path = os.path.dirname(os.path.abspath(__file__))
-        pixelpos_files = ['pixelpos1.txt', 'pixelpos2.txt', 'pixelpos3.txt']
-        pixelpos_files = [os.path.join(current_path, f) for f in pixelpos_files]
-        percent = u.Quantity(kwargs.get('percent', 1))
-
+    def _generate_hitmap(self, x_coord, y_coord, rot_angle, **kwargs):
+        print()
         rot = u.Quantity(kwargs.get('rot', 0), u.deg).value
-        max_acc = kwargs.get('max_acc', None)
-        plate_scale = u.Quantity(kwargs.get('plate_scale', 26*u.arcsec), u.arcsec).value
-        pixel_size = int(u.Quantity(kwargs.get('pixel_size', 10*u.arcsec), u.arcsec).value)
-        
-        # remove points with high acceleration 
-        total_azalt_acc = np.sqrt(self.data['az_acc']**2 + self.data['alt_acc']**2)
+        plate_scale = u.Quantity(kwargs.get('plate_scale', 52*u.arcsec), u.deg).value
+        pixel_size = u.Quantity(kwargs.get('pixel_size', 10*u.arcsec), u.deg).value
 
-        if max_acc is None:
-            x_coord = self.data['x_coord'].to_numpy()*3600
-            y_coord = self.data['y_coord'].to_numpy()*3600
-            rot_angle = self.data['rot_angle'].to_numpy()
-        else:
-            max_acc = u.Quantity(max_acc, u.deg/u.s).value
-            mask = total_azalt_acc < max_acc
-            x_coord = self.data.loc[mask, 'x_coord'].to_numpy()*3600
-            y_coord = self.data.loc[mask, 'y_coord'].to_numpy()*3600
-            rot_angle = self.data.loc[mask, 'rot_angle'].to_numpy()
+        PIXELPOS_FILES = ['pixelpos1.txt', 'pixelpos2.txt', 'pixelpos3.txt']
+        current_path = os.path.dirname(os.path.abspath(__file__))
+        PIXELPOS_FILES = [os.path.join(current_path, f) for f in PIXELPOS_FILES]
+
+        num_ts = len(x_coord)
+        print('number of timestamps:', num_ts)
         
         # get pixel positions (convert meters->deg)
         x_pixel = np.array([])
         y_pixel = np.array([])
 
-        for f in pixelpos_files:
+        for f in PIXELPOS_FILES:
             x, y = np.loadtxt(f, unpack=True)
             x_pixel = np.append(x_pixel, x)
             y_pixel = np.append(y_pixel, y)
 
         dist_btwn_detectors = math.sqrt((x_pixel[0] - x_pixel[1])**2 + (y_pixel[0] - y_pixel[1])**2)
-        length = len(x_pixel)
+        num_detectors = len(x_pixel)
         print('pixel_size =', dist_btwn_detectors)
-        print('total number of detector pixels =', len(x_pixel))
+        print('total number of detector pixels =', num_detectors)
         x_pixel = x_pixel/dist_btwn_detectors*plate_scale 
         y_pixel = y_pixel/dist_btwn_detectors*plate_scale 
         
         # define bin edges
-        x_max = 5400 #FIXME '
-        y_max = 5400
-        x_edges = range(-x_max, x_max+pixel_size, int(pixel_size))
-        y_edges = range(-y_max, y_max+pixel_size, int(pixel_size))
+        x_max = 2 #FIXME '
+        y_max = 2
+        x_edges = np.arange(-x_max, x_max+pixel_size, pixel_size)
+        y_edges = np.arange(-y_max, y_max+pixel_size, pixel_size)
         print('x max min =', x_edges[0], x_edges[-1])
         print('y max min =', y_edges[0], y_edges[-1])
 
-        # get only first x percent of scan
-        last_sample = ceil(len(x_coord)*percent)
-
         # sort all positions with individual detector offset into a 2D histogram
-        all_x_coords = np.zeros(last_sample * length)
-        all_y_coords = np.zeros(last_sample * length)
+
+        MEM_LIMIT = 8*10**7 
+        chunk_ts = math.floor(MEM_LIMIT/num_detectors)
+        hist = np.zeros((len(x_edges)-1 , len(y_edges)-1))
         rot = radians(rot)
 
+        for chunk in range(ceil(num_ts/chunk_ts)):
 
-        for i, x_coord1, y_coord1, rot1 in zip(range(0, last_sample), x_coord, y_coord, np.radians(rot_angle[:last_sample])):
-            all_x_coords[i*length: (i+1)*length] = x_coord1 + x_pixel*np.cos(rot1 + rot) + y_pixel*np.sin(rot1 + rot)
-            all_y_coords[i*length: (i+1)*length] = y_coord1 - x_pixel*np.sin(rot1 + rot) + y_pixel*np.cos(rot1 + rot)
+            if (chunk+1)*chunk_ts <= num_ts:
+                all_x_coords = np.zeros(chunk_ts*num_detectors)
+                all_y_coords = np.zeros(chunk_ts*num_detectors)
+                last_sample = chunk_ts
+            else:
+                all_x_coords = np.zeros((num_ts - chunk*chunk_ts)*num_detectors)
+                all_y_coords = np.zeros((num_ts - chunk*chunk_ts)*num_detectors)
+                last_sample = num_ts - chunk*chunk_ts
+
+            start = chunk*chunk_ts
+            end = (chunk+1)*chunk_ts
+            print('last_sample:', last_sample)
+            print('start:', start, 'end:', end)
+            for i, x_coord1, y_coord1, rot1 in zip(range(0, last_sample), x_coord[start:end], y_coord[start:end], np.radians(rot_angle[start:end])):
+                all_x_coords[i*num_detectors: (i+1)*num_detectors] = x_coord1 + x_pixel*cos(rot1 + rot) + y_pixel*sin(rot1 + rot)
+                all_y_coords[i*num_detectors: (i+1)*num_detectors] = y_coord1 - x_pixel*sin(rot1 + rot) + y_pixel*cos(rot1 + rot)
+
+            hist += np.histogram2d(all_x_coords, all_y_coords, bins=[x_edges, y_edges])[0]
+
+        total_hits = sum(map(sum, hist))
+        print('total hits:', total_hits, num_detectors*num_ts)
+        print('shape:', np.shape(hist), '<->', len(x_edges), len(y_edges))
+
+        return hist, x_edges, y_edges
         
-        total_rot = np.radians(rot_angle[:last_sample] + rot)
+        """total_rot = np.radians(rot_angle[:last_sample] + rot)
         for i, x_off, y_off in zip(range(0, length), x_pixel, y_pixel):
             all_x_coords[i*last_sample: (i+1)*last_sample] = x_coord[:last_sample] + x_off*np.cos(total_rot) + y_off*np.sin(total_rot)
-            all_y_coords[i*last_sample: (i+1)*last_sample] = y_coord[:last_sample] - x_off*np.sin(total_rot) + y_off*np.cos(total_rot)
+            all_y_coords[i*last_sample: (i+1)*last_sample] = y_coord[:last_sample] - x_off*np.sin(total_rot) + y_off*np.cos(total_rot)"""
 
-        """hist = np.zeros( (len(x_edges)-1 , len(y_edges)-1) )
-        total_rot = np.radians(rot_angle[:last_sample] + rot)
-        for x_off, y_off in zip(x_pixel, y_pixel):
-            x_off_rot = x_off*np.cos(total_rot) + y_off*np.sin(total_rot)
-            y_off_rot = -x_off*np.sin(total_rot) + y_off*np.cos(total_rot)
-            hist += np.histogram2d(x_coord[:last_sample] + x_off_rot, y_coord[:last_sample] + y_off_rot, bins=[x_edges, y_edges])[0]"""
 
-        hist = np.histogram2d(all_x_coords, all_y_coords, bins=[x_edges, y_edges])[0]
-        print('shape:', np.shape(hist), '<->', len(x_edges), len(y_edges))
+    def hitmap(self, **kwargs):
+        max_acc = kwargs.get('max_acc', None)
+        
+        # remove points with high acceleration 
+        if max_acc is None:
+            x_coord = self.data['x_coord'].to_numpy()
+            y_coord = self.data['y_coord'].to_numpy()
+            rot_angle = self.data['rot_angle'].to_numpy()
+
+            x_coord_rem = np.array([])
+            y_coord_rem = np.array([])
+            rot_angle_rem = np.array([])
+        else:
+            max_acc = u.Quantity(max_acc, u.deg/u.s).value
+            total_acc = np.sqrt(self.data['x_acc']**2 + self.data['y_acc']**2)
+            mask = total_acc < max_acc
+
+            x_coord = self.data.loc[mask, 'x_coord'].to_numpy()
+            y_coord = self.data.loc[mask, 'y_coord'].to_numpy()
+            rot_angle = self.data.loc[mask, 'rot_angle'].to_numpy()
+
+            x_coord_rem = self.data.loc[~mask, 'x_coord'].to_numpy()
+            y_coord_rem = self.data.loc[~mask, 'y_coord'].to_numpy()
+            rot_angle_rem = self.data.loc[~mask, 'rot_angle'].to_numpy()
+
+        hist, x_edges, y_edges = self._generate_hitmap(x_coord, y_coord, rot_angle, **kwargs)
+        hist_rem = self._generate_hitmap(x_coord_rem, y_coord_rem, rot_angle_rem, **kwargs)[0] 
 
         # -- PLOTTING --
 
         fig = plt.figure(1)
+        vmax1 = kwargs.get('vmax1')
+        vmax2 = kwargs.get('vmax2')
+        vmax3 = kwargs.get('vmax3')
 
-        # plot histogram
-        ax1 = plt.subplot2grid((3, 3), (0, 1), rowspan=2)
-        pcm = ax1.imshow(hist.T, extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]], vmin=0, interpolation='nearest', origin='lower')
+        # plot histogram (kept)
+        ax1 = plt.subplot2grid((4, 3), (0, 0), rowspan=2)
+        pcm = ax1.imshow(hist.T, extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]], vmin=0, vmax=vmax1, interpolation='nearest', origin='lower')
         ax1.set_aspect('equal', 'box')
-        field = patches.Rectangle((-self.params['width']*3600/2, -self.params['height']*3600/2), width=self.params['width']*3600, height=self.params['height']*3600, linewidth=1, edgecolor='r', facecolor='none') 
-        ax1.add_patch(field)
-        subtitle = f'alt=30, max acc={max_acc}, pixel size={round(pixel_size, 5)}'
         ax1.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
-        ax1.set_title('Kept hits per pixel\n'+subtitle, fontsize=12)
-        ax1.scatter(x_coord[:last_sample], y_coord[:last_sample], color='r', s=0.001)
+        ax1.set_title('Kept hits per pixel', fontsize=12)
+
+        field = patches.Rectangle((-self.params['width']/2, -self.params['height']/2), width=self.params['width'], height=self.params['height'], linewidth=1, edgecolor='r', facecolor='none') 
+        ax1.add_patch(field)
         ax1.axvline(x=0, c='black')
         ax1.axhline(y=0, c='black')
+
         divider1 = make_axes_locatable(ax1)
         cax1 = divider1.append_axes("bottom", size="3%", pad=0.5)
         fig.colorbar(pcm, cax=cax1, orientation='horizontal')
 
+        # plot histogram (removed)
+        ax2 = plt.subplot2grid((4, 3), (0, 1), rowspan=2)
+        pcm = ax2.imshow(hist_rem.T, extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]], vmin=0, vmax=vmax2, interpolation='nearest', origin='lower')
+        ax2.set_aspect('equal', 'box')
+        ax2.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
+        ax2.set_title('Removed hits per pixel', fontsize=12)
+
+        field = patches.Rectangle((-self.params['width']/2, -self.params['height']/2), width=self.params['width'], height=self.params['height'], linewidth=1, edgecolor='r', facecolor='none') 
+        ax2.add_patch(field)
+        ax2.axvline(x=0, c='black')
+        ax2.axhline(y=0, c='black')
+
+        divider2 = make_axes_locatable(ax2)
+        cax2 = divider2.append_axes("bottom", size="3%", pad=0.5)
+        fig.colorbar(pcm, cax=cax2, orientation='horizontal')
+
+        # plot histogram (combined)
+        ax3 = plt.subplot2grid((4, 3), (0, 2), rowspan=2)
+        pcm = ax3.imshow((hist + hist_rem).T, extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]], vmin=0, vmax=vmax1, interpolation='nearest', origin='lower')
+        ax3.set_aspect('equal', 'box')
+        ax3.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
+        ax3.set_title('Total hits per pixel', fontsize=12)
+
+        field = patches.Rectangle((-self.params['width']/2, -self.params['height']/2), width=self.params['width'], height=self.params['height'], linewidth=1, edgecolor='r', facecolor='none') 
+        ax3.add_patch(field)
+        ax3.scatter(self.data['x_coord'], self.data['y_coord'], color='black', s=0.001, alpha=0.5)
+        ax3.axvline(x=0, c='black')
+        ax3.axhline(y=0, c='black')
+
+        divider2 = make_axes_locatable(ax3)
+        cax3 = divider2.append_axes("bottom", size="3%", pad=0.5)
+        fig.colorbar(pcm, cax=cax3, orientation='horizontal')
+
+        kept_hits = sum(map(sum, hist))
+        removed_hits = sum(map(sum, hist_rem))
+        print(f'{removed_hits}/{kept_hits + removed_hits}')
+        textstr = f'{round(removed_hits/(kept_hits+removed_hits)*100, 2)}% hits lost'
+        props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+        ax3.text(0.1, 0.9, textstr, transform=ax3.transAxes, bbox=props)
+
+        # bin line plot (#1)
+        pixel_scale = kwargs.get('pixel_scale').to(u.deg).value
+
+        ax4 = plt.subplot2grid((4, 3), (2, 0), colspan=3)
+        bin_index = round(x_edges[-1]/pixel_scale)
+        bin_edge = x_edges[bin_index]
+        y_values = hist[bin_index]
+        y_values_rem = hist_rem[bin_index]
+
+        ax4.plot(y_edges[:-1], y_values, label='Kept hits', drawstyle='steps')
+        ax4.plot(y_edges[:-1], y_values_rem, label='Removed hits', drawstyle='steps')
+        ax4.plot(y_edges[:-1], y_values + y_values_rem, label='Total hits', drawstyle='steps', color='black')
+
+        ax4.axvline(x=-self.params['width']/2, c='r')
+        ax4.axvline(x=self.params['width']/2, c='r') 
+        ax4.set(ylabel='Hits/Pixel', xlabel='y offset (deg)', ylim=(0, vmax3))
+        ax4.set_title(f'Hit count in x={round(bin_edge, 5)} to x={round(bin_edge+pixel_scale, 5)} bin', fontsize=12)
+        ax4.legend(loc='upper right')
+
+        # bin line plot (#2)
+        ax5 = plt.subplot2grid((4, 3), (3, 0), colspan=3)
+        bin_index = round(x_edges[-1]/pixel_scale/2)
+        bin_edge = x_edges[bin_index]
+        y_values = hist[bin_index]
+        y_values_rem = hist_rem[bin_index]
+
+        ax5.plot(y_edges[:-1], y_values, label='Kept hits', drawstyle='steps')
+        ax5.plot(y_edges[:-1], y_values_rem, label='Removed hits', drawstyle='steps')
+        ax5.plot(y_edges[:-1], y_values + y_values_rem, label='Total hits', drawstyle='steps', color='black')
+
+        ax5.axvline(x=-self.params['width']/2, c='r')
+        ax5.axvline(x=self.params['width']/2, c='r') 
+        ax5.set(ylabel='Hits/Pixel', xlabel='y offset (deg)', ylim=(0, vmax3))
+        ax5.set_title(f'Hit count in x={round(bin_edge, 5)} to x={round(bin_edge+pixel_scale, 5)} bin', fontsize=12)
+        ax5.legend(loc='upper right')
+
         fig.tight_layout()
-        #plt.show()
+        plt.show()
 
 
 class CurvyPong(ScanPattern):
@@ -402,8 +509,6 @@ class CurvyPong(ScanPattern):
         
         # pass by csv file
         if not data_csv is None:
-            if bool(kwargs):
-                raise ValueError(f'Additional arguments supplied when data_csv={data_csv} was already given.')
             super().__init__(data_csv, param_csv)
 
         # initialize a new scan 
@@ -415,9 +520,6 @@ class CurvyPong(ScanPattern):
             velocity = u.Quantity(kwargs.pop('velocity'), u.deg/u.s).value
             angle = u.Quantity(kwargs.pop('angle', 0), u.deg).value
             sample_interval = u.Quantity(kwargs.pop('sample_interval', 0.002), u.s).value
-
-            if bool(kwargs):
-                raise ValueError(f'Additional arguments supplied: {kwargs}')
 
             self.params = {
                 'num_terms': num_terms,
@@ -449,8 +551,7 @@ class CurvyPong(ScanPattern):
         jerk     *= -a*b**3
         return position, velocity, acc, jerk
 
-    @staticmethod
-    def generate_scan(self, num_terms, width, height, spacing, velocity, angle, sample_interval):
+    def _generate_scan(self, num_terms, width, height, spacing, velocity, angle, sample_interval):
 
         # Determine number of vertices (reflection points) along each side of the
         # box which satisfies the common-factors criterion and the requested size / spacing    
@@ -529,33 +630,91 @@ class CurvyPong(ScanPattern):
             'x_jerk': x_jerk, 'y_jerk': y_jerk
         })
 
-
-
-
-        
-        
-
 # ------------------------
 # PLOTTING FUNCTIONS
 # ------------------------
 
+def compare_num_terms(first=2, last=5, **kwargs): # FIXME from param_csv or data_csv, pick which plots
+    num_subplots = last-first + 1
+    num_col = 2
+    num_row = ceil(num_subplots/num_col)
 
+    """fig_coord, ax_coord = plt.subplots(num_row, num_col, sharex=True, sharey=True)
+    fig_xcoord, ax_xcoord = plt.subplots(num_row, num_col, sharex=True, sharey=True)
+    fig_xvel, ax_xvel = plt.subplots(num_row, num_col, sharex=True, sharey=True)
+    fig_xacc, ax_xacc = plt.subplots(num_row, num_col, sharex=True, sharey=True)
+    fig_xjerk, ax_xjerk = plt.subplots(num_row, num_col, sharex=True, sharey=True)"""
+
+    for N in range(first, last+1):
+        kwargs['num_terms'] = N
+        scan = CurvyPong(**kwargs)
+
+        row = math.floor((N-2)/2)
+        col = N%2
+
+        scan.set_setting(ra=0, dec=0, alt=30, date='2001-12-09')
+        scan.hitmap(**kwargs)
+
+        """ax_coord[row, col].plot(scan.data['x_coord'], scan.data['y_coord'])
+        ax_coord[row, col].set_title(f'# of terms = {N} in expansion')
+        ax_coord[row, col].set(xlabel='x offset [deg]', ylabel='y offset [deg]')
+        ax_coord[row, col].set_aspect('equal', 'box')
+        ax_coord[row, col].grid()
+
+        ax_xcoord[row, col].plot(scan.data['time_offset'], scan.data['x_coord'])
+        ax_xcoord[row, col].set_title(f'# of terms = {N} in expansion')
+        ax_xcoord[row, col].set(xlabel='time offset [s]', ylabel='x offset [deg]')
+        ax_xcoord[row, col].grid()
+
+        ax_xvel[row, col].plot(scan.data['time_offset'], scan.data['x_vel'])
+        ax_xvel[row, col].set_title(f'# of terms = {N} in expansion')
+        ax_xvel[row, col].set(xlabel='time offset [s]', ylabel='x velocity [deg/s]')
+        ax_xvel[row, col].grid()
+
+        ax_xacc[row, col].plot(scan.data['time_offset'], scan.data['x_acc'])
+        ax_xacc[row, col].set_title(f'# of terms = {N} in expansion')
+        ax_xacc[row, col].set(xlabel='time offset [s]', ylabel='x acceleration [deg/s^2]')
+        ax_xacc[row, col].grid()
+
+        ax_xjerk[row, col].plot(scan.data['time_offset'], scan.data['x_jerk'])
+        ax_xjerk[row, col].set_title(f'# of terms = {N} in expansion')
+        ax_xjerk[row, col].set(xlabel='time offset [s]', ylabel='x jerk [deg/s]')
+        ax_xjerk[row, col].grid()"""
+
+
+    """fig_coord.tight_layout()
+    fig_xcoord.tight_layout()
+    fig_xvel.tight_layout()
+    fig_xacc.tight_layout()
+    fig_xjerk.tight_layout()"""
+
+    #plt.show()
+
+
+# ------------------------
 
 if __name__ == '__main__':
-    #scan = CurvyPong(num_terms=5, width=2, height=7000*u.arcsec, spacing='500 arcsec', velocity='1000 arcsec/s', sample_interval=0.03)
-    #scan.set_setting(ra=0, dec=0, alt=60, date='2001-12-09')
-    #scan.to_csv('curvy_pong_less.csv')
-    scan = CurvyPong('curvy_pong_less.csv')
+    """scan = CurvyPong(num_terms=5, width=2, height=7000*u.arcsec, spacing='500 arcsec', velocity='1000 arcsec/s', sample_interval=0.2)
+    scan.set_setting(ra=0, dec=0, alt=30, date='2001-12-09')
+    #scan.to_csv('.csv')
+    #scan = CurvyPong('ra0dec0alt30_20011209.csv')
 
     pr = cProfile.Profile()
     pr.enable()
-    my_result = scan.hitmap(plate_scale=26*u.arcsec, pixel_scale=10*u.arcsec)
+    my_result = scan.hitmap(plate_scale=52*u.arcsec, pixel_scale=10*u.arcsec, max_acc=0.2*u.deg/u.s)
     pr.disable()
     s = io.StringIO()
     ps = pstats.Stats(pr, stream=s).sort_stats('cumtime')
     ps.print_stats()
-    with open('del.txt', 'w+') as f:
-        f.write(s.getvalue())
-            
+    with open('1.txt', 'w+') as f:
+        f.write(s.getvalue())"""
+
+    compare_num_terms(
+        plate_scale=52*u.arcsec, pixel_scale=10*u.arcsec, max_acc=0.2*u.deg/u.s, 
+        width=2*u.deg, height=2*u.deg, spacing=500*u.arcsec, velocity=1/3/sqrt(2)*u.deg/u.s, sample_interval=0.0025*u.s,
+        vmax1=900,
+        vmax2=350,
+        vmax3=900
+    )
 
 
