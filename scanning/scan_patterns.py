@@ -260,41 +260,17 @@ class ScanPattern():
         self.data['rot_angle'] = rot
 
     def _generate_hitmap(self, x_coord, y_coord, rot_angle, **kwargs):
-        print()
-        rot = u.Quantity(kwargs.get('rot', 0), u.deg).value
-        plate_scale = u.Quantity(kwargs.get('plate_scale', 52*u.arcsec), u.deg).value
-        pixel_size = u.Quantity(kwargs.get('pixel_size', 10*u.arcsec), u.deg).value
-
-        PIXELPOS_FILES = ['pixelpos1.txt', 'pixelpos2.txt', 'pixelpos3.txt']
-        current_path = os.path.dirname(os.path.abspath(__file__))
-        PIXELPOS_FILES = [os.path.join(current_path, f) for f in PIXELPOS_FILES]
-
+        x_edges = kwargs['x_edges']
+        y_edges = kwargs['y_edges']
+        x_pixel = kwargs['x_pixel']
+        y_pixel = kwargs['y_pixel']
+        rot = kwargs['rot']
+        
         num_ts = len(x_coord)
         print('number of timestamps:', num_ts)
-        
-        # get pixel positions (convert meters->deg)
-        x_pixel = np.array([])
-        y_pixel = np.array([])
 
-        for f in PIXELPOS_FILES:
-            x, y = np.loadtxt(f, unpack=True)
-            x_pixel = np.append(x_pixel, x)
-            y_pixel = np.append(y_pixel, y)
-
-        dist_btwn_detectors = math.sqrt((x_pixel[0] - x_pixel[1])**2 + (y_pixel[0] - y_pixel[1])**2)
         num_detectors = len(x_pixel)
-        print('pixel_size =', dist_btwn_detectors)
         print('total number of detector pixels =', num_detectors)
-        x_pixel = x_pixel/dist_btwn_detectors*plate_scale 
-        y_pixel = y_pixel/dist_btwn_detectors*plate_scale 
-        
-        # define bin edges
-        x_max = 2 #FIXME '
-        y_max = 2
-        x_edges = np.arange(-x_max, x_max+pixel_size, pixel_size)
-        y_edges = np.arange(-y_max, y_max+pixel_size, pixel_size)
-        print('x max min =', x_edges[0], x_edges[-1])
-        print('y max min =', y_edges[0], y_edges[-1])
 
         # sort all positions with individual detector offset into a 2D histogram
 
@@ -328,15 +304,16 @@ class ScanPattern():
         print('total hits:', total_hits, num_detectors*num_ts)
         print('shape:', np.shape(hist), '<->', len(x_edges), len(y_edges))
 
-        return hist, x_edges, y_edges
+        return hist, x_edges, y_edges, x_pixel, y_pixel
         
         """total_rot = np.radians(rot_angle[:last_sample] + rot)
         for i, x_off, y_off in zip(range(0, length), x_pixel, y_pixel):
             all_x_coords[i*last_sample: (i+1)*last_sample] = x_coord[:last_sample] + x_off*np.cos(total_rot) + y_off*np.sin(total_rot)
             all_y_coords[i*last_sample: (i+1)*last_sample] = y_coord[:last_sample] - x_off*np.sin(total_rot) + y_off*np.cos(total_rot)"""
 
-
     def hitmap(self, **kwargs):
+        # FIXME cleanup, documentation, and optimization 
+
         max_acc = kwargs.get('max_acc', None)
         
         # remove points with high acceleration 
@@ -361,8 +338,43 @@ class ScanPattern():
             y_coord_rem = self.data.loc[~mask, 'y_coord'].to_numpy()
             rot_angle_rem = self.data.loc[~mask, 'rot_angle'].to_numpy()
 
-        hist, x_edges, y_edges = self._generate_hitmap(x_coord, y_coord, rot_angle, **kwargs)
-        hist_rem = self._generate_hitmap(x_coord_rem, y_coord_rem, rot_angle_rem, **kwargs)[0] 
+        rot = u.Quantity(kwargs.get('rot', 0), u.deg).value
+        plate_scale = u.Quantity(kwargs.get('plate_scale', 52*u.arcsec), u.deg).value
+        pixel_size = u.Quantity(kwargs.get('pixel_size', 10*u.arcsec), u.deg).value
+
+        PIXELPOS_FILES = ['pixelpos1.txt', 'pixelpos2.txt', 'pixelpos3.txt']
+        current_path = os.path.dirname(os.path.abspath(__file__))
+        PIXELPOS_FILES = [os.path.join(current_path, f) for f in PIXELPOS_FILES]
+        
+        # get pixel positions (convert meters->deg)
+        x_pixel = np.array([])
+        y_pixel = np.array([])
+
+        for f in PIXELPOS_FILES:
+            x, y = np.loadtxt(f, unpack=True)
+            x_pixel = np.append(x_pixel, x)
+            y_pixel = np.append(y_pixel, y)
+
+        dist_btwn_detectors = math.sqrt((x_pixel[0] - x_pixel[1])**2 + (y_pixel[0] - y_pixel[1])**2)
+        print('pixel_size =', dist_btwn_detectors)
+        x_pixel = x_pixel/dist_btwn_detectors*plate_scale 
+        y_pixel = y_pixel/dist_btwn_detectors*plate_scale 
+        
+        # define bin edges
+        x_max = 2 #FIXME '
+        y_max = 2
+        x_edges = np.arange(-x_max, x_max+pixel_size, pixel_size)
+        y_edges = np.arange(-y_max, y_max+pixel_size, pixel_size)
+        print('x max min =', x_edges[0], x_edges[-1])
+        print('y max min =', y_edges[0], y_edges[-1])
+
+        hitmap_params = {
+            'x_edges': x_edges, 'y_edges': y_edges,
+            'x_pixel': x_pixel, 'y_pixel': y_pixel,
+            'rot': rot
+        }
+        hist = self._generate_hitmap(x_coord, y_coord, rot_angle, **hitmap_params)
+        hist_rem = self._generate_hitmap(x_coord_rem, y_coord_rem, rot_angle_rem, **hitmap_params)
 
         # -- PLOTTING --
 
@@ -372,11 +384,11 @@ class ScanPattern():
         vmax3 = kwargs.get('vmax3')
 
         # plot histogram (kept)
-        ax1 = plt.subplot2grid((4, 3), (0, 0), rowspan=2)
+        ax1 = plt.subplot2grid((4, 4), (0, 0), rowspan=3)
         pcm = ax1.imshow(hist.T, extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]], vmin=0, vmax=vmax1, interpolation='nearest', origin='lower')
         ax1.set_aspect('equal', 'box')
         ax1.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
-        ax1.set_title('Kept hits per pixel', fontsize=12)
+        ax1.set_title('Kept hits per pixel')
 
         field = patches.Rectangle((-self.params['width']/2, -self.params['height']/2), width=self.params['width'], height=self.params['height'], linewidth=1, edgecolor='r', facecolor='none') 
         ax1.add_patch(field)
@@ -388,11 +400,11 @@ class ScanPattern():
         fig.colorbar(pcm, cax=cax1, orientation='horizontal')
 
         # plot histogram (removed)
-        ax2 = plt.subplot2grid((4, 3), (0, 1), rowspan=2)
+        ax2 = plt.subplot2grid((4, 4), (0, 1), rowspan=3)
         pcm = ax2.imshow(hist_rem.T, extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]], vmin=0, vmax=vmax2, interpolation='nearest', origin='lower')
         ax2.set_aspect('equal', 'box')
         ax2.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
-        ax2.set_title('Removed hits per pixel', fontsize=12)
+        ax2.set_title('Removed hits per pixel')
 
         field = patches.Rectangle((-self.params['width']/2, -self.params['height']/2), width=self.params['width'], height=self.params['height'], linewidth=1, edgecolor='r', facecolor='none') 
         ax2.add_patch(field)
@@ -404,15 +416,15 @@ class ScanPattern():
         fig.colorbar(pcm, cax=cax2, orientation='horizontal')
 
         # plot histogram (combined)
-        ax3 = plt.subplot2grid((4, 3), (0, 2), rowspan=2)
+        ax3 = plt.subplot2grid((4, 4), (0, 2), rowspan=3)
         pcm = ax3.imshow((hist + hist_rem).T, extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]], vmin=0, vmax=vmax1, interpolation='nearest', origin='lower')
         ax3.set_aspect('equal', 'box')
         ax3.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
-        ax3.set_title('Total hits per pixel', fontsize=12)
+        ax3.set_title('Total hits per pixel')
 
         field = patches.Rectangle((-self.params['width']/2, -self.params['height']/2), width=self.params['width'], height=self.params['height'], linewidth=1, edgecolor='r', facecolor='none') 
         ax3.add_patch(field)
-        ax3.scatter(self.data['x_coord'], self.data['y_coord'], color='black', s=0.001, alpha=0.5)
+        #ax3.scatter(self.data['x_coord'], self.data['y_coord'], color='black', s=0.001, alpha=0.5)
         ax3.axvline(x=0, c='black')
         ax3.axhline(y=0, c='black')
 
@@ -420,17 +432,28 @@ class ScanPattern():
         cax3 = divider2.append_axes("bottom", size="3%", pad=0.5)
         fig.colorbar(pcm, cax=cax3, orientation='horizontal')
 
-        kept_hits = sum(map(sum, hist))
+        """kept_hits = sum(map(sum, hist))
         removed_hits = sum(map(sum, hist_rem))
         print(f'{removed_hits}/{kept_hits + removed_hits}')
         textstr = f'{round(removed_hits/(kept_hits+removed_hits)*100, 2)}% hits lost'
         props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-        ax3.text(0.1, 0.9, textstr, transform=ax3.transAxes, bbox=props)
+        ax3.text(0.1, 0.9, textstr, transform=ax3.transAxes, bbox=props)"""
+
+        # plot detector pixel positions
+        rot = u.Quantity(kwargs.get('rot', 0), u.rad).value
+        ax6 = plt.subplot2grid((4, 4), (0, 3), rowspan=3, sharex=ax1, sharey=ax1)
+        ax6.scatter(x_pixel*cos(rot) + y_pixel*sin(rot), -x_pixel*sin(rot) + y_pixel*cos(rot), s=0.01)
+        ax6.set_aspect('equal', 'box')
+        ax6.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
+        ax6.set_title('Detector Pixel Positions')
+        divider6 = make_axes_locatable(ax6)
+        cax6 = divider6.append_axes("bottom", size="3%", pad=0.5)
+        cax6.axis('off')
 
         # bin line plot (#1)
         pixel_scale = kwargs.get('pixel_scale').to(u.deg).value
 
-        ax4 = plt.subplot2grid((4, 3), (2, 0), colspan=3)
+        ax4 = plt.subplot2grid((4, 4), (3, 0), colspan=2)
         bin_index = round(x_edges[-1]/pixel_scale)
         bin_edge = x_edges[bin_index]
         y_values = hist[bin_index]
@@ -447,7 +470,7 @@ class ScanPattern():
         ax4.legend(loc='upper right')
 
         # bin line plot (#2)
-        ax5 = plt.subplot2grid((4, 3), (3, 0), colspan=3)
+        ax5 = plt.subplot2grid((4, 4), (3, 2), colspan=2)
         bin_index = round(x_edges[-1]/pixel_scale/2)
         bin_edge = x_edges[bin_index]
         y_values = hist[bin_index]
