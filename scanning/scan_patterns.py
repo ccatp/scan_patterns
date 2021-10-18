@@ -1,5 +1,6 @@
 import os
 import warnings 
+import sys
 import cProfile
 import pstats
 import io
@@ -304,7 +305,7 @@ class ScanPattern():
         print('total hits:', total_hits, num_detectors*num_ts)
         print('shape:', np.shape(hist), '<->', len(x_edges), len(y_edges))
 
-        return hist, x_edges, y_edges, x_pixel, y_pixel
+        return hist
         
         """total_rot = np.radians(rot_angle[:last_sample] + rot)
         for i, x_off, y_off in zip(range(0, length), x_pixel, y_pixel):
@@ -342,9 +343,9 @@ class ScanPattern():
         plate_scale = u.Quantity(kwargs.get('plate_scale', 52*u.arcsec), u.deg).value
         pixel_size = u.Quantity(kwargs.get('pixel_size', 10*u.arcsec), u.deg).value
 
+        ROOT = os.path.abspath(os.path.dirname(__file__))
         PIXELPOS_FILES = ['pixelpos1.txt', 'pixelpos2.txt', 'pixelpos3.txt']
-        current_path = os.path.dirname(os.path.abspath(__file__))
-        PIXELPOS_FILES = [os.path.join(current_path, f) for f in PIXELPOS_FILES]
+        PIXELPOS_FILES = [os.path.join(ROOT, 'data', f) for f in PIXELPOS_FILES]
         
         # get pixel positions (convert meters->deg)
         x_pixel = np.array([])
@@ -375,6 +376,7 @@ class ScanPattern():
         }
         hist = self._generate_hitmap(x_coord, y_coord, rot_angle, **hitmap_params)
         hist_rem = self._generate_hitmap(x_coord_rem, y_coord_rem, rot_angle_rem, **hitmap_params)
+        return
 
         # -- PLOTTING --
 
@@ -390,8 +392,9 @@ class ScanPattern():
         ax1.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
         ax1.set_title('Kept hits per pixel')
 
-        field = patches.Rectangle((-self.params['width']/2, -self.params['height']/2), width=self.params['width'], height=self.params['height'], linewidth=1, edgecolor='r', facecolor='none') 
-        ax1.add_patch(field)
+        if self.default_folder == 'curvy_pong':
+            field = patches.Rectangle((-self.params['width']/2, -self.params['height']/2), width=self.params['width'], height=self.params['height'], linewidth=1, edgecolor='r', facecolor='none') 
+            ax1.add_patch(field)
         ax1.axvline(x=0, c='black')
         ax1.axhline(y=0, c='black')
 
@@ -406,8 +409,9 @@ class ScanPattern():
         ax2.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
         ax2.set_title('Removed hits per pixel')
 
-        field = patches.Rectangle((-self.params['width']/2, -self.params['height']/2), width=self.params['width'], height=self.params['height'], linewidth=1, edgecolor='r', facecolor='none') 
-        ax2.add_patch(field)
+        if self.default_folder == 'curvy_pong':
+            field = patches.Rectangle((-self.params['width']/2, -self.params['height']/2), width=self.params['width'], height=self.params['height'], linewidth=1, edgecolor='r', facecolor='none') 
+            ax2.add_patch(field)
         ax2.axvline(x=0, c='black')
         ax2.axhline(y=0, c='black')
 
@@ -422,9 +426,10 @@ class ScanPattern():
         ax3.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
         ax3.set_title('Total hits per pixel')
 
-        field = patches.Rectangle((-self.params['width']/2, -self.params['height']/2), width=self.params['width'], height=self.params['height'], linewidth=1, edgecolor='r', facecolor='none') 
-        ax3.add_patch(field)
-        #ax3.scatter(self.data['x_coord'], self.data['y_coord'], color='black', s=0.001, alpha=0.5)
+        if self.default_folder == 'curvy_pong':
+            field = patches.Rectangle((-self.params['width']/2, -self.params['height']/2), width=self.params['width'], height=self.params['height'], linewidth=1, edgecolor='r', facecolor='none') 
+            ax3.add_patch(field)
+        ax3.scatter(self.data['x_coord'], self.data['y_coord'], color='black', s=0.001)
         ax3.axvline(x=0, c='black')
         ax3.axhline(y=0, c='black')
 
@@ -432,12 +437,12 @@ class ScanPattern():
         cax3 = divider2.append_axes("bottom", size="3%", pad=0.5)
         fig.colorbar(pcm, cax=cax3, orientation='horizontal')
 
-        """kept_hits = sum(map(sum, hist))
+        kept_hits = sum(map(sum, hist))
         removed_hits = sum(map(sum, hist_rem))
         print(f'{removed_hits}/{kept_hits + removed_hits}')
         textstr = f'{round(removed_hits/(kept_hits+removed_hits)*100, 2)}% hits lost'
         props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-        ax3.text(0.1, 0.9, textstr, transform=ax3.transAxes, bbox=props)"""
+        ax3.text(0.1, 0.9, textstr, transform=ax3.transAxes, bbox=props)
 
         # plot detector pixel positions
         rot = u.Quantity(kwargs.get('rot', 0), u.rad).value
@@ -463,8 +468,9 @@ class ScanPattern():
         ax4.plot(y_edges[:-1], y_values_rem, label='Removed hits', drawstyle='steps')
         ax4.plot(y_edges[:-1], y_values + y_values_rem, label='Total hits', drawstyle='steps', color='black')
 
-        ax4.axvline(x=-self.params['width']/2, c='r')
-        ax4.axvline(x=self.params['width']/2, c='r') 
+        if self.default_folder == 'curvy_pong':
+            ax4.axvline(x=-self.params['width']/2, c='r')
+            ax4.axvline(x=self.params['width']/2, c='r') 
         ax4.set(ylabel='Hits/Pixel', xlabel='y offset (deg)', ylim=(0, vmax3))
         ax4.set_title(f'Hit count in x={round(bin_edge, 5)} to x={round(bin_edge+pixel_scale, 5)} bin', fontsize=12)
         ax4.legend(loc='upper right')
@@ -480,8 +486,9 @@ class ScanPattern():
         ax5.plot(y_edges[:-1], y_values_rem, label='Removed hits', drawstyle='steps')
         ax5.plot(y_edges[:-1], y_values + y_values_rem, label='Total hits', drawstyle='steps', color='black')
 
-        ax5.axvline(x=-self.params['width']/2, c='r')
-        ax5.axvline(x=self.params['width']/2, c='r') 
+        if self.default_folder == 'curvy_pong':
+            ax5.axvline(x=-self.params['width']/2, c='r')
+            ax5.axvline(x=self.params['width']/2, c='r') 
         ax5.set(ylabel='Hits/Pixel', xlabel='y offset (deg)', ylim=(0, vmax3))
         ax5.set_title(f'Hit count in x={round(bin_edge, 5)} to x={round(bin_edge+pixel_scale, 5)} bin', fontsize=12)
         ax5.legend(loc='upper right')
@@ -489,6 +496,156 @@ class ScanPattern():
         fig.tight_layout()
         plt.show()
 
+    def plot(self, graphs=['coord', 'coord-time', 'vel', 'acc', 'jerk']):
+        setting = None
+        
+        if 'coord' in graphs:
+            fig_coord, ax_coord = plt.subplots(1, 2)
+            ax_coord[0].plot(self.data['x_coord'], self.data['y_coord'])
+            ax_coord[0].set_aspect('equal', 'box')
+            ax_coord[0].set(xlabel='Right Ascension (degrees)', ylabel='Declination (degrees)', title='RA/DEC')
+            ax_coord[0].grid()
+
+            if 'az_coord' in self.data.columns and 'alt_coord' in self.data.columns:
+                ax_coord[1].plot(self.data['az_coord'], self.data['alt_coord'])
+                ax_coord[1].set_aspect('equal', 'box')
+                ax_coord[1].set(xlabel='Azimuth (degrees)', ylabel='Altitude (degrees)', title=f'AZ/ALT {setting}')
+                ax_coord[1].grid()
+
+            fig_coord.tight_layout()
+
+        if 'coord-time' in graphs:
+            fig_coord_time, ax_coord_time = plt.subplots(2, 1, sharex=True, sharey=True)
+
+            ax_coord_time[0].plot(self.data['time_offset'], self.data['x_coord'], label='RA')
+            ax_coord_time[0].plot(self.data['time_offset'], self.data['y_coord'], label='DEC')
+            ax_coord_time[0].legend(loc='upper right')
+            ax_coord_time[0].set(xlabel='time offset (s)', ylabel='Position offset (deg)', title='RA/DEC Position')
+            ax_coord_time[0].grid()
+
+            if 'az_coord' in self.data.columns and 'alt_coord' in self.data.columns:
+                ax_coord_time[1].plot(self.data['time_offset'], (self.data['az_coord'] - self.data.loc[0, 'az_coord'])*cos(pi/6), label='AZ')
+                ax_coord_time[1].plot(self.data['time_offset'], self.data['alt_coord'] - self.data.loc[0, 'alt_coord'], label='ALT')
+                ax_coord_time[1].legend(loc='upper right')
+                ax_coord_time[1].set(xlabel='time offset (s)', ylabel='Position offset (deg)', title=f'AZ/ALT {setting}')
+                ax_coord_time[1].grid()
+
+            fig_coord_time.tight_layout()
+        
+        if 'vel' in graphs:
+            fig_vel, ax_vel = plt.subplots(2, 1, sharex=True, sharey=True)
+
+            total_vel = np.sqrt(self.data['x_vel']**2 + self.data['y_vel']**2)
+            ax_vel[0].plot(self.data['time_offset'], total_vel, label='Total', c='black', ls='dashed', alpha=0.25)
+            ax_vel[0].plot(self.data['time_offset'], self.data['x_vel'], label='RA')
+            ax_vel[0].plot(self.data['time_offset'], self.data['y_vel'], label='DEC')
+            ax_vel[0].legend(loc='upper right')
+            ax_vel[0].set(xlabel='time offset (s)', ylabel='velocity (deg/s)', title='RA/DEC Velocity')
+            ax_vel[0].grid()
+
+            if 'az_vel' in self.data.columns and 'alt_vel' in self.data.columns:
+                total_vel = np.sqrt(self.data['az_vel']**2 + self.data['alt_vel']**2)
+                ax_vel[1].plot(self.data['time_offset'], total_vel, label='Total', c='black', ls='dashed', alpha=0.25)
+                ax_vel[1].plot(self.data['time_offset'], self.data['az_vel'], label='AZ')
+                ax_vel[1].plot(self.data['time_offset'], self.data['alt_vel'], label='ALT')
+                ax_vel[1].legend(loc='upper right')
+                ax_vel[1].set(xlabel='time offset (s)', ylabel='velocity (deg/s)', title=f'AZ/ALT {setting}')
+                ax_vel[1].grid()
+
+            fig_vel.tight_layout()
+        
+        if 'acc' in graphs:
+            fig_acc, ax_acc = plt.subplots(2, 1, sharex=True, sharey=True)
+
+            total_acc = np.sqrt(self.data['x_acc']**2 + self.data['y_acc']**2)
+            ax_acc[0].plot(self.data['time_offset'], total_acc, label='Total', c='black', ls='dashed', alpha=0.25)
+            ax_acc[0].plot(self.data['time_offset'], self.data['x_acc'], label='RA')
+            ax_acc[0].plot(self.data['time_offset'], self.data['y_acc'], label='DEC')
+            ax_acc[0].legend(loc='upper right')
+            ax_acc[0].set(xlabel='time offset (s)', ylabel='acceleration (deg/s^2)', title='RA/DEC Acceleration')
+            ax_acc[0].grid()
+
+            if 'az_acc' in self.data.columns and 'alt_acc' in self.data.columns:
+                total_acc = np.sqrt(self.data['az_acc']**2 + self.data['alt_acc']**2)
+                ax_acc[1].plot(self.data['time_offset'], total_acc, label='Total', c='black', ls='dashed', alpha=0.25)
+                ax_acc[1].plot(self.data['time_offset'], self.data['az_acc'], label='AZ')
+                ax_acc[1].plot(self.data['time_offset'], self.data['alt_acc'], label='ALT')
+                ax_acc[1].legend(loc='upper right')
+                ax_acc[1].set(xlabel='time offset (s)', ylabel='acceleration (deg/s^2)', title=f'AZ/ALT {setting}')
+                ax_acc[1].grid()
+
+            fig_acc.tight_layout()
+
+        if 'jerk' in graphs:
+            fig_jerk, ax_jerk = plt.subplots(2, 1, sharex=True, sharey=True)
+
+            total_jerk = np.sqrt(self.data['x_jerk']**2 + self.data['y_jerk']**2)
+            ax_jerk[0].plot(self.data['time_offset'], self.data['x_jerk'], label='RA')
+            ax_jerk[0].plot(self.data['time_offset'], self.data['y_jerk'], label='DEC')
+            ax_jerk[0].plot(self.data['time_offset'], total_jerk, label='Total', c='black', ls='dashed', alpha=0.25)
+            ax_jerk[0].legend(loc='upper right')
+            ax_jerk[0].set(xlabel='time offset (s)', ylabel='Jerk (deg/s^2)', title='RA/DEC Jerk')
+            ax_jerk[0].grid()
+
+            if 'az_jerk' in self.data.columns and 'alt_jerk' in self.data.columns:
+                total_jerk = np.sqrt(self.data['az_jerk']**2 + self.data['alt_jerk']**2)
+                ax_jerk[1].plot(self.data['time_offset'], self.data['az_jerk'], label='AZ')
+                ax_jerk[1].plot(self.data['time_offset'], self.data['alt_jerk'], label='ALT')
+                ax_jerk[1].plot(self.data['time_offset'], total_jerk, label='Total', c='black', ls='dashed', alpha=0.25)
+                ax_jerk[1].legend(loc='upper right')
+                ax_jerk[1].set(xlabel='time offset (s)', ylabel='Jerk (deg/s^2)', title=f'AZ/ALT {setting})')
+                ax_jerk[1].grid()
+
+            fig_jerk.tight_layout()
+        
+        if 'quiver' in graphs:
+            fig_quiver, ax_quiver = plt.subplots(1, 2, sharex=True, sharey=True)
+            subsample = 50
+            endpoint = None
+
+            # --- ACCELERATION ---
+
+            # plot acc
+            total_acc = np.sqrt(self.data['x_acc']**2 + self.data['y_acc']**2).to_numpy()
+            ax_quiver[0].plot(self.data['x_coord'], self.data['y_coord'], alpha=0.25, color='black')
+            pcm = ax_quiver[0].quiver(
+                self.data['x_coord'].to_numpy()[:endpoint:subsample], self.data['y_coord'].to_numpy()[:endpoint:subsample], 
+                self.data['x_acc'].to_numpy()[:endpoint:subsample], self.data['y_acc'].to_numpy()[:endpoint:subsample],
+                total_acc[:endpoint:subsample], #clim=(0, 1)
+            )
+            ax_quiver[0].set_aspect('equal', 'box')
+            ax_quiver[0].set(xlabel='Map height [deg]', ylabel='Map width [deg]', title='RA/DEC acc [deg/s^2]')
+
+            # colorbar acc
+            divider = make_axes_locatable(ax_quiver[0])
+            cax = divider.append_axes("right", size="3%", pad=0.5)
+            fig_quiver.colorbar(pcm, cax=cax)
+
+            # --- JERK ---
+
+            # get jerk
+            self.data['x_jerk'] = self._central_diff(self.data['x_acc'].to_numpy(), self.sample_interval)
+            self.data['y_jerk'] = self._central_diff(self.data['y_acc'].to_numpy(), self.sample_interval)
+            total_jerk = np.sqrt(self.data['x_jerk']**2 + self.data['y_jerk']**2).to_numpy()
+
+            # plot jerk
+            ax_quiver[1].plot(self.data['x_coord'], self.data['y_coord'], alpha=0.25, color='black')
+            pcm = ax_quiver[1].quiver(
+                self.data['x_coord'].to_numpy()[:endpoint:subsample], self.data['y_coord'].to_numpy()[:endpoint:subsample], 
+                self.data['x_jerk'].to_numpy()[:endpoint:subsample], self.data['y_jerk'].to_numpy()[:endpoint:subsample]/3600,
+                total_jerk[:endpoint:subsample], #clim=(0, 1)
+            )
+            ax_quiver[1].set_aspect('equal', 'box')
+            ax_quiver[1].set(xlabel='Map height [deg]', ylabel='Map width [deg]', title='RA/DEC jerk [deg/s^3]')
+
+            # colorbar
+            divider = make_axes_locatable(ax_quiver[1])
+            cax = divider.append_axes("right", size="3%", pad=0.5)
+            fig_quiver.colorbar(pcm, cax=cax)
+            
+            fig_quiver.tight_layout()
+
+        plt.show()
 
 class CurvyPong(ScanPattern):
     """
@@ -520,7 +677,7 @@ class CurvyPong(ScanPattern):
     angle : angle-like, optional, defaults to 0 deg
         Position angle of the box in the native coordinate system
         If no units specified, defaults to deg
-    sample_interval : time, optional, defaults to 0.002 s
+    sample_interval : time, optional, defaults to 400 Hz
         Time between read-outs 
         If no units specified, defaults to s
     """
@@ -542,7 +699,7 @@ class CurvyPong(ScanPattern):
             spacing = u.Quantity(kwargs.pop('spacing'), u.deg).value
             velocity = u.Quantity(kwargs.pop('velocity'), u.deg/u.s).value
             angle = u.Quantity(kwargs.pop('angle', 0), u.deg).value
-            sample_interval = u.Quantity(kwargs.pop('sample_interval', 0.002), u.s).value
+            sample_interval = u.Quantity(kwargs.pop('sample_interval', 0.0025), u.s).value
 
             self.params = {
                 'num_terms': num_terms,
@@ -653,6 +810,142 @@ class CurvyPong(ScanPattern):
             'x_jerk': x_jerk, 'y_jerk': y_jerk
         })
 
+class Daisy(ScanPattern):
+    """
+    See "CV Daisy - JCMT small area scanning patter" (JCMT TCS/UN/005) for details of implementation. 
+
+    Parameters
+    -----------------------------------
+    speed : angle-like/time-like
+        Constant velocity (CV) for scan to go at. 
+    acc : angle-like/time-like^2
+        Acceleration at start of pattern
+    R0 : angle-like
+        Radius R0
+    Rt : angle-like
+        Turn radius
+    Ra : angle-like
+        Avoidance radius
+    T : time-like
+        Total time of the simulation
+    sample_interval : time-like [default 400 Hz]
+        Time step
+    y : angle-like
+        start offset in y [default 0"]
+    """
+
+    default_folder = 'daisy'
+    default_param_csv = 'daisy_params'
+
+    def __init__(self, data_csv=None, param_csv=None, **kwargs):
+        
+        # pass by csv file
+        if not data_csv is None:
+            super().__init__(data_csv, param_csv)
+        
+        # initialize new scan
+        else:
+            speed = u.Quantity(kwargs['speed'], u.arcsec/u.s).value
+            acc = u.Quantity(kwargs['acc'], u.arcsec/u.s/u.s).value
+            R0 = u.Quantity(kwargs['R0'], u.arcsec).value
+            Rt = u.Quantity(kwargs['Rt'], u.arcsec).value
+            Ra = u.Quantity(kwargs['Ra'], u.arcsec).value
+            T = u.Quantity(kwargs['T'], u.s).value
+            sample_interval = u.Quantity(kwargs.get('sample_interval', 1/400*u.s), u.s).value
+            y = u.Quantity(kwargs.get('y', 0*u.arcsec), u.arcsec).value
+
+            self.params = {
+                'speed': speed, 'acc': acc,
+                'R0': R0, 'Rt': Rt, 'Ra': Ra,
+                'T': T, 'sample_interval': sample_interval,
+                'y': y
+            }
+
+            self.data = self._generate_scan(speed, acc, R0, Rt, Ra, T, sample_interval, y)
+        
+    def _generate_scan(self, speed, acc, R0, Rt, Ra, T, dt, y):
+
+        xval = [] # x,y arrays for plotting 
+        yval = [] 
+        x_vel = [] # speed array for plotting 
+        y_vel = []
+
+        (vx, vy) = (1.0, 0.0) # Tangent vector & start value
+        (x, y) = (0.0, y) # Position vector & start value
+        N = int(T/dt) + 1 # number of steps 
+        R1 = min(R0, Ra) # Effective avoidance radius so Ra is not used if Ra > R0 
+
+        s0 = speed 
+        speed = 0 # set start speed 
+
+        for step in range(1, N): 
+            speed += acc*dt # ramp up speed with acceleration acc 
+            if speed >= s0: # to limit startup transients . Telescope 
+                speed = s0  # has zero speed at startup. 
+
+            r = sqrt(x*x + y*y) # compute distance from center 
+
+            if r < R0: # Straight motion inside R0 
+                x += vx*speed*dt 
+                y += vy*speed*dt 
+            else: 
+                (xn,yn) = (x/r,y/r) # Compute unit radial vector 
+                if (-xn*vx - yn*vy) > sqrt(1 - R1*R1/r/r): # If aming close to center 
+                    x += vx*speed*dt # resume straight motion 
+                    y += vy*speed*dt 
+                else: 
+                    if (-xn*vy + yn*vx) > 0: # Decide turning direction 
+                        Nx = vy 
+                        Ny = -vx 
+                    else: 
+                        Nx = -vy 
+                        Ny = vx 
+
+                    # Compute curved trajectory using serial exansion in step length s 
+                    s = speed*dt 
+                    x += (s - s*s*s/Rt/Rt/6)*vx + s*s/Rt/2*Nx 
+                    y += (s - s*s*s/Rt/Rt/6)*vy + s*s/Rt/2*Ny 
+                    vx += -s*s/Rt/Rt/2*vx + (s/Rt + s*s*s/Rt/Rt/Rt/6)*Nx 
+                    vy += -s*s/Rt/Rt/2*vy + (s/Rt + s*s*s/Rt/Rt/Rt/6)*Ny 
+
+            # Store result for plotting and statistics
+            xval.append(x)
+            yval.append(y)
+            x_vel.append(speed*vx)
+            y_vel.append(speed*vy)
+
+        # Compute arrays for plotting 
+        """x_vel = self._central_diff(xval)
+        x_acc = self._central_diff(x_vel)
+        x_jerk = self._central_diff(x_acc)
+
+        y_vel = self._central_diff(yval)
+        y_acc = self._central_diff(y_vel)
+        y_jerk = self._central_diff(y_acc)"""
+
+        xval = np.array(xval)
+        yval = np.array(yval)
+        x_vel = np.array(x_vel)
+        y_vel = np.array(y_vel)
+
+        ax = -2*xval[1: -1] + xval[0:-2] + xval[2:] # numerical acc in x 
+        ay = -2*yval[1: -1] + yval[0:-2] + yval[2:] # numerical acc in y 
+        x_acc = np.append(np.array([0]), ax/dt/dt)
+        y_acc = np.append(np.array([0]), ay/dt/dt)
+        x_acc = np.append(x_acc, 0)
+        y_acc = np.append(y_acc, 0)
+        x_jerk = self._central_diff(x_acc)
+        y_jerk = self._central_diff(y_acc)
+
+        return pd.DataFrame({
+            'time_offset': np.arange(0, T, dt), 
+            'x_coord': xval/3600, 'y_coord': yval/3600, 
+            'x_vel': x_vel/3600, 'y_vel': y_vel/3600,
+            'x_acc': x_acc/3600, 'y_acc': y_acc/3600,
+            'x_jerk': x_jerk/3600, 'y_jerk': y_jerk/3600
+        })
+
+
 # ------------------------
 # PLOTTING FUNCTIONS
 # ------------------------
@@ -717,27 +1010,30 @@ def compare_num_terms(first=2, last=5, **kwargs): # FIXME from param_csv or data
 # ------------------------
 
 if __name__ == '__main__':
-    """scan = CurvyPong(num_terms=5, width=2, height=7000*u.arcsec, spacing='500 arcsec', velocity='1000 arcsec/s', sample_interval=0.2)
-    scan.set_setting(ra=0, dec=0, alt=30, date='2001-12-09')
-    #scan.to_csv('.csv')
-    #scan = CurvyPong('ra0dec0alt30_20011209.csv')
-
     pr = cProfile.Profile()
     pr.enable()
-    my_result = scan.hitmap(plate_scale=52*u.arcsec, pixel_scale=10*u.arcsec, max_acc=0.2*u.deg/u.s)
+
+    """scan = CurvyPong(num_terms=5, width=2, height=7000*u.arcsec, spacing='500 arcsec', velocity='1000 arcsec/s', sample_interval=0.2)
+    #scan = CurvyPong('ra0dec0alt30_20011209.csv')
+    """
+
+    """compare_num_terms(
+        plate_scale=52*u.arcsec, pixel_scale=10*u.arcsec, max_acc=0.2*u.deg/u.s, 
+        width=2*u.deg, height=2*u.deg, spacing=500*u.arcsec, velocity=1/3/sqrt(2)*u.deg/u.s, sample_interval=0.0025*u.s,
+        vmax1=900,vmax2=350,vmax3=900
+    )"""
+
+    #scan = Daisy(speed=1000*u.arcsec/u.s, acc=0.2*u.deg/u.s/u.s, R0=1*u.deg, Rt=1*u.deg, Ra=1/4*u.deg, T=720*u.s, sample_interval=1/40*u.s)
+    #scan.set_setting(ra=0, dec=0, alt=30, date='2001-12-09')
+    #scan.to_csv('daisy_less.csv')
+    scan = Daisy('daisy_less.csv')
+    #scan.plot()
+    scan.hitmap(plate_scale=52*u.arcsec, pixel_scale=10*u.arcsec, max_acc=None)
+
     pr.disable()
     s = io.StringIO()
     ps = pstats.Stats(pr, stream=s).sort_stats('cumtime')
     ps.print_stats()
-    with open('1.txt', 'w+') as f:
-        f.write(s.getvalue())"""
-
-    compare_num_terms(
-        plate_scale=52*u.arcsec, pixel_scale=10*u.arcsec, max_acc=0.2*u.deg/u.s, 
-        width=2*u.deg, height=2*u.deg, spacing=500*u.arcsec, velocity=1/3/sqrt(2)*u.deg/u.s, sample_interval=0.0025*u.s,
-        vmax1=900,
-        vmax2=350,
-        vmax3=900
-    )
-
+    with open('delete/1.txt', 'w+') as f:
+        f.write(s.getvalue())
 
