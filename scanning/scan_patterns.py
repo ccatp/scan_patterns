@@ -11,6 +11,7 @@ from astropy.units.equivalencies import pixel_scale, plate_scale
 import numpy as np
 import pandas as pd
 from datetime import timezone
+from fast_histogram import histogram2d
 
 import astropy.units as u
 from astropy.time import Time
@@ -261,14 +262,16 @@ class ScanPattern():
         self.data['rot_angle'] = rot
 
     def _generate_hitmap(self, x_coord, y_coord, rot_angle, **kwargs):
-        x_edges = kwargs['x_edges']
-        y_edges = kwargs['y_edges']
+        x_max = kwargs['x_max']
+        y_max = kwargs['y_max']
+        num_xbins = kwargs['num_xbins']
+        num_ybins = kwargs['num_ybins']
         x_pixel = kwargs['x_pixel']
         y_pixel = kwargs['y_pixel']
         rot = kwargs['rot']
         
         num_ts = len(x_coord)
-        print('number of timestamps:', num_ts)
+        print('\nnumber of timestamps:', num_ts)
 
         num_detectors = len(x_pixel)
         print('total number of detector pixels =', num_detectors)
@@ -277,7 +280,7 @@ class ScanPattern():
 
         MEM_LIMIT = 8*10**7 
         chunk_ts = math.floor(MEM_LIMIT/num_detectors)
-        hist = np.zeros((len(x_edges)-1 , len(y_edges)-1))
+        hist = np.zeros((num_xbins, num_ybins))
         rot = radians(rot)
 
         for chunk in range(ceil(num_ts/chunk_ts)):
@@ -299,11 +302,11 @@ class ScanPattern():
                 all_x_coords[i*num_detectors: (i+1)*num_detectors] = x_coord1 + x_pixel*cos(rot1 + rot) + y_pixel*sin(rot1 + rot)
                 all_y_coords[i*num_detectors: (i+1)*num_detectors] = y_coord1 - x_pixel*sin(rot1 + rot) + y_pixel*cos(rot1 + rot)
 
-            hist += np.histogram2d(all_x_coords, all_y_coords, bins=[x_edges, y_edges])[0]
+            hist += histogram2d(all_x_coords, all_y_coords, range=[[-x_max, x_max], [-y_max, y_max]], bins=[num_xbins, num_ybins])
 
         total_hits = sum(map(sum, hist))
         print('total hits:', total_hits, num_detectors*num_ts)
-        print('shape:', np.shape(hist), '<->', len(x_edges), len(y_edges))
+        print('shape:', np.shape(hist), '<->', num_xbins, num_ybins)
 
         return hist
         
@@ -362,22 +365,20 @@ class ScanPattern():
         y_pixel = y_pixel/dist_btwn_detectors*plate_scale 
         
         # define bin edges
-        x_max = 2 #FIXME '
-        y_max = 2
-        x_edges = np.arange(-x_max, x_max+pixel_size, pixel_size)
-        y_edges = np.arange(-y_max, y_max+pixel_size, pixel_size)
-        print('x max min =', x_edges[0], x_edges[-1])
-        print('y max min =', y_edges[0], y_edges[-1])
+        x_max = 3 #FIXME '
+        y_max = 3
+        num_xbins = ceil(2*x_max/pixel_size)
+        num_ybins = ceil(2*y_max/pixel_size)
 
         hitmap_params = {
-            'x_edges': x_edges, 'y_edges': y_edges,
+            'x_max': x_max, 'y_max': y_max,
+            'num_xbins': num_xbins, 'num_ybins': num_ybins,
             'x_pixel': x_pixel, 'y_pixel': y_pixel,
             'rot': rot
         }
         hist = self._generate_hitmap(x_coord, y_coord, rot_angle, **hitmap_params)
         hist_rem = self._generate_hitmap(x_coord_rem, y_coord_rem, rot_angle_rem, **hitmap_params)
-        return
-
+        
         # -- PLOTTING --
 
         fig = plt.figure(1)
@@ -387,7 +388,7 @@ class ScanPattern():
 
         # plot histogram (kept)
         ax1 = plt.subplot2grid((4, 4), (0, 0), rowspan=3)
-        pcm = ax1.imshow(hist.T, extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]], vmin=0, vmax=vmax1, interpolation='nearest', origin='lower')
+        pcm = ax1.imshow(hist.T, extent=[-x_max, x_max, -y_max, y_max], vmin=0, vmax=vmax1, interpolation='nearest', origin='lower')
         ax1.set_aspect('equal', 'box')
         ax1.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
         ax1.set_title('Kept hits per pixel')
@@ -404,7 +405,7 @@ class ScanPattern():
 
         # plot histogram (removed)
         ax2 = plt.subplot2grid((4, 4), (0, 1), rowspan=3)
-        pcm = ax2.imshow(hist_rem.T, extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]], vmin=0, vmax=vmax2, interpolation='nearest', origin='lower')
+        pcm = ax2.imshow(hist_rem.T, extent=[-x_max, x_max, -y_max, y_max], vmin=0, vmax=vmax2, interpolation='nearest', origin='lower')
         ax2.set_aspect('equal', 'box')
         ax2.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
         ax2.set_title('Removed hits per pixel')
@@ -421,7 +422,7 @@ class ScanPattern():
 
         # plot histogram (combined)
         ax3 = plt.subplot2grid((4, 4), (0, 2), rowspan=3)
-        pcm = ax3.imshow((hist + hist_rem).T, extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]], vmin=0, vmax=vmax1, interpolation='nearest', origin='lower')
+        pcm = ax3.imshow((hist + hist_rem).T, extent=[-x_max, x_max, -y_max, y_max], vmin=0, vmax=vmax1, interpolation='nearest', origin='lower')
         ax3.set_aspect('equal', 'box')
         ax3.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
         ax3.set_title('Total hits per pixel')
@@ -456,17 +457,20 @@ class ScanPattern():
         cax6.axis('off')
 
         # bin line plot (#1)
+        x_edges = np.linspace(-x_max, x_max, num_xbins)
+        y_edges = np.linspace(-y_max, y_max, num_ybins)
+
         pixel_scale = kwargs.get('pixel_scale').to(u.deg).value
 
         ax4 = plt.subplot2grid((4, 4), (3, 0), colspan=2)
-        bin_index = round(x_edges[-1]/pixel_scale)
+        bin_index = round(x_max/pixel_scale)
         bin_edge = x_edges[bin_index]
         y_values = hist[bin_index]
         y_values_rem = hist_rem[bin_index]
 
-        ax4.plot(y_edges[:-1], y_values, label='Kept hits', drawstyle='steps')
-        ax4.plot(y_edges[:-1], y_values_rem, label='Removed hits', drawstyle='steps')
-        ax4.plot(y_edges[:-1], y_values + y_values_rem, label='Total hits', drawstyle='steps', color='black')
+        ax4.plot(y_edges, y_values, label='Kept hits', drawstyle='steps')
+        ax4.plot(y_edges, y_values_rem, label='Removed hits', drawstyle='steps')
+        ax4.plot(y_edges, y_values + y_values_rem, label='Total hits', drawstyle='steps', color='black')
 
         if self.default_folder == 'curvy_pong':
             ax4.axvline(x=-self.params['width']/2, c='r')
@@ -477,14 +481,14 @@ class ScanPattern():
 
         # bin line plot (#2)
         ax5 = plt.subplot2grid((4, 4), (3, 2), colspan=2)
-        bin_index = round(x_edges[-1]/pixel_scale/2)
+        bin_index = round(x_max/pixel_scale/2)
         bin_edge = x_edges[bin_index]
         y_values = hist[bin_index]
         y_values_rem = hist_rem[bin_index]
 
-        ax5.plot(y_edges[:-1], y_values, label='Kept hits', drawstyle='steps')
-        ax5.plot(y_edges[:-1], y_values_rem, label='Removed hits', drawstyle='steps')
-        ax5.plot(y_edges[:-1], y_values + y_values_rem, label='Total hits', drawstyle='steps', color='black')
+        ax5.plot(y_edges, y_values, label='Kept hits', drawstyle='steps')
+        ax5.plot(y_edges, y_values_rem, label='Removed hits', drawstyle='steps')
+        ax5.plot(y_edges, y_values + y_values_rem, label='Total hits', drawstyle='steps', color='black')
 
         if self.default_folder == 'curvy_pong':
             ax5.axvline(x=-self.params['width']/2, c='r')
@@ -505,6 +509,9 @@ class ScanPattern():
             ax_coord[0].set_aspect('equal', 'box')
             ax_coord[0].set(xlabel='Right Ascension (degrees)', ylabel='Declination (degrees)', title='RA/DEC')
             ax_coord[0].grid()
+            if self.default_folder == 'daisy':
+                circle = patches.Circle((0, 0, self.params['R0']), linewidth=1, edgecolor='r', facecolor='none')
+                ax_coord[0].add_patch(circle)
 
             if 'az_coord' in self.data.columns and 'alt_coord' in self.data.columns:
                 ax_coord[1].plot(self.data['az_coord'], self.data['alt_coord'])
@@ -867,8 +874,8 @@ class Daisy(ScanPattern):
 
         xval = [] # x,y arrays for plotting 
         yval = [] 
-        x_vel = [] # speed array for plotting 
-        y_vel = []
+        #x_vel = [] # speed array for plotting 
+        #y_vel = []
 
         (vx, vy) = (1.0, 0.0) # Tangent vector & start value
         (x, y) = (0.0, y) # Position vector & start value
@@ -911,31 +918,32 @@ class Daisy(ScanPattern):
             # Store result for plotting and statistics
             xval.append(x)
             yval.append(y)
-            x_vel.append(speed*vx)
-            y_vel.append(speed*vy)
+            #x_vel.append(speed*vx)
+            #y_vel.append(speed*vy)
 
         # Compute arrays for plotting 
-        """x_vel = self._central_diff(xval)
+        xval = np.array(xval)
+        yval = np.array(yval)
+        #x_vel = np.array(x_vel)
+        #y_vel = np.array(y_vel)
+
+        x_vel = self._central_diff(xval)
         x_acc = self._central_diff(x_vel)
         x_jerk = self._central_diff(x_acc)
 
         y_vel = self._central_diff(yval)
         y_acc = self._central_diff(y_vel)
-        y_jerk = self._central_diff(y_acc)"""
+        y_jerk = self._central_diff(y_acc)
 
-        xval = np.array(xval)
-        yval = np.array(yval)
-        x_vel = np.array(x_vel)
-        y_vel = np.array(y_vel)
 
-        ax = -2*xval[1: -1] + xval[0:-2] + xval[2:] # numerical acc in x 
+        """ax = -2*xval[1: -1] + xval[0:-2] + xval[2:] # numerical acc in x 
         ay = -2*yval[1: -1] + yval[0:-2] + yval[2:] # numerical acc in y 
         x_acc = np.append(np.array([0]), ax/dt/dt)
         y_acc = np.append(np.array([0]), ay/dt/dt)
         x_acc = np.append(x_acc, 0)
         y_acc = np.append(y_acc, 0)
         x_jerk = self._central_diff(x_acc)
-        y_jerk = self._central_diff(y_acc)
+        y_jerk = self._central_diff(y_acc)"""
 
         return pd.DataFrame({
             'time_offset': np.arange(0, T, dt), 
@@ -1014,7 +1022,9 @@ if __name__ == '__main__':
     pr.enable()
 
     """scan = CurvyPong(num_terms=5, width=2, height=7000*u.arcsec, spacing='500 arcsec', velocity='1000 arcsec/s', sample_interval=0.2)
-    #scan = CurvyPong('ra0dec0alt30_20011209.csv')
+        scan = Daisy(speed=1000*u.arcsec/u.s, acc=0.2*u.deg/u.s/u.s, R0=1*u.deg, Rt=1*u.deg, Ra=1/4*u.deg, T=720*u.s, sample_interval=1/40*u.s)
+        scan.set_setting(ra=0, dec=0, alt=30, date='2001-12-09')
+        scan.to_csv('daisy_less.csv')
     """
 
     """compare_num_terms(
@@ -1023,12 +1033,11 @@ if __name__ == '__main__':
         vmax1=900,vmax2=350,vmax3=900
     )"""
 
-    #scan = Daisy(speed=1000*u.arcsec/u.s, acc=0.2*u.deg/u.s/u.s, R0=1*u.deg, Rt=1*u.deg, Ra=1/4*u.deg, T=720*u.s, sample_interval=1/40*u.s)
-    #scan.set_setting(ra=0, dec=0, alt=30, date='2001-12-09')
-    #scan.to_csv('daisy_less.csv')
-    scan = Daisy('daisy_less.csv')
-    #scan.plot()
-    scan.hitmap(plate_scale=52*u.arcsec, pixel_scale=10*u.arcsec, max_acc=None)
+    #scan = Daisy('ra0dec0alt30_20011209.csv')
+    scan = Daisy(speed=1/3*u.deg/u.s, acc=1*u.deg/u.s/u.s, R0=1400*u.arcsec, Rt=1400*u.arcsec, Ra=500*u.arcsec, T=360*u.s, sample_interval=1/40*u.s)
+    scan.set_setting(ra=0, dec=0, alt=30, date='2001-12-09')
+    scan.plot()
+    #scan.hitmap(plate_scale=52*u.arcsec, pixel_scale=10*u.arcsec, max_acc=0.2*u.deg/u.s)
 
     pr.disable()
     s = io.StringIO()
