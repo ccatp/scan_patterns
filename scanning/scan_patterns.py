@@ -1,9 +1,5 @@
 import os
 import warnings 
-import sys
-import cProfile
-import pstats
-import io
 
 import math
 from math import pi, sin, cos, tan, sqrt, radians, degrees, ceil
@@ -274,7 +270,6 @@ class ScanPattern():
         print('\nnumber of timestamps:', num_ts)
 
         num_detectors = len(x_pixel)
-        print('total number of detector pixels =', num_detectors)
 
         # sort all positions with individual detector offset into a 2D histogram
 
@@ -330,7 +325,7 @@ class ScanPattern():
             y_coord_rem = np.array([])
             rot_angle_rem = np.array([])
         else:
-            max_acc = u.Quantity(max_acc, u.deg/u.s).value
+            max_acc = u.Quantity(max_acc, u.deg/u.s/u.s).value
             total_acc = np.sqrt(self.data['x_acc']**2 + self.data['y_acc']**2)
             mask = total_acc < max_acc
 
@@ -360,11 +355,13 @@ class ScanPattern():
             y_pixel = np.append(y_pixel, y)
 
         dist_btwn_detectors = math.sqrt((x_pixel[0] - x_pixel[1])**2 + (y_pixel[0] - y_pixel[1])**2)
-        print('pixel_size =', dist_btwn_detectors)
         x_pixel = x_pixel/dist_btwn_detectors*plate_scale 
         y_pixel = y_pixel/dist_btwn_detectors*plate_scale 
         
         # define bin edges
+        #farthest_pixel = max(np.sqrt(x_pixel**2 + y_pixel**2)) + max(np.sqrt(self.data['x_coord']**2 + self.data['y_coord']**2)) # use diagonal for extra space in plot
+        #divmod(2*farthest_pixel, pixel_size)
+
         x_max = 3 #FIXME '
         y_max = 3
         num_xbins = ceil(2*x_max/pixel_size)
@@ -1013,36 +1010,4 @@ def compare_num_terms(first=2, last=5, **kwargs): # FIXME from param_csv or data
     fig_xjerk.tight_layout()"""
 
     #plt.show()
-
-
-# ------------------------
-
-if __name__ == '__main__':
-    pr = cProfile.Profile()
-    pr.enable()
-
-    """scan = CurvyPong(num_terms=5, width=2, height=7000*u.arcsec, spacing='500 arcsec', velocity='1000 arcsec/s', sample_interval=0.2)
-        scan = Daisy(speed=1000*u.arcsec/u.s, acc=0.2*u.deg/u.s/u.s, R0=1*u.deg, Rt=1*u.deg, Ra=1/4*u.deg, T=720*u.s, sample_interval=1/40*u.s)
-        scan.set_setting(ra=0, dec=0, alt=30, date='2001-12-09')
-        scan.to_csv('daisy_less.csv')
-    """
-
-    """compare_num_terms(
-        plate_scale=52*u.arcsec, pixel_scale=10*u.arcsec, max_acc=0.2*u.deg/u.s, 
-        width=2*u.deg, height=2*u.deg, spacing=500*u.arcsec, velocity=1/3/sqrt(2)*u.deg/u.s, sample_interval=0.0025*u.s,
-        vmax1=900,vmax2=350,vmax3=900
-    )"""
-
-    #scan = Daisy('ra0dec0alt30_20011209.csv')
-    scan = Daisy(speed=1/3*u.deg/u.s, acc=1*u.deg/u.s/u.s, R0=1400*u.arcsec, Rt=1400*u.arcsec, Ra=500*u.arcsec, T=360*u.s, sample_interval=1/40*u.s)
-    scan.set_setting(ra=0, dec=0, alt=30, date='2001-12-09')
-    scan.plot()
-    #scan.hitmap(plate_scale=52*u.arcsec, pixel_scale=10*u.arcsec, max_acc=0.2*u.deg/u.s)
-
-    pr.disable()
-    s = io.StringIO()
-    ps = pstats.Stats(pr, stream=s).sort_stats('cumtime')
-    ps.print_stats()
-    with open('delete/1.txt', 'w+') as f:
-        f.write(s.getvalue())
 
