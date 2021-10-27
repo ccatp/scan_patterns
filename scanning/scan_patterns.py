@@ -1,5 +1,6 @@
 import os
 import warnings 
+import copy
 
 import math
 from math import pi, sin, cos, tan, sqrt, radians, degrees, ceil
@@ -362,8 +363,8 @@ class ScanPattern():
         #farthest_pixel = max(np.sqrt(x_pixel**2 + y_pixel**2)) + max(np.sqrt(self.data['x_coord']**2 + self.data['y_coord']**2)) # use diagonal for extra space in plot
         #divmod(2*farthest_pixel, pixel_size)
 
-        x_max = 3 #FIXME '
-        y_max = 3
+        x_max = 1.5 #FIXME '
+        y_max = 1.5
         num_xbins = ceil(2*x_max/pixel_size)
         num_ybins = ceil(2*y_max/pixel_size)
 
@@ -378,10 +379,24 @@ class ScanPattern():
         
         # -- PLOTTING --
 
+        print()
         fig = plt.figure(1)
         vmax1 = kwargs.get('vmax1')
         vmax2 = kwargs.get('vmax2')
         vmax3 = kwargs.get('vmax3')
+
+        # mini hitmap
+        x_edges = np.linspace(-x_max, x_max, num_xbins)
+        y_edges = np.linspace(-y_max, y_max, num_ybins)
+        pixel_scale = kwargs.get('pixel_scale').to(u.deg).value
+
+        mini_size = kwargs.get('mini_size')
+        if not mini_size is None:
+            mini_size = int(mini_size/2)
+            bin_index = int(x_max/pixel_scale)
+            bin_indey = int(y_max/pixel_scale)
+            print(f'({x_edges[bin_index-mini_size]}, {x_edges[bin_index+mini_size]}) ({y_edges[bin_indey-mini_size]}, {y_edges[bin_indey+mini_size]})')
+            field_mini = patches.Rectangle((x_edges[bin_index-mini_size], y_edges[bin_indey-mini_size]), 2*mini_size*pixel_scale, 2*mini_size*pixel_scale, linewidth=1, edgecolor='r', facecolor='r')
 
         # plot histogram (kept)
         ax1 = plt.subplot2grid((4, 4), (0, 0), rowspan=3)
@@ -392,13 +407,27 @@ class ScanPattern():
 
         if self.default_folder == 'curvy_pong':
             field = patches.Rectangle((-self.params['width']/2, -self.params['height']/2), width=self.params['width'], height=self.params['height'], linewidth=1, edgecolor='r', facecolor='none') 
-            ax1.add_patch(field)
+        elif self.default_folder == 'daisy':
+            field = patches.Circle((0, 0), self.params['R0']/3600, linewidth=0.5, edgecolor='r', facecolor='none', ls='dashed') 
+        ax1.add_patch(field)
         ax1.axvline(x=0, c='black')
         ax1.axhline(y=0, c='black')
 
         divider1 = make_axes_locatable(ax1)
         cax1 = divider1.append_axes("bottom", size="3%", pad=0.5)
         fig.colorbar(pcm, cax=cax1, orientation='horizontal')
+
+        if not mini_size is None:
+            ax1.add_patch(copy.copy(field_mini))
+            mini_hist = hist[bin_index-mini_size:bin_index+mini_size, bin_indey-mini_size:bin_indey+mini_size].flatten()
+            orig_hist_sum = int(sum(hist.flatten()))
+            total_hits = f'hits= {round(sum(mini_hist)/orig_hist_sum*100, 2)}% of {orig_hist_sum}'
+            average_hits = f'hit avg = {round(np.mean(mini_hist), 2)}'
+            std_hits = f'std dev = {round(np.std(mini_hist), 2)}'
+            textstr = total_hits + '\n' + average_hits + ', ' + std_hits
+            props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+            #ax1.text(0.1, 0.9, textstr, transform=ax1.transAxes, bbox=props)
+            print(textstr)
 
         # plot histogram (removed)
         ax2 = plt.subplot2grid((4, 4), (0, 1), rowspan=3)
@@ -409,7 +438,9 @@ class ScanPattern():
 
         if self.default_folder == 'curvy_pong':
             field = patches.Rectangle((-self.params['width']/2, -self.params['height']/2), width=self.params['width'], height=self.params['height'], linewidth=1, edgecolor='r', facecolor='none') 
-            ax2.add_patch(field)
+        elif self.default_folder == 'daisy':
+            field = patches.Circle((0, 0), self.params['R0']/3600, linewidth=0.5, edgecolor='r', facecolor='none', ls='dashed') 
+        ax2.add_patch(field)
         ax2.axvline(x=0, c='black')
         ax2.axhline(y=0, c='black')
 
@@ -417,19 +448,34 @@ class ScanPattern():
         cax2 = divider2.append_axes("bottom", size="3%", pad=0.5)
         fig.colorbar(pcm, cax=cax2, orientation='horizontal')
 
+        if not mini_size is None:
+            ax2.add_patch(copy.copy(field_mini))
+            mini_hist = hist_rem[bin_index-mini_size:bin_index+mini_size, bin_indey-mini_size:bin_indey+mini_size].flatten()
+            orig_hist_sum = int(sum(hist_rem.flatten()))
+            total_hits = f'hits= {round(sum(mini_hist)/orig_hist_sum*100, 2)}% of {orig_hist_sum}'
+            average_hits = f'hit avg = {round(np.mean(mini_hist), 2)}'
+            std_hits = f'std dev = {round(np.std(mini_hist), 2)}'
+            textstr = total_hits + '\n' + average_hits + ', ' + std_hits
+            props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+            #ax2.text(0.1, 0.9, textstr, transform=ax2.transAxes, bbox=props)
+            print(textstr)
+
         # plot histogram (combined)
         ax3 = plt.subplot2grid((4, 4), (0, 2), rowspan=3)
-        pcm = ax3.imshow((hist + hist_rem).T, extent=[-x_max, x_max, -y_max, y_max], vmin=0, vmax=vmax1, interpolation='nearest', origin='lower')
+        hist_comb = hist + hist_rem
+        pcm = ax3.imshow(hist_comb.T, extent=[-x_max, x_max, -y_max, y_max], vmin=0, vmax=vmax3, interpolation='nearest', origin='lower')
         ax3.set_aspect('equal', 'box')
         ax3.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
         ax3.set_title('Total hits per pixel')
 
         if self.default_folder == 'curvy_pong':
             field = patches.Rectangle((-self.params['width']/2, -self.params['height']/2), width=self.params['width'], height=self.params['height'], linewidth=1, edgecolor='r', facecolor='none') 
-            ax3.add_patch(field)
-        ax3.scatter(self.data['x_coord'], self.data['y_coord'], color='black', s=0.001)
+        elif self.default_folder == 'daisy':
+            field = patches.Circle((0, 0), self.params['R0']/3600, linewidth=0.5, edgecolor='r', facecolor='none', ls='dashed') 
+        ax3.add_patch(field)
         ax3.axvline(x=0, c='black')
         ax3.axhline(y=0, c='black')
+        #ax3.scatter(self.data['x_coord'], self.data['y_coord'], color='red', s=1)
 
         divider2 = make_axes_locatable(ax3)
         cax3 = divider2.append_axes("bottom", size="3%", pad=0.5)
@@ -437,10 +483,19 @@ class ScanPattern():
 
         kept_hits = sum(map(sum, hist))
         removed_hits = sum(map(sum, hist_rem))
-        print(f'{removed_hits}/{kept_hits + removed_hits}')
-        textstr = f'{round(removed_hits/(kept_hits+removed_hits)*100, 2)}% hits lost'
-        props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-        ax3.text(0.1, 0.9, textstr, transform=ax3.transAxes, bbox=props)
+        print(f'EFFICIENCY = {kept_hits}/{kept_hits + removed_hits} = {round(kept_hits/(kept_hits+removed_hits)*100, 2)}%')
+
+        if not mini_size is None:
+            ax3.add_patch(copy.copy(field_mini))
+            mini_hist = hist_comb[bin_index-mini_size:bin_index+mini_size, bin_indey-mini_size:bin_indey+mini_size].flatten()
+            orig_hist_sum = int(sum(hist_comb.flatten()))
+            total_hits = f'hits={round(sum(mini_hist)/orig_hist_sum*100, 2)}% of {orig_hist_sum}'
+            average_hits = f'hit avg={round(np.mean(mini_hist), 2)}'
+            std_hits = f'std dev={round(np.std(mini_hist), 2)}'
+            textstr = total_hits + '\n' + average_hits + ', ' + std_hits
+            props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+            #ax3.text(0.1, 0.9, textstr, transform=ax3.transAxes, bbox=props)
+            print(textstr)
 
         # plot detector pixel positions
         rot = u.Quantity(kwargs.get('rot', 0), u.rad).value
@@ -454,11 +509,6 @@ class ScanPattern():
         cax6.axis('off')
 
         # bin line plot (#1)
-        x_edges = np.linspace(-x_max, x_max, num_xbins)
-        y_edges = np.linspace(-y_max, y_max, num_ybins)
-
-        pixel_scale = kwargs.get('pixel_scale').to(u.deg).value
-
         ax4 = plt.subplot2grid((4, 4), (3, 0), colspan=2)
         bin_index = round(x_max/pixel_scale)
         bin_edge = x_edges[bin_index]
@@ -498,22 +548,29 @@ class ScanPattern():
         plt.show()
 
     def plot(self, graphs=['coord', 'coord-time', 'vel', 'acc', 'jerk']):
-        setting = None
         
         if 'coord' in graphs:
             fig_coord, ax_coord = plt.subplots(1, 2)
-            ax_coord[0].plot(self.data['x_coord'], self.data['y_coord'])
+            ax_coord[0].plot(self.data['x_coord'], self.data['y_coord'], linewidth=0.5)
             ax_coord[0].set_aspect('equal', 'box')
-            ax_coord[0].set(xlabel='Right Ascension (degrees)', ylabel='Declination (degrees)', title='RA/DEC')
+            ax_coord[0].set(xlabel='Right Ascension (degrees)', ylabel='Declination (degrees)', title='RA/DEC', ylim=(-0.8, 0.8), xlim=(-0.8, 0.8))
             ax_coord[0].grid()
             if self.default_folder == 'daisy':
-                circle = patches.Circle((0, 0, self.params['R0']), linewidth=1, edgecolor='r', facecolor='none')
-                ax_coord[0].add_patch(circle)
+                n=100
+                circle1_x = [math.cos(2*pi/n*x)*self.params['R0']/3600 for x in range(0,n+1)]
+                circle1_y = [math.sin(2*pi/n*x)*self.params['R0']/3600 for x in range(0,n+1)]
+                ax_coord[0].plot(circle1_x, circle1_y, linewidth=2, color='r', ls='--', label='R0')
+
+                circle1_x = [math.cos(2*pi/n*x)*self.params['Ra']/3600 for x in range(0,n+1)]
+                circle1_y = [math.sin(2*pi/n*x)*self.params['Ra']/3600 for x in range(0,n+1)]
+                ax_coord[0].plot(circle1_x, circle1_y, linewidth=2, color='r', label='Ra')
+                
+                ax_coord[0].legend(loc='upper right')
 
             if 'az_coord' in self.data.columns and 'alt_coord' in self.data.columns:
                 ax_coord[1].plot(self.data['az_coord'], self.data['alt_coord'])
                 ax_coord[1].set_aspect('equal', 'box')
-                ax_coord[1].set(xlabel='Azimuth (degrees)', ylabel='Altitude (degrees)', title=f'AZ/ALT {setting}')
+                ax_coord[1].set(xlabel='Azimuth (degrees)', ylabel='Altitude (degrees)', title=f'AZ/ALT')
                 ax_coord[1].grid()
 
             fig_coord.tight_layout()
@@ -524,14 +581,14 @@ class ScanPattern():
             ax_coord_time[0].plot(self.data['time_offset'], self.data['x_coord'], label='RA')
             ax_coord_time[0].plot(self.data['time_offset'], self.data['y_coord'], label='DEC')
             ax_coord_time[0].legend(loc='upper right')
-            ax_coord_time[0].set(xlabel='time offset (s)', ylabel='Position offset (deg)', title='RA/DEC Position')
+            ax_coord_time[0].set(xlabel='time offset (s)', ylabel='Position offset (deg)', title=f'Position', ylim=(-0.75, 0.75))
             ax_coord_time[0].grid()
 
             if 'az_coord' in self.data.columns and 'alt_coord' in self.data.columns:
                 ax_coord_time[1].plot(self.data['time_offset'], (self.data['az_coord'] - self.data.loc[0, 'az_coord'])*cos(pi/6), label='AZ')
                 ax_coord_time[1].plot(self.data['time_offset'], self.data['alt_coord'] - self.data.loc[0, 'alt_coord'], label='ALT')
                 ax_coord_time[1].legend(loc='upper right')
-                ax_coord_time[1].set(xlabel='time offset (s)', ylabel='Position offset (deg)', title=f'AZ/ALT {setting}')
+                ax_coord_time[1].set(xlabel='time offset (s)', ylabel='Position offset (deg)', title=f'AZ/ALT')
                 ax_coord_time[1].grid()
 
             fig_coord_time.tight_layout()
@@ -542,9 +599,9 @@ class ScanPattern():
             total_vel = np.sqrt(self.data['x_vel']**2 + self.data['y_vel']**2)
             ax_vel[0].plot(self.data['time_offset'], total_vel, label='Total', c='black', ls='dashed', alpha=0.25)
             ax_vel[0].plot(self.data['time_offset'], self.data['x_vel'], label='RA')
-            ax_vel[0].plot(self.data['time_offset'], self.data['y_vel'], label='DEC')
+            #ax_vel[0].plot(self.data['time_offset'], self.data['y_vel'], label='DEC')
             ax_vel[0].legend(loc='upper right')
-            ax_vel[0].set(xlabel='time offset (s)', ylabel='velocity (deg/s)', title='RA/DEC Velocity')
+            ax_vel[0].set(xlabel='time offset (s)', ylabel='velocity (deg/s)', title=f'Velocity')
             ax_vel[0].grid()
 
             if 'az_vel' in self.data.columns and 'alt_vel' in self.data.columns:
@@ -553,7 +610,7 @@ class ScanPattern():
                 ax_vel[1].plot(self.data['time_offset'], self.data['az_vel'], label='AZ')
                 ax_vel[1].plot(self.data['time_offset'], self.data['alt_vel'], label='ALT')
                 ax_vel[1].legend(loc='upper right')
-                ax_vel[1].set(xlabel='time offset (s)', ylabel='velocity (deg/s)', title=f'AZ/ALT {setting}')
+                ax_vel[1].set(xlabel='time offset (s)', ylabel='velocity (deg/s)', title=f'AZ/ALT')
                 ax_vel[1].grid()
 
             fig_vel.tight_layout()
@@ -564,9 +621,9 @@ class ScanPattern():
             total_acc = np.sqrt(self.data['x_acc']**2 + self.data['y_acc']**2)
             ax_acc[0].plot(self.data['time_offset'], total_acc, label='Total', c='black', ls='dashed', alpha=0.25)
             ax_acc[0].plot(self.data['time_offset'], self.data['x_acc'], label='RA')
-            ax_acc[0].plot(self.data['time_offset'], self.data['y_acc'], label='DEC')
+            #ax_acc[0].plot(self.data['time_offset'], self.data['y_acc'], label='DEC')
             ax_acc[0].legend(loc='upper right')
-            ax_acc[0].set(xlabel='time offset (s)', ylabel='acceleration (deg/s^2)', title='RA/DEC Acceleration')
+            ax_acc[0].set(xlabel='time offset (s)', ylabel='acceleration (deg/s^2)', title=f'Acceleration')
             ax_acc[0].grid()
 
             if 'az_acc' in self.data.columns and 'alt_acc' in self.data.columns:
@@ -575,7 +632,7 @@ class ScanPattern():
                 ax_acc[1].plot(self.data['time_offset'], self.data['az_acc'], label='AZ')
                 ax_acc[1].plot(self.data['time_offset'], self.data['alt_acc'], label='ALT')
                 ax_acc[1].legend(loc='upper right')
-                ax_acc[1].set(xlabel='time offset (s)', ylabel='acceleration (deg/s^2)', title=f'AZ/ALT {setting}')
+                ax_acc[1].set(xlabel='time offset (s)', ylabel='acceleration (deg/s^2)', title=f'AZ/ALT')
                 ax_acc[1].grid()
 
             fig_acc.tight_layout()
@@ -585,10 +642,10 @@ class ScanPattern():
 
             total_jerk = np.sqrt(self.data['x_jerk']**2 + self.data['y_jerk']**2)
             ax_jerk[0].plot(self.data['time_offset'], self.data['x_jerk'], label='RA')
-            ax_jerk[0].plot(self.data['time_offset'], self.data['y_jerk'], label='DEC')
+            #ax_jerk[0].plot(self.data['time_offset'], self.data['y_jerk'], label='DEC')
             ax_jerk[0].plot(self.data['time_offset'], total_jerk, label='Total', c='black', ls='dashed', alpha=0.25)
             ax_jerk[0].legend(loc='upper right')
-            ax_jerk[0].set(xlabel='time offset (s)', ylabel='Jerk (deg/s^2)', title='RA/DEC Jerk')
+            ax_jerk[0].set(xlabel='time offset (s)', ylabel='Jerk (deg/s^2)', title=f'Jerk')
             ax_jerk[0].grid()
 
             if 'az_jerk' in self.data.columns and 'alt_jerk' in self.data.columns:
@@ -597,7 +654,7 @@ class ScanPattern():
                 ax_jerk[1].plot(self.data['time_offset'], self.data['alt_jerk'], label='ALT')
                 ax_jerk[1].plot(self.data['time_offset'], total_jerk, label='Total', c='black', ls='dashed', alpha=0.25)
                 ax_jerk[1].legend(loc='upper right')
-                ax_jerk[1].set(xlabel='time offset (s)', ylabel='Jerk (deg/s^2)', title=f'AZ/ALT {setting})')
+                ax_jerk[1].set(xlabel='time offset (s)', ylabel='Jerk (deg/s^2)', title=f'AZ/ALT')
                 ax_jerk[1].grid()
 
             fig_jerk.tight_layout()
@@ -871,13 +928,13 @@ class Daisy(ScanPattern):
 
         xval = [] # x,y arrays for plotting 
         yval = [] 
-        #x_vel = [] # speed array for plotting 
-        #y_vel = []
+        x_vel = [] # speed array for plotting 
+        y_vel = []
 
         (vx, vy) = (1.0, 0.0) # Tangent vector & start value
         (x, y) = (0.0, y) # Position vector & start value
         N = int(T/dt) + 1 # number of steps 
-        R1 = min(R0, Ra) # Effective avoidance radius so Ra is not used if Ra > R0 
+        #R1 = min(R0, Ra) # Effective avoidance radius so Ra is not used if Ra > R0 
 
         s0 = speed 
         speed = 0 # set start speed 
@@ -894,7 +951,8 @@ class Daisy(ScanPattern):
                 y += vy*speed*dt 
             else: 
                 (xn,yn) = (x/r,y/r) # Compute unit radial vector 
-                if (-xn*vx - yn*vy) > sqrt(1 - R1*R1/r/r): # If aming close to center 
+                #if (-xn*vx - yn*vy) > 1/sqrt(1 + (Ra/r)**2):
+                if (-xn*vx - yn*vy) > sqrt(1 - Ra*Ra/r/r): # If aiming close to center 
                     x += vx*speed*dt # resume straight motion 
                     y += vy*speed*dt 
                 else: 
@@ -915,23 +973,22 @@ class Daisy(ScanPattern):
             # Store result for plotting and statistics
             xval.append(x)
             yval.append(y)
-            #x_vel.append(speed*vx)
-            #y_vel.append(speed*vy)
+            x_vel.append(speed*vx)
+            y_vel.append(speed*vy)
 
         # Compute arrays for plotting 
         xval = np.array(xval)
         yval = np.array(yval)
-        #x_vel = np.array(x_vel)
-        #y_vel = np.array(y_vel)
+        x_vel = np.array(x_vel)
+        y_vel = np.array(y_vel)
 
-        x_vel = self._central_diff(xval)
+        #x_vel = self._central_diff(xval)
         x_acc = self._central_diff(x_vel)
         x_jerk = self._central_diff(x_acc)
 
-        y_vel = self._central_diff(yval)
+        #y_vel = self._central_diff(yval)
         y_acc = self._central_diff(y_vel)
         y_jerk = self._central_diff(y_acc)
-
 
         """ax = -2*xval[1: -1] + xval[0:-2] + xval[2:] # numerical acc in x 
         ay = -2*yval[1: -1] + yval[0:-2] + yval[2:] # numerical acc in y 
@@ -955,6 +1012,93 @@ class Daisy(ScanPattern):
 # PLOTTING FUNCTIONS
 # ------------------------
 
+def compare_daisy(*args, **kwargs):
+    num_subplots = len(args)
+    num_col = 2
+    num_row = ceil(num_subplots/num_col)
+
+    fig_coord, ax_coord = plt.subplots(num_row, num_col, sharex=True, sharey=True)
+    fig_xcoord, ax_xcoord = plt.subplots(num_row, num_col, sharex=True, sharey=True)
+    fig_xvel, ax_xvel = plt.subplots(num_row, num_col, sharex=True, sharey=True)
+    fig_xacc, ax_xacc = plt.subplots(num_row, num_col, sharex=True, sharey=True)
+    fig_xjerk, ax_xjerk = plt.subplots(num_row, num_col, sharex=True, sharey=True)
+
+    for i, arg in enumerate(args):
+        R0 = arg[0]
+        Ra = arg[1]
+        kwargs['R0'] = R0
+        kwargs['Ra'] = Ra
+
+        scan = Daisy(**kwargs)
+        row = math.floor(i/2)
+        col = i%2
+
+        Ra_str = '1/6 deg' if Ra.value == 600 else '1/3 deg'
+        title = f'R0={R0}, Ra={Ra_str}'
+        R0 = u.Quantity(R0, u.deg).value
+        Ra = u.Quantity(Ra, u.deg).value
+
+        #scan.set_setting(ra=0, dec=0, alt=30, date='2001-12-09')
+        #scan.hitmap(plate_scale=52*u.arcsec, pixel_scale=10*u.arcsec, max_acc=0.25*u.deg/u.s/u.s, mini_size=30, vmax1=3500, vmax2=3500, vmax3=5500)
+
+        # coord
+        ax_coord[row, col].plot(scan.data['x_coord'], scan.data['y_coord'], linewidth=0.25)
+        ax_coord[row, col].set_title(title)
+        ax_coord[row, col].set(xlabel='x offset [deg]', ylabel='y offset [deg]')
+        ax_coord[row, col].set_aspect('equal', 'box')
+        ax_coord[row, col].grid()
+                
+        n=100
+        circle1_x = [math.cos(2*pi/n*x)*R0 for x in range(0,n+1)]
+        circle1_y = [math.sin(2*pi/n*x)*R0 for x in range(0,n+1)]
+        ax_coord[row, col].plot(circle1_x, circle1_y, linewidth=2, color='r', ls='--', label='R0')
+        circle1_x = [math.cos(2*pi/n*x)*Ra for x in range(0,n+1)]
+        circle1_y = [math.sin(2*pi/n*x)*Ra for x in range(0,n+1)]
+        ax_coord[row, col].plot(circle1_x, circle1_y, linewidth=2, color='r', label='Ra')
+        ax_coord[row, col].legend(loc='upper right')
+
+        # time vs coord 
+        ax_xcoord[row, col].plot(scan.data['time_offset'], scan.data['x_coord'], label='x')
+        ax_xcoord[row, col].set_title(title)
+        ax_xcoord[row, col].set(xlabel='time offset [s]', ylabel='Position offset [deg]')
+        ax_xcoord[row, col].grid()
+        ax_xcoord[row, col].legend(loc='upper right')
+
+        # velocity
+        total_vel = np.sqrt(scan.data['x_vel']**2 + scan.data['y_vel']**2)
+        ax_xvel[row, col].plot(scan.data['time_offset'], scan.data['x_vel'], label='x')
+        ax_xvel[row, col].plot(scan.data['time_offset'], total_vel, label='total', c='black', ls='dashed', alpha=0.5)
+        ax_xvel[row, col].set_title(title)
+        ax_xvel[row, col].set(xlabel='time offset [s]', ylabel='Velocity [deg/s]')
+        ax_xvel[row, col].grid()
+        ax_xvel[row, col].legend(loc='upper right')
+
+        # acc
+        total_acc = np.sqrt(scan.data['x_acc']**2 + scan.data['y_acc']**2)
+        ax_xacc[row, col].plot(scan.data['time_offset'], scan.data['x_acc'], label='x')
+        ax_xacc[row, col].plot(scan.data['time_offset'], total_acc, label='total', c='black', ls='dashed', alpha=0.5)
+        ax_xacc[row, col].set_title(title)
+        ax_xacc[row, col].set(xlabel='time offset [s]', ylabel='Acceleration [deg/s^2]')
+        ax_xacc[row, col].grid()
+        ax_xacc[row, col].legend(loc='upper right')
+
+        # jerk
+        #total_jerk = np.sqrt(scan.data['x_jerk']**2 + scan.data['y_jerk']**2)
+        ax_xjerk[row, col].plot(scan.data['time_offset'], scan.data['x_jerk'], label='x')
+        #ax_xjerk[row, col].plot(scan.data['time_offset'], total_jerk, label='total', c='black', ls='dashed', alpha=0.5)
+        ax_xjerk[row, col].set_title(title)
+        ax_xjerk[row, col].set(xlabel='time offset [s]', ylabel='Jerk [deg/s^3]', ylim=(-1, 1))
+        ax_xjerk[row, col].grid()
+        ax_xjerk[row, col].legend(loc='upper right')
+        
+    fig_coord.tight_layout()
+    fig_xcoord.tight_layout()
+    fig_xvel.tight_layout()
+    fig_xacc.tight_layout()
+    fig_xjerk.tight_layout()
+
+    plt.show()
+        
 def compare_num_terms(first=2, last=5, **kwargs): # FIXME from param_csv or data_csv, pick which plots
     num_subplots = last-first + 1
     num_col = 2
