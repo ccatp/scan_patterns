@@ -21,6 +21,15 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 FYST_LOC = EarthLocation(lat='-22d59m08.30s', lon='-67d44m25.00s', height=5611.8*u.m)
 
 # FIXME everything in deg s --> units in params.csv, arcsec for coord
+# change plate_scale name
+
+class Hitmap():
+    pass
+
+
+# ------------------------
+# SCAN PATTERNS 
+# ------------------------
 
 class ScanPattern():
 
@@ -266,11 +275,25 @@ class ScanPattern():
         x_pixel = kwargs['x_pixel']
         y_pixel = kwargs['y_pixel']
         rot = kwargs['rot']
-        
-        num_ts = len(x_coord)
-        print('\nnumber of timestamps:', num_ts)
 
+        # for detector hitmap
         num_detectors = len(x_pixel)
+        detector_hitmap = 'x_lim' in kwargs.keys()
+        if detector_hitmap:
+            det_hits = np.zeros(num_detectors)
+            det_x_min = kwargs['x_lim'][0]
+            det_x_max = kwargs['x_lim'][1]
+            det_y_min = kwargs['y_lim'][0]
+            det_y_max = kwargs['y_lim'][1]
+
+        # get number of coords 
+        num_ts = len(x_coord)
+        if num_ts == 0:
+            if detector_hitmap:
+                return np.zeros((num_xbins, num_ybins)), det_hits
+            else:
+                return np.zeros((num_xbins, num_ybins))
+        print('\nnumber of timestamps:', num_ts)
 
         # sort all positions with individual detector offset into a 2D histogram
 
@@ -282,29 +305,34 @@ class ScanPattern():
         for chunk in range(ceil(num_ts/chunk_ts)):
 
             if (chunk+1)*chunk_ts <= num_ts:
-                all_x_coords = np.zeros(chunk_ts*num_detectors)
-                all_y_coords = np.zeros(chunk_ts*num_detectors)
+                all_x_coords = np.empty((chunk_ts, num_detectors))
+                all_y_coords = np.empty((chunk_ts, num_detectors))
                 last_sample = chunk_ts
             else:
-                all_x_coords = np.zeros((num_ts - chunk*chunk_ts)*num_detectors)
-                all_y_coords = np.zeros((num_ts - chunk*chunk_ts)*num_detectors)
+                all_x_coords = np.empty((num_ts - chunk*chunk_ts, num_detectors))
+                all_y_coords = np.empty((num_ts - chunk*chunk_ts, num_detectors))
                 last_sample = num_ts - chunk*chunk_ts
 
             start = chunk*chunk_ts
-            end = (chunk+1)*chunk_ts
-            print('last_sample:', last_sample)
+            end = start + last_sample
             print('start:', start, 'end:', end)
             for i, x_coord1, y_coord1, rot1 in zip(range(0, last_sample), x_coord[start:end], y_coord[start:end], np.radians(rot_angle[start:end])):
-                all_x_coords[i*num_detectors: (i+1)*num_detectors] = x_coord1 + x_pixel*cos(rot1 + rot) + y_pixel*sin(rot1 + rot)
-                all_y_coords[i*num_detectors: (i+1)*num_detectors] = y_coord1 - x_pixel*sin(rot1 + rot) + y_pixel*cos(rot1 + rot)
+                all_x_coords[i] = x_coord1 + x_pixel*cos(rot1 + rot) + y_pixel*sin(rot1 + rot)
+                all_y_coords[i] = y_coord1 - x_pixel*sin(rot1 + rot) + y_pixel*cos(rot1 + rot)
 
             hist += histogram2d(all_x_coords, all_y_coords, range=[[-x_max, x_max], [-y_max, y_max]], bins=[num_xbins, num_ybins])
 
-        total_hits = sum(map(sum, hist))
-        print('total hits:', total_hits, num_detectors*num_ts)
-        print('shape:', np.shape(hist), '<->', num_xbins, num_ybins)
+            if detector_hitmap:
+                mask = (all_x_coords >= det_x_min) & (all_x_coords < det_x_max) & (all_y_coords >= det_y_min) & (all_y_coords < det_y_max)
+                det_hits += np.count_nonzero(mask, axis=0)
+        
+        print('total hits for hitmap =', sum(hist.flatten()))
 
-        return hist
+        if detector_hitmap:
+            print('total hits for detector hitmap =', sum(det_hits))
+            return hist, det_hits
+        else:
+            return hist
         
         """total_rot = np.radians(rot_angle[:last_sample] + rot)
         for i, x_off, y_off in zip(range(0, length), x_pixel, y_pixel):
@@ -318,8 +346,8 @@ class ScanPattern():
         
         # remove points with high acceleration 
         if max_acc is None:
-            x_coord = self.data['x_coord'].to_numpy()
-            y_coord = self.data['y_coord'].to_numpy()
+            x_coord = self.data['x_coord'].to_numpy()*3600
+            y_coord = self.data['y_coord'].to_numpy()*3600
             rot_angle = self.data['rot_angle'].to_numpy()
 
             x_coord_rem = np.array([])
@@ -330,17 +358,17 @@ class ScanPattern():
             total_acc = np.sqrt(self.data['x_acc']**2 + self.data['y_acc']**2)
             mask = total_acc < max_acc
 
-            x_coord = self.data.loc[mask, 'x_coord'].to_numpy()
-            y_coord = self.data.loc[mask, 'y_coord'].to_numpy()
+            x_coord = self.data.loc[mask, 'x_coord'].to_numpy()*3600
+            y_coord = self.data.loc[mask, 'y_coord'].to_numpy()*3600
             rot_angle = self.data.loc[mask, 'rot_angle'].to_numpy()
 
-            x_coord_rem = self.data.loc[~mask, 'x_coord'].to_numpy()
-            y_coord_rem = self.data.loc[~mask, 'y_coord'].to_numpy()
+            x_coord_rem = self.data.loc[~mask, 'x_coord'].to_numpy()*3600
+            y_coord_rem = self.data.loc[~mask, 'y_coord'].to_numpy()*3600
             rot_angle_rem = self.data.loc[~mask, 'rot_angle'].to_numpy()
 
         rot = u.Quantity(kwargs.get('rot', 0), u.deg).value
-        plate_scale = u.Quantity(kwargs.get('plate_scale', 52*u.arcsec), u.deg).value
-        pixel_size = u.Quantity(kwargs.get('pixel_size', 10*u.arcsec), u.deg).value
+        plate_scale = u.Quantity(kwargs.get('plate_scale', 52*u.arcsec), u.arcsec).value
+        pixel_size = u.Quantity(kwargs.get('pixel_size', 10*u.arcsec), u.arcsec).value
 
         ROOT = os.path.abspath(os.path.dirname(__file__))
         PIXELPOS_FILES = ['pixelpos1.txt', 'pixelpos2.txt', 'pixelpos3.txt']
@@ -363,8 +391,8 @@ class ScanPattern():
         #farthest_pixel = max(np.sqrt(x_pixel**2 + y_pixel**2)) + max(np.sqrt(self.data['x_coord']**2 + self.data['y_coord']**2)) # use diagonal for extra space in plot
         #divmod(2*farthest_pixel, pixel_size)
 
-        x_max = 1.5 #FIXME '
-        y_max = 1.5
+        x_max = 3600*2 #FIXME '
+        y_max = 3600*2
         num_xbins = ceil(2*x_max/pixel_size)
         num_ybins = ceil(2*y_max/pixel_size)
 
@@ -374,12 +402,27 @@ class ScanPattern():
             'x_pixel': x_pixel, 'y_pixel': y_pixel,
             'rot': rot
         }
-        hist = self._generate_hitmap(x_coord, y_coord, rot_angle, **hitmap_params)
-        hist_rem = self._generate_hitmap(x_coord_rem, y_coord_rem, rot_angle_rem, **hitmap_params)
         
-        # -- PLOTTING --
+        if 'x_lim' in kwargs.keys():
+            hitmap_params['x_lim'] = kwargs['x_lim']
+            hitmap_params['y_lim'] = kwargs['y_lim']
+            hist, det_hits = self._generate_hitmap(x_coord, y_coord, rot_angle, **hitmap_params)
+            hist_rem, det_hits_rem = self._generate_hitmap(x_coord_rem, y_coord_rem, rot_angle_rem, **hitmap_params)
+        else:
+            hist = self._generate_hitmap(x_coord, y_coord, rot_angle, **hitmap_params)
+            hist_rem = self._generate_hitmap(x_coord_rem, y_coord_rem, rot_angle_rem, **hitmap_params)
+        
+        # --------------------------------
+        #            PLOTTING
+        # -------------------------------
 
+        x_pixel /= 3600
+        y_pixel /= 3600
+        x_max /= 3600
+        y_max /= 3600
         print()
+
+        # PLOTTING HITMAP
         fig = plt.figure(1)
         vmax1 = kwargs.get('vmax1')
         vmax2 = kwargs.get('vmax2')
@@ -545,7 +588,68 @@ class ScanPattern():
         ax5.legend(loc='upper right')
 
         fig.tight_layout()
+
+        # PLOTTING DETECTOR HITMAP
+
+        if 'x_lim' in kwargs.keys():
+            fig_det = plt.figure(2)
+            cm = plt.cm.get_cmap('viridis')
+
+            # plot detector elem (total)
+            max_hits = max(det_hits+det_hits_rem)
+
+            det1 = plt.subplot2grid((1, 3), (0, 0))
+            sc = det1.scatter(x_pixel, y_pixel, c=det_hits+det_hits_rem, cmap=cm, vmin=0, vmax=max_hits, s=10)
+            fig_det.colorbar(sc, ax=det1, orientation='horizontal')
+            det1.set_aspect('equal', 'box')
+            det1.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
+            det1.set_title('Total hits per pixel')
+
+            # plot detector elem (kept)
+            det2 = plt.subplot2grid((1, 3), (0, 1))
+            sc = det2.scatter(x_pixel, y_pixel, c=det_hits, cmap=cm, vmin=0, vmax=max_hits, s=10)
+            fig_det.colorbar(sc, ax=det2, orientation='horizontal')
+            det2.set_aspect('equal', 'box')
+            det2.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
+            det2.set_title('Kept hits per pixel')
+
+            # plot detector elem (removed)
+            det3 = plt.subplot2grid((1, 3), (0, 2))
+            sc = det3.scatter(x_pixel, y_pixel, c=det_hits_rem, cmap=cm, vmin=0, vmax=max_hits, s=10)
+            fig_det.colorbar(sc, ax=det3, orientation='horizontal')
+            det3.set_aspect('equal', 'box')
+            det3.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
+            det3.set_title('Removed hits per pixel')
+
+            fig_det.tight_layout()
+
         plt.show()
+
+    def _pixel_position_file(self, **kwargs):
+        plate_scale = u.Quantity(kwargs.get('plate_scale', 52*u.arcsec), u.arcsec).value
+        pixel_size = u.Quantity(kwargs.get('pixel_size', 10*u.arcsec), u.arcsec).value
+
+        ROOT = os.path.abspath(os.path.dirname(__file__))
+        PIXELPOS_FILES = ['pixelpos1.txt', 'pixelpos2.txt', 'pixelpos3.txt']
+        PIXELPOS_FILES = [os.path.join(ROOT, 'data', f) for f in PIXELPOS_FILES]
+        
+        # get pixel positions (convert meters->deg)
+        x_pixel = np.array([])
+        y_pixel = np.array([])
+
+        for f in PIXELPOS_FILES:
+            x, y = np.loadtxt(f, unpack=True)
+            x_pixel = np.append(x_pixel, x)
+            y_pixel = np.append(y_pixel, y)
+
+        dist_btwn_detectors = math.sqrt((x_pixel[0] - x_pixel[1])**2 + (y_pixel[0] - y_pixel[1])**2)
+        x_pixel = x_pixel/dist_btwn_detectors*plate_scale 
+        y_pixel = y_pixel/dist_btwn_detectors*plate_scale
+
+        pixelpos = pd.DataFrame()
+        pixelpos['x_pixel'] = x_pixel
+        pixelpos['y_pixel'] = y_pixel
+        return pixelpos
 
     def plot(self, graphs=['coord', 'coord-time', 'vel', 'acc', 'jerk']):
         
