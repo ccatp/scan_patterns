@@ -4,7 +4,6 @@ import copy
 
 import math
 from math import pi, sin, cos, tan, sqrt, radians, degrees, ceil
-from astropy.units.equivalencies import pixel_scale, plate_scale
 import numpy as np
 import pandas as pd
 from datetime import timezone
@@ -17,6 +16,7 @@ from astropy.coordinates import SkyCoord, EarthLocation, AltAz
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 
 FYST_LOC = EarthLocation(lat='-22d59m08.30s', lon='-67d44m25.00s', height=5611.8*u.m)
 
@@ -275,22 +275,36 @@ class ScanPattern():
         x_pixel = kwargs['x_pixel']
         y_pixel = kwargs['y_pixel']
         rot = kwargs['rot']
+        num_ts = len(x_coord)
 
         # for detector hitmap
         num_detectors = len(x_pixel)
-        detector_hitmap = 'x_lim' in kwargs.keys()
+        detector_hitmap = 'pixels' in kwargs.keys() or 'x_lim' in kwargs.keys()
+
         if detector_hitmap:
             det_hits = np.zeros(num_detectors)
-            det_x_min = kwargs['x_lim'][0]
-            det_x_max = kwargs['x_lim'][1]
-            det_y_min = kwargs['y_lim'][0]
-            det_y_max = kwargs['y_lim'][1]
+            ranged = 'x_lim' in kwargs.keys()
+        
+            if ranged:
+                x_lim = kwargs['x_lim']
+                y_lim = kwargs['y_lim']
+            else:
+                pixel_scale = kwargs['pixel_scale']
+                x_range = []
+                y_range = []
+                for pixel in kwargs['pixels']:
+                    x_min = math.floor(pixel[0]/pixel_scale)*pixel_scale
+                    y_min = math.floor(pixel[1]/pixel_scale)*pixel_scale
+                    x_range.append(x_min)
+                    y_range.append(y_min)
 
-        # get number of coords 
-        num_ts = len(x_coord)
+            # time hist
+            time_hist = np.zeros(num_ts)
+
+        # mostly for removed hits (if there are none)
         if num_ts == 0:
             if detector_hitmap:
-                return np.zeros((num_xbins, num_ybins)), det_hits
+                return np.zeros((num_xbins, num_ybins)), det_hits, time_hist
             else:
                 return np.zeros((num_xbins, num_ybins))
         print('\nnumber of timestamps:', num_ts)
@@ -301,6 +315,7 @@ class ScanPattern():
         chunk_ts = math.floor(MEM_LIMIT/num_detectors)
         hist = np.zeros((num_xbins, num_ybins))
         rot = radians(rot)
+        rot_angle = np.radians(rot_angle)
 
         for chunk in range(ceil(num_ts/chunk_ts)):
 
@@ -316,21 +331,30 @@ class ScanPattern():
             start = chunk*chunk_ts
             end = start + last_sample
             print('start:', start, 'end:', end)
-            for i, x_coord1, y_coord1, rot1 in zip(range(0, last_sample), x_coord[start:end], y_coord[start:end], np.radians(rot_angle[start:end])):
+            for i, x_coord1, y_coord1, rot1 in zip(range(last_sample), x_coord[start:end], y_coord[start:end], rot_angle[start:end]):
                 all_x_coords[i] = x_coord1 + x_pixel*cos(rot1 + rot) + y_pixel*sin(rot1 + rot)
                 all_y_coords[i] = y_coord1 - x_pixel*sin(rot1 + rot) + y_pixel*cos(rot1 + rot)
 
             hist += histogram2d(all_x_coords, all_y_coords, range=[[-x_max, x_max], [-y_max, y_max]], bins=[num_xbins, num_ybins])
 
             if detector_hitmap:
-                mask = (all_x_coords >= det_x_min) & (all_x_coords < det_x_max) & (all_y_coords >= det_y_min) & (all_y_coords < det_y_max)
+                if ranged:
+                    mask = (all_x_coords >= x_lim[0]) & (all_x_coords < x_lim[1]) & (all_y_coords >= y_lim[0]) & (all_y_coords < y_lim[1])
+                else:
+                    mask = False
+                    for x_min, y_min in zip(x_range, y_range):
+                        mask = mask | ( (all_x_coords >= x_min) & (all_x_coords < x_min + pixel_scale) & (all_y_coords >= y_min) & (all_y_coords < y_min + pixel_scale) )
                 det_hits += np.count_nonzero(mask, axis=0)
+
+                # for time hist
+                time_hist[start:end] = np.count_nonzero(mask, axis=1)
         
         print('total hits for hitmap =', sum(hist.flatten()))
 
         if detector_hitmap:
             print('total hits for detector hitmap =', sum(det_hits))
-            return hist, det_hits
+            print('total hits for time_hist =', sum(time_hist))
+            return hist, det_hits, time_hist
         else:
             return hist
         
@@ -361,14 +385,16 @@ class ScanPattern():
             x_coord = self.data.loc[mask, 'x_coord'].to_numpy()*3600
             y_coord = self.data.loc[mask, 'y_coord'].to_numpy()*3600
             rot_angle = self.data.loc[mask, 'rot_angle'].to_numpy()
+            times = self.data.loc[mask, 'time_offset'].to_numpy()
 
             x_coord_rem = self.data.loc[~mask, 'x_coord'].to_numpy()*3600
             y_coord_rem = self.data.loc[~mask, 'y_coord'].to_numpy()*3600
             rot_angle_rem = self.data.loc[~mask, 'rot_angle'].to_numpy()
+            times_rem = self.data.loc[~mask, 'time_offset'].to_numpy()
 
         rot = u.Quantity(kwargs.get('rot', 0), u.deg).value
         plate_scale = u.Quantity(kwargs.get('plate_scale', 52*u.arcsec), u.arcsec).value
-        pixel_size = u.Quantity(kwargs.get('pixel_size', 10*u.arcsec), u.arcsec).value
+        pixel_scale = u.Quantity(kwargs.get('pixel_scale', 10*u.arcsec), u.arcsec).value
 
         ROOT = os.path.abspath(os.path.dirname(__file__))
         PIXELPOS_FILES = ['pixelpos1.txt', 'pixelpos2.txt', 'pixelpos3.txt']
@@ -389,25 +415,29 @@ class ScanPattern():
         
         # define bin edges
         #farthest_pixel = max(np.sqrt(x_pixel**2 + y_pixel**2)) + max(np.sqrt(self.data['x_coord']**2 + self.data['y_coord']**2)) # use diagonal for extra space in plot
-        #divmod(2*farthest_pixel, pixel_size)
+        #divmod(2*farthest_pixel, pixel_scale)
 
         x_max = 3600*2 #FIXME '
         y_max = 3600*2
-        num_xbins = ceil(2*x_max/pixel_size)
-        num_ybins = ceil(2*y_max/pixel_size)
+        num_xbins = ceil(2*x_max/pixel_scale)
+        num_ybins = ceil(2*y_max/pixel_scale)
 
         hitmap_params = {
             'x_max': x_max, 'y_max': y_max,
             'num_xbins': num_xbins, 'num_ybins': num_ybins,
             'x_pixel': x_pixel, 'y_pixel': y_pixel,
-            'rot': rot
+            'rot': rot, 'pixel_scale': pixel_scale
         }
         
-        if 'x_lim' in kwargs.keys():
-            hitmap_params['x_lim'] = kwargs['x_lim']
-            hitmap_params['y_lim'] = kwargs['y_lim']
+        if 'pixels' in kwargs.keys():
+            hitmap_params['pixels'] = kwargs['pixels']
             hist, det_hits = self._generate_hitmap(x_coord, y_coord, rot_angle, **hitmap_params)
             hist_rem, det_hits_rem = self._generate_hitmap(x_coord_rem, y_coord_rem, rot_angle_rem, **hitmap_params)
+        elif 'x_lim' in kwargs.keys():
+            hitmap_params['x_lim'] = kwargs['x_lim']
+            hitmap_params['y_lim'] = kwargs['y_lim']
+            hist, det_hits, time_hist = self._generate_hitmap(x_coord, y_coord, rot_angle, **hitmap_params)
+            hist_rem, det_hits_rem, time_hist_rem = self._generate_hitmap(x_coord_rem, y_coord_rem, rot_angle_rem, **hitmap_params)
         else:
             hist = self._generate_hitmap(x_coord, y_coord, rot_angle, **hitmap_params)
             hist_rem = self._generate_hitmap(x_coord_rem, y_coord_rem, rot_angle_rem, **hitmap_params)
@@ -422,7 +452,8 @@ class ScanPattern():
         y_max /= 3600
         print()
 
-        # PLOTTING HITMAP
+        # ---- PLOTTING HITMAP ----
+
         fig = plt.figure(1)
         vmax1 = kwargs.get('vmax1')
         vmax2 = kwargs.get('vmax2')
@@ -589,39 +620,74 @@ class ScanPattern():
 
         fig.tight_layout()
 
-        # PLOTTING DETECTOR HITMAP
+       # ---- PLOTTING DETECTOR HITMAP ----
 
-        if 'x_lim' in kwargs.keys():
+        if 'pixels' in kwargs.keys() or 'x_lim' in kwargs.keys():
             fig_det = plt.figure(2)
             cm = plt.cm.get_cmap('viridis')
 
             # plot detector elem (total)
             max_hits = max(det_hits+det_hits_rem)
 
-            det1 = plt.subplot2grid((1, 3), (0, 0))
-            sc = det1.scatter(x_pixel, y_pixel, c=det_hits+det_hits_rem, cmap=cm, vmin=0, vmax=max_hits, s=10)
+            det1 = plt.subplot2grid((1, 2), (0, 0))
+            sc = det1.scatter(x_pixel, y_pixel, c=det_hits+det_hits_rem, cmap=cm, vmin=0, vmax=max_hits, s=20)
             fig_det.colorbar(sc, ax=det1, orientation='horizontal')
             det1.set_aspect('equal', 'box')
             det1.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
             det1.set_title('Total hits per pixel')
 
             # plot detector elem (kept)
-            det2 = plt.subplot2grid((1, 3), (0, 1))
-            sc = det2.scatter(x_pixel, y_pixel, c=det_hits, cmap=cm, vmin=0, vmax=max_hits, s=10)
+            det2 = plt.subplot2grid((1, 2), (0, 1))
+            sc = det2.scatter(x_pixel, y_pixel, c=det_hits, cmap=cm, vmin=0, vmax=max_hits, s=20)
             fig_det.colorbar(sc, ax=det2, orientation='horizontal')
             det2.set_aspect('equal', 'box')
             det2.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
             det2.set_title('Kept hits per pixel')
 
-            # plot detector elem (removed)
-            det3 = plt.subplot2grid((1, 3), (0, 2))
-            sc = det3.scatter(x_pixel, y_pixel, c=det_hits_rem, cmap=cm, vmin=0, vmax=max_hits, s=10)
-            fig_det.colorbar(sc, ax=det3, orientation='horizontal')
-            det3.set_aspect('equal', 'box')
-            det3.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
-            det3.set_title('Removed hits per pixel')
+            # scale bar
+            if self.default_folder == 'curvy_pong':
+                scalebar = AnchoredSizeBar(det1.transData, size=self.params['spacing'], label=f'{round(self.params["spacing"], 3)} deg', loc=1, pad=0.5, borderpad=0.5, sep=5)
+                det1.add_artist(scalebar)
+                scalebar = AnchoredSizeBar(det1.transData, size=self.params['spacing'], label=f'{round(self.params["spacing"], 3)} deg', loc=1, pad=0.5, borderpad=0.5, sep=5)
+                det2.add_artist(scalebar)
 
             fig_det.tight_layout()
+
+        # ---- PLOTTING DETECTOR HISTOGRAM ----
+
+            fig_det_hist = plt.figure(3)
+            bins_det_hist = np.arange(0.5, max_hits+1, 1)
+
+            # total
+            det_hist1 = plt.subplot2grid((1, 2), (0, 0))
+            det_hist1.hist(det_hits+det_hits_rem, alpha=0.65, bins=bins_det_hist, edgecolor='black', linewidth=1)
+            det_hist1.set(xlabel='# of hits (excluding 0)', ylabel='# of detectors', title='Total Hits')
+            
+            # kept
+            det_hist1 = plt.subplot2grid((1, 2), (0, 1))
+            det_hist1.hist(det_hits, alpha=0.65, bins=bins_det_hist, edgecolor='black', linewidth=1)
+            det_hist1.set(xlabel='# of hits (excluding 0)', ylabel='# of detectors', title='Kept Hits')
+
+            fig_det_hist.tight_layout()
+
+        # ---- PLOTTING TIME HISTOGRAM ----
+
+            fig_time = plt.figure(4)
+            max_time = math.ceil(max(self.data['time_offset']))
+            bins_time = range(0, max_time+10, 1)
+
+            # total
+            time1 = plt.subplot2grid((1, 2), (0, 0))
+            time1.hist(np.append(times, times_rem), bins=bins_time, weights=np.append(time_hist, time_hist_rem))
+            time1.set(xlabel='Time Offset (s)', ylabel='# of hits', title='Total Hits')
+
+            # kept
+            time2 = plt.subplot2grid((1, 2), (0, 1))
+            time2.hist(times, bins=bins_time, weights=time_hist)
+            time2.set(xlabel='Time Offset (s)', ylabel='# of hits', title='Kept Hits')
+
+            fig_time.tight_layout()
+
 
         plt.show()
 
