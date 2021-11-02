@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+from matplotlib.colors import ListedColormap
 
 FYST_LOC = EarthLocation(lat='-22d59m08.30s', lon='-67d44m25.00s', height=5611.8*u.m)
 
@@ -267,6 +268,37 @@ class ScanPattern():
         self.data['para_angle'] = para
         self.data['rot_angle'] = rot
 
+    def detector_elements(self):
+        # FIXME check again if we change the frequency
+
+        ROOT = os.path.abspath(os.path.dirname(__file__))
+        PIXELPOS_FILES = ['pixelpos1.txt', 'pixelpos2.txt', 'pixelpos3.txt']
+        PIXELPOS_FILES = [os.path.join(ROOT, 'data', f) for f in PIXELPOS_FILES]
+        
+        # get pixel positions (convert meters->deg)
+        x_pixel = np.array([])
+        y_pixel = np.array([])
+
+        for f in PIXELPOS_FILES:
+            x, y = np.loadtxt(f, unpack=True)
+            x_pixel = np.append(x_pixel, x)
+            y_pixel = np.append(y_pixel, y)
+        num = int(len(x)/3)
+
+        # map polarizations to first wafer
+        p1 = np.empty(num)
+        polar = False
+        for i in range(1, num+1):
+            p1[i-1] = polar
+            polar = polar if i%24 == 0 else not polar    
+            
+        p2 = p1 + 2
+        p3 = p1 + 4
+        p = list(np.append(p1, np.append(p2, p3)))
+        p = p*3
+
+        return x_pixel, y_pixel, np.array(p)
+
     def _generate_hitmap(self, x_coord, y_coord, rot_angle, **kwargs):
         x_max = kwargs['x_max']
         y_max = kwargs['y_max']
@@ -364,8 +396,6 @@ class ScanPattern():
             all_y_coords[i*last_sample: (i+1)*last_sample] = y_coord[:last_sample] - x_off*np.sin(total_rot) + y_off*np.cos(total_rot)"""
 
     def hitmap(self, **kwargs):
-        # FIXME cleanup, documentation, and optimization 
-
         max_acc = kwargs.get('max_acc', None)
         
         # remove points with high acceleration 
@@ -392,23 +422,13 @@ class ScanPattern():
             rot_angle_rem = self.data.loc[~mask, 'rot_angle'].to_numpy()
             times_rem = self.data.loc[~mask, 'time_offset'].to_numpy()
 
+        # extract some parameters
         rot = u.Quantity(kwargs.get('rot', 0), u.deg).value
         plate_scale = u.Quantity(kwargs.get('plate_scale', 52*u.arcsec), u.arcsec).value
         pixel_scale = u.Quantity(kwargs.get('pixel_scale', 10*u.arcsec), u.arcsec).value
 
-        ROOT = os.path.abspath(os.path.dirname(__file__))
-        PIXELPOS_FILES = ['pixelpos1.txt', 'pixelpos2.txt', 'pixelpos3.txt']
-        PIXELPOS_FILES = [os.path.join(ROOT, 'data', f) for f in PIXELPOS_FILES]
-        
-        # get pixel positions (convert meters->deg)
-        x_pixel = np.array([])
-        y_pixel = np.array([])
-
-        for f in PIXELPOS_FILES:
-            x, y = np.loadtxt(f, unpack=True)
-            x_pixel = np.append(x_pixel, x)
-            y_pixel = np.append(y_pixel, y)
-
+        # detector elements 
+        x_pixel, y_pixel, polarizations = self.detector_elements()
         dist_btwn_detectors = math.sqrt((x_pixel[0] - x_pixel[1])**2 + (y_pixel[0] - y_pixel[1])**2)
         x_pixel = x_pixel/dist_btwn_detectors*plate_scale 
         y_pixel = y_pixel/dist_btwn_detectors*plate_scale 
@@ -664,17 +684,53 @@ class ScanPattern():
             det_hist1.set(xlabel='# of hits (excluding 0)', ylabel='# of detectors', title='Total Hits')
             
             # kept
-            det_hist1 = plt.subplot2grid((1, 2), (0, 1))
-            det_hist1.hist(det_hits, alpha=0.65, bins=bins_det_hist, edgecolor='black', linewidth=1)
-            det_hist1.set(xlabel='# of hits (excluding 0)', ylabel='# of detectors', title='Kept Hits')
+            det_hist2 = plt.subplot2grid((1, 2), (0, 1), sharex=det_hist1, sharey=det_hist1)
+            det_hist2.hist(det_hits, alpha=0.65, bins=bins_det_hist, edgecolor='black', linewidth=1)
+            det_hist2.set(xlabel='# of hits (excluding 0)', ylabel='# of detectors', title='Kept Hits')
 
             fig_det_hist.tight_layout()
+
+        # ---- POLARIZATIONS HISTOGRAM ----
+
+            fig_p = plt.figure(5)
+
+            # polarization plot of detector
+            p_detector = plt.subplot2grid((1, 3), (0, 0))
+            cm = ListedColormap(['red', 'blue', 'yellow', 'black', 'green', 'gray'])
+            sc = p_detector.scatter(x_pixel, y_pixel, c=polarizations, cmap=cm, s=10)
+            p_detector.set_aspect('equal', 'box')
+            p_detector.set(xlabel='x offset (deg)', ylabel='y offset (deg)', title='Polarization Map')
+            fig_p.colorbar(sc, ax=p_detector, orientation='horizontal')
+
+            # get number of hits per polarization
+            pol_hits = []
+            pol_hits_rem = []
+            for pol in range(6):
+                mask = polarizations == pol
+                pol_hits.append(sum(det_hits[mask]))
+                pol_hits_rem.append(sum(det_hits_rem[mask]))
+            
+            pol_hits = np.array(pol_hits)
+            pol_hits_rem = np.array(pol_hits_rem)
+            print('pol hits:', sum(pol_hits), sum(pol_hits_rem))
+
+            # total
+            p1 = plt.subplot2grid((1, 3), (0, 1))
+            p1.hist(range(6), bins=range(7), weights=pol_hits + pol_hits_rem, edgecolor='black', linewidth=1)
+            p1.set(xlabel='Polarization', ylabel='# of hits', title='Total Hits')
+
+            # Kept
+            p2 = plt.subplot2grid((1, 3), (0, 2), sharex=p1, sharey=p1)
+            p2.hist(range(6), bins=range(7), weights=pol_hits, edgecolor='black', linewidth=1)
+            p2.set(xlabel='Polarization', ylabel='# of hits', title='Kept Hits')
+
+            fig_p.tight_layout()
 
         # ---- PLOTTING TIME HISTOGRAM ----
 
             fig_time = plt.figure(4)
             max_time = math.ceil(max(self.data['time_offset']))
-            bins_time = range(0, max_time+10, 1)
+            bins_time = range(0, max_time+10, 10)
 
             # total
             time1 = plt.subplot2grid((1, 2), (0, 0))
@@ -682,7 +738,7 @@ class ScanPattern():
             time1.set(xlabel='Time Offset (s)', ylabel='# of hits', title='Total Hits')
 
             # kept
-            time2 = plt.subplot2grid((1, 2), (0, 1))
+            time2 = plt.subplot2grid((1, 2), (0, 1), sharex=time1, sharey=time1)
             time2.hist(times, bins=bins_time, weights=time_hist)
             time2.set(xlabel='Time Offset (s)', ylabel='# of hits', title='Kept Hits')
 
