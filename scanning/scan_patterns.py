@@ -12,6 +12,7 @@ from fast_histogram import histogram2d
 import astropy.units as u
 from astropy.time import Time
 from astropy.coordinates import SkyCoord, EarthLocation, AltAz
+from astropy.convolution import Gaussian2DKernel, convolve_fft
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -307,6 +308,7 @@ class ScanPattern():
         x_pixel = kwargs['x_pixel']
         y_pixel = kwargs['y_pixel']
         rot = kwargs['rot']
+        convolve_hitmap = kwargs['convolve_hitmap']
         num_ts = len(x_coord)
 
         # for detector hitmap
@@ -314,6 +316,7 @@ class ScanPattern():
         detector_hitmap = 'pixels' in kwargs.keys() or 'x_lim' in kwargs.keys()
 
         if detector_hitmap:
+            dividing_factor = kwargs['dividing_factor']
             det_hits = np.zeros(num_detectors)
             ranged = 'x_lim' in kwargs.keys()
         
@@ -383,10 +386,16 @@ class ScanPattern():
         
         print('total hits for hitmap =', sum(hist.flatten()))
 
+        # convolution
+        if convolve_hitmap:
+            stddev = 50/np.sqrt(8*np.log(2))
+            kernel = Gaussian2DKernel(stddev)
+            hist = convolve_fft(hist, kernel, boundary='fill', fill_value=0)
+
         if detector_hitmap:
             print('total hits for detector hitmap =', sum(det_hits))
             print('total hits for time_hist =', sum(time_hist))
-            return hist, det_hits, time_hist
+            return hist, det_hits/dividing_factor, time_hist/dividing_factor
         else:
             return hist
         
@@ -432,6 +441,13 @@ class ScanPattern():
         dist_btwn_detectors = math.sqrt((x_pixel[0] - x_pixel[1])**2 + (y_pixel[0] - y_pixel[1])**2)
         x_pixel = x_pixel/dist_btwn_detectors*plate_scale 
         y_pixel = y_pixel/dist_btwn_detectors*plate_scale 
+
+        # get specific polarizations
+        if 'pols_on' in kwargs.keys():
+            pols_on = kwargs['pols_on']
+            mask = np.in1d(polarizations, pols_on)
+            x_pixel = x_pixel[mask]
+            y_pixel = y_pixel[mask]
         
         # define bin edges
         #farthest_pixel = max(np.sqrt(x_pixel**2 + y_pixel**2)) + max(np.sqrt(self.data['x_coord']**2 + self.data['y_coord']**2)) # use diagonal for extra space in plot
@@ -446,16 +462,19 @@ class ScanPattern():
             'x_max': x_max, 'y_max': y_max,
             'num_xbins': num_xbins, 'num_ybins': num_ybins,
             'x_pixel': x_pixel, 'y_pixel': y_pixel,
-            'rot': rot, 'pixel_scale': pixel_scale
+            'rot': rot, 'pixel_scale': pixel_scale,
+            'convolve_hitmap': kwargs.get('convolve_hitmap', False)
         }
         
         if 'pixels' in kwargs.keys():
             hitmap_params['pixels'] = kwargs['pixels']
+            hitmap_params['dividing_factor'] = kwargs.get('dividing_factor', 1)
             hist, det_hits = self._generate_hitmap(x_coord, y_coord, rot_angle, **hitmap_params)
             hist_rem, det_hits_rem = self._generate_hitmap(x_coord_rem, y_coord_rem, rot_angle_rem, **hitmap_params)
         elif 'x_lim' in kwargs.keys():
             hitmap_params['x_lim'] = kwargs['x_lim']
             hitmap_params['y_lim'] = kwargs['y_lim']
+            hitmap_params['dividing_factor'] = kwargs.get('dividing_factor', 1)
             hist, det_hits, time_hist = self._generate_hitmap(x_coord, y_coord, rot_angle, **hitmap_params)
             hist_rem, det_hits_rem, time_hist_rem = self._generate_hitmap(x_coord_rem, y_coord_rem, rot_angle_rem, **hitmap_params)
         else:
@@ -490,10 +509,10 @@ class ScanPattern():
             bin_index = int(x_max/pixel_scale)
             bin_indey = int(y_max/pixel_scale)
             print(f'({x_edges[bin_index-mini_size]}, {x_edges[bin_index+mini_size]}) ({y_edges[bin_indey-mini_size]}, {y_edges[bin_indey+mini_size]})')
-            field_mini = patches.Rectangle((x_edges[bin_index-mini_size], y_edges[bin_indey-mini_size]), 2*mini_size*pixel_scale, 2*mini_size*pixel_scale, linewidth=1, edgecolor='r', facecolor='r')
+            field_mini = patches.Rectangle((x_edges[bin_index-mini_size], y_edges[bin_indey-mini_size]), 2*mini_size*pixel_scale, 2*mini_size*pixel_scale, linewidth=1, edgecolor='r', facecolor='none')
 
         # plot histogram (kept)
-        ax1 = plt.subplot2grid((4, 4), (0, 0), rowspan=3)
+        ax1 = plt.subplot2grid((4, 4), (0, 0), rowspan=3, fig=fig)
         pcm = ax1.imshow(hist.T, extent=[-x_max, x_max, -y_max, y_max], vmin=0, vmax=vmax1, interpolation='nearest', origin='lower')
         ax1.set_aspect('equal', 'box')
         ax1.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
@@ -513,18 +532,19 @@ class ScanPattern():
 
         if not mini_size is None:
             ax1.add_patch(copy.copy(field_mini))
-            mini_hist = hist[bin_index-mini_size:bin_index+mini_size, bin_indey-mini_size:bin_indey+mini_size].flatten()
+            mini_hist = hist[bin_index-mini_size:bin_index+mini_size, bin_indey-mini_size:bin_indey+mini_size]
+            mini_hist_flattended = mini_hist.flatten()
             orig_hist_sum = int(sum(hist.flatten()))
-            total_hits = f'hits= {round(sum(mini_hist)/orig_hist_sum*100, 2)}% of {orig_hist_sum}'
-            average_hits = f'hit avg = {round(np.mean(mini_hist), 2)}'
-            std_hits = f'std dev = {round(np.std(mini_hist), 2)}'
+            total_hits = f'hits= {round(sum(mini_hist_flattended)/orig_hist_sum*100, 2)}% of {orig_hist_sum}'
+            average_hits = f'hit avg = {round(np.mean(mini_hist_flattended), 2)}'
+            std_hits = f'std dev = {round(np.std(mini_hist_flattended), 2)}'
             textstr = total_hits + '\n' + average_hits + ', ' + std_hits
             props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-            #ax1.text(0.1, 0.9, textstr, transform=ax1.transAxes, bbox=props)
+            ax1.text(0.1, 0.9, textstr, transform=ax1.transAxes, bbox=props)
             print(textstr)
 
         # plot histogram (removed)
-        ax2 = plt.subplot2grid((4, 4), (0, 1), rowspan=3)
+        ax2 = plt.subplot2grid((4, 4), (0, 1), rowspan=3, fig=fig)
         pcm = ax2.imshow(hist_rem.T, extent=[-x_max, x_max, -y_max, y_max], vmin=0, vmax=vmax2, interpolation='nearest', origin='lower')
         ax2.set_aspect('equal', 'box')
         ax2.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
@@ -551,11 +571,11 @@ class ScanPattern():
             std_hits = f'std dev = {round(np.std(mini_hist), 2)}'
             textstr = total_hits + '\n' + average_hits + ', ' + std_hits
             props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-            #ax2.text(0.1, 0.9, textstr, transform=ax2.transAxes, bbox=props)
+            ax2.text(0.1, 0.9, textstr, transform=ax2.transAxes, bbox=props)
             print(textstr)
 
         # plot histogram (combined)
-        ax3 = plt.subplot2grid((4, 4), (0, 2), rowspan=3)
+        ax3 = plt.subplot2grid((4, 4), (0, 2), rowspan=3, fig=fig)
         hist_comb = hist + hist_rem
         pcm = ax3.imshow(hist_comb.T, extent=[-x_max, x_max, -y_max, y_max], vmin=0, vmax=vmax3, interpolation='nearest', origin='lower')
         ax3.set_aspect('equal', 'box')
@@ -588,12 +608,12 @@ class ScanPattern():
             std_hits = f'std dev={round(np.std(mini_hist), 2)}'
             textstr = total_hits + '\n' + average_hits + ', ' + std_hits
             props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-            #ax3.text(0.1, 0.9, textstr, transform=ax3.transAxes, bbox=props)
+            ax3.text(0.1, 0.9, textstr, transform=ax3.transAxes, bbox=props)
             print(textstr)
 
         # plot detector pixel positions
         rot = u.Quantity(kwargs.get('rot', 0), u.rad).value
-        ax6 = plt.subplot2grid((4, 4), (0, 3), rowspan=3, sharex=ax1, sharey=ax1)
+        ax6 = plt.subplot2grid((4, 4), (0, 3), rowspan=3, sharex=ax1, sharey=ax1, fig=fig)
         ax6.scatter(x_pixel*cos(rot) + y_pixel*sin(rot), -x_pixel*sin(rot) + y_pixel*cos(rot), s=0.01)
         ax6.set_aspect('equal', 'box')
         ax6.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
@@ -603,7 +623,7 @@ class ScanPattern():
         cax6.axis('off')
 
         # bin line plot (#1)
-        ax4 = plt.subplot2grid((4, 4), (3, 0), colspan=2)
+        ax4 = plt.subplot2grid((4, 4), (3, 0), colspan=2, fig=fig)
         bin_index = round(x_max/pixel_scale)
         bin_edge = x_edges[bin_index]
         y_values = hist[bin_index]
@@ -621,7 +641,7 @@ class ScanPattern():
         ax4.legend(loc='upper right')
 
         # bin line plot (#2)
-        ax5 = plt.subplot2grid((4, 4), (3, 2), colspan=2)
+        ax5 = plt.subplot2grid((4, 4), (3, 2), colspan=2, fig=fig)
         bin_index = round(x_max/pixel_scale/2)
         bin_edge = x_edges[bin_index]
         y_values = hist[bin_index]
@@ -649,7 +669,7 @@ class ScanPattern():
             # plot detector elem (total)
             max_hits = max(det_hits+det_hits_rem)
 
-            det1 = plt.subplot2grid((1, 2), (0, 0))
+            det1 = plt.subplot2grid((1, 2), (0, 0), fig=fig_det)
             sc = det1.scatter(x_pixel, y_pixel, c=det_hits+det_hits_rem, cmap=cm, vmin=0, vmax=max_hits, s=20)
             fig_det.colorbar(sc, ax=det1, orientation='horizontal')
             det1.set_aspect('equal', 'box')
@@ -657,7 +677,7 @@ class ScanPattern():
             det1.set_title('Total hits per pixel')
 
             # plot detector elem (kept)
-            det2 = plt.subplot2grid((1, 2), (0, 1))
+            det2 = plt.subplot2grid((1, 2), (0, 1), fig=fig_det)
             sc = det2.scatter(x_pixel, y_pixel, c=det_hits, cmap=cm, vmin=0, vmax=max_hits, s=20)
             fig_det.colorbar(sc, ax=det2, orientation='horizontal')
             det2.set_aspect('equal', 'box')
@@ -679,12 +699,12 @@ class ScanPattern():
             bins_det_hist = np.arange(0.5, max_hits+1, 1)
 
             # total
-            det_hist1 = plt.subplot2grid((1, 2), (0, 0))
+            det_hist1 = plt.subplot2grid((1, 2), (0, 0), fig=fig_det_hist)
             det_hist1.hist(det_hits+det_hits_rem, alpha=0.65, bins=bins_det_hist, edgecolor='black', linewidth=1)
             det_hist1.set(xlabel='# of hits (excluding 0)', ylabel='# of detectors', title='Total Hits')
             
             # kept
-            det_hist2 = plt.subplot2grid((1, 2), (0, 1), sharex=det_hist1, sharey=det_hist1)
+            det_hist2 = plt.subplot2grid((1, 2), (0, 1), sharex=det_hist1, sharey=det_hist1, fig=fig_det_hist)
             det_hist2.hist(det_hits, alpha=0.65, bins=bins_det_hist, edgecolor='black', linewidth=1)
             det_hist2.set(xlabel='# of hits (excluding 0)', ylabel='# of detectors', title='Kept Hits')
 
@@ -693,19 +713,24 @@ class ScanPattern():
         # ---- POLARIZATIONS HISTOGRAM ----
 
             fig_p = plt.figure(5)
+            N_POLS = 6
 
             # polarization plot of detector
-            p_detector = plt.subplot2grid((1, 3), (0, 0))
-            cm = ListedColormap(['red', 'blue', 'yellow', 'black', 'green', 'gray'])
-            sc = p_detector.scatter(x_pixel, y_pixel, c=polarizations, cmap=cm, s=10)
+            p_detector = plt.subplot2grid((1, 3), (0, 0), fig=fig_p)
+            cm = cm = ListedColormap(['red', 'blue', 'yellow', 'black', 'green', 'purple'])
+            sc = p_detector.scatter(x_pixel, y_pixel, c=polarizations, cmap=cm, s=5)
             p_detector.set_aspect('equal', 'box')
             p_detector.set(xlabel='x offset (deg)', ylabel='y offset (deg)', title='Polarization Map')
-            fig_p.colorbar(sc, ax=p_detector, orientation='horizontal')
+
+            cbar = plt.colorbar(sc, orientation='horizontal')
+            tick_locs = (np.arange(N_POLS) + 0.5)*(N_POLS-1)/N_POLS
+            cbar.set_ticks(tick_locs)
+            cbar.set_ticklabels(np.arange(N_POLS))
 
             # get number of hits per polarization
             pol_hits = []
             pol_hits_rem = []
-            for pol in range(6):
+            for pol in range(N_POLS):
                 mask = polarizations == pol
                 pol_hits.append(sum(det_hits[mask]))
                 pol_hits_rem.append(sum(det_hits_rem[mask]))
@@ -715,14 +740,16 @@ class ScanPattern():
             print('pol hits:', sum(pol_hits), sum(pol_hits_rem))
 
             # total
-            p1 = plt.subplot2grid((1, 3), (0, 1))
-            p1.hist(range(6), bins=range(7), weights=pol_hits + pol_hits_rem, edgecolor='black', linewidth=1)
+            p1 = plt.subplot2grid((1, 3), (0, 1), fig=fig_p)
+            p1.hist(range(N_POLS), bins=np.arange(-0.5, N_POLS, 1), weights=pol_hits + pol_hits_rem, edgecolor='black', linewidth=1)
             p1.set(xlabel='Polarization', ylabel='# of hits', title='Total Hits')
+            p1.set_aspect('auto')
 
             # Kept
-            p2 = plt.subplot2grid((1, 3), (0, 2), sharex=p1, sharey=p1)
-            p2.hist(range(6), bins=range(7), weights=pol_hits, edgecolor='black', linewidth=1)
+            p2 = plt.subplot2grid((1, 3), (0, 2), sharex=p1, sharey=p1, fig=fig_p)
+            p2.hist(range(N_POLS), bins=np.arange(-0.5, N_POLS, 1), weights=pol_hits, edgecolor='black', linewidth=1)
             p2.set(xlabel='Polarization', ylabel='# of hits', title='Kept Hits')
+            p2.set_aspect('auto')
 
             fig_p.tight_layout()
 
@@ -730,15 +757,15 @@ class ScanPattern():
 
             fig_time = plt.figure(4)
             max_time = math.ceil(max(self.data['time_offset']))
-            bins_time = range(0, max_time+10, 10)
+            bins_time = range(0, max_time+10, 1)
 
             # total
-            time1 = plt.subplot2grid((1, 2), (0, 0))
+            time1 = plt.subplot2grid((1, 2), (0, 0), fig=fig_time)
             time1.hist(np.append(times, times_rem), bins=bins_time, weights=np.append(time_hist, time_hist_rem))
             time1.set(xlabel='Time Offset (s)', ylabel='# of hits', title='Total Hits')
 
             # kept
-            time2 = plt.subplot2grid((1, 2), (0, 1), sharex=time1, sharey=time1)
+            time2 = plt.subplot2grid((1, 2), (0, 1), sharex=time1, sharey=time1, fig=fig_time)
             time2.hist(times, bins=bins_time, weights=time_hist)
             time2.set(xlabel='Time Offset (s)', ylabel='# of hits', title='Kept Hits')
 
