@@ -1,5 +1,6 @@
 """
 TODO
+- Hitmap.pol and pols_on using angle-like
 - add other plotting functions
 - __init__ check if required combinations of parameters are present
 - brush up on docs for functions and classes
@@ -104,6 +105,8 @@ class Hitmap():
         rot_angle = self.scan.rot_angle[~self.validity_mask]
         self.hist_rem, self.det_hist_rem, self.time_hist_rem = self._generate_hitmap(x_coord, y_coord, rot_angle, num_bins, **hitmap_kwargs)
 
+    # GENERATING HITMAP/HIST STUFF
+
     def _get_det_elements(self):
 
         ROOT = os.path.abspath(os.path.dirname(__file__))
@@ -127,29 +130,32 @@ class Hitmap():
         y_pixel = y_pixel/dist_btwn_detectors*plate_scale_arcsec
 
         # map polarizations to first wafer
-        p1 = np.empty(num_elem_in_wafer)
+        p = np.empty(num_elem_in_wafer)
         polar = False
         for i in range(1, num_elem_in_wafer+1):
-            p1[i-1] = polar
+            p[i-1] = polar
             polar = polar if i%24 == 0 else not polar # FIXME change as frequency changes
             
-        p2 = p1 + 2
-        p3 = p1 + 4
-        p = list(np.append(p1, np.append(p2, p3)))
-        p = np.array(p*3)
+        # convert to corresponding angle 
+        p1 = 45*p # 0 = 0, 1 = 45
+        p2 = 45*p + 30 # 2 = 30, 3 = 75
+        p3 = -45*p + 60 # 4 = 60, 5 = 15
+
+        pol = np.append(p1, np.append(p2, p3))
+        pol = np.tile(pol, 3)
 
         # get specific polarizations
         if not self.pols_on is True: # all polarizations are on
             if isinstance(self.pols_on, int):
-                mask = p == self.pols_on
+                mask = pol == self.pols_on
             else:
-                mask = np.in1d(p, self.pols_on)
+                mask = np.in1d(pol, self.pols_on)
             
             x_pixel = x_pixel[mask]
             y_pixel = y_pixel[mask]
-            p = p[mask]
+            pol = pol[mask]
         
-        return pd.DataFrame({'x_pixel': x_pixel, 'y_pixel': y_pixel, 'pol': p})
+        return pd.DataFrame({'x_pixel': x_pixel, 'y_pixel': y_pixel, 'pol': pol})
     
     def _get_valid_data(self):
         
@@ -211,18 +217,20 @@ class Hitmap():
 
     def _generate_hitmap(self, x_coord, y_coord, rot_angle, num_bins, **kwargs):
         max_pixel = self.max_pixel.to(u.arcsec).value
-        print('max_pixel =', max_pixel, 'num_bins =', num_bins)
 
         x_range_pxan = kwargs['x_range_pxan']
         y_range_pxan = kwargs['y_range_pxan']
         dividing_factor = kwargs['dividing_factor']
 
+        # get detector elements
         x_pixel = self.x_pixel.to(u.arcsec).value
         y_pixel = self.y_pixel.to(u.arcsec).value
         num_det_elem = len(x_pixel)
+
         num_ts = len(x_coord)
         print('num_ts =', num_ts,'num_det_elem =', num_det_elem)
 
+        # initialize histograms to returned
         hist = np.zeros((num_bins, num_bins))
         det_hist = np.zeros(num_det_elem)
         time_hist = np.zeros(num_ts)
@@ -233,11 +241,22 @@ class Hitmap():
                 return hist, det_hist, time_hist
             else:
                 return hist, None, None
+
+        """
+        # get direction of motion
+        dx_coord = np.diff(x_coord, prepend=math.nan)
+        dy_coord = np.diff(y_coord, prepend=math.nan)
+
+        np.seterr(divide='ignore')
+        motion_angle = np.arctan(dy_coord/dx_coord)
+        np.seterr(divide='warn')
+        """
         
         # APPLY HISTOGRAM
 
         det_rot = self.det_rot.to(u.rad).value
         rot_angle = rot_angle.to(u.rad).value
+        #pol = np.radians(self.pol)
 
         # Divide process into chunks to abide by memory limits
 
@@ -247,21 +266,20 @@ class Hitmap():
 
             # initialize empty arrays (rows of ts and cols of det elements) to store hits 
             if (chunk+1)*chunk_ts <= num_ts:
-                all_x_coords = np.empty((chunk_ts, num_det_elem))
-                all_y_coords = np.empty((chunk_ts, num_det_elem))
-                last_sample = chunk_ts
+                num_rows = chunk_ts
             else:
-                all_x_coords = np.empty((num_ts - chunk*chunk_ts, num_det_elem))
-                all_y_coords = np.empty((num_ts - chunk*chunk_ts, num_det_elem))
-                last_sample = num_ts - chunk*chunk_ts
+                num_rows = num_ts - chunk*chunk_ts
+
+            all_x_coords = np.empty((num_rows, num_det_elem))
+            all_y_coords = np.empty((num_rows, num_det_elem))
 
             # range of ts to loop over
             start = chunk*chunk_ts
-            end = start + last_sample
+            end = start + num_rows
             print('start:', start, 'end:', end)
 
             # add all hits from the detector elements at each ts 
-            for i, x_coord1, y_coord1, rot1 in zip(range(last_sample), x_coord[start:end], y_coord[start:end], rot_angle[start:end]):
+            for i, x_coord1, y_coord1, rot1 in zip(range(num_rows), x_coord[start:end], y_coord[start:end], rot_angle[start:end]):
                 all_x_coords[i] = x_coord1 + x_pixel*cos(rot1 + det_rot) + y_pixel*sin(rot1 + det_rot)
                 all_y_coords[i] = y_coord1 - x_pixel*sin(rot1 + det_rot) + y_pixel*cos(rot1 + det_rot)
 
@@ -300,7 +318,13 @@ class Hitmap():
 
         return hist, det_hist, time_hist
 
+    # PLOTS 
+
     def hitmap(self):
+
+        hist_sum = sum(self.hist.flatten())
+        hist_rem_sum = sum(self.hist_rem.flatten())
+        print(f'Total Hits: {hist_sum + hist_rem_sum}, Kept Hits: {hist_sum}')
 
         fig = plt.figure(1)
         hit_per_str = 'px/s' if self.norm_time else 'px'
@@ -488,30 +512,31 @@ class Hitmap():
         assert(self.pixel_analysis)
 
         fig_pol = plt.figure(5)
-        N_POLS = 6
+        all_pol = np.array([0, 15, 30, 45, 60, 75])
+        n_pol = len(all_pol)
 
         # --- DETECTOR PLOT ---
 
         x_pixel = self.x_pixel.to(u.deg).value
         y_pixel = self.y_pixel.to(u.deg).value
 
-        p_det = plt.subplot2grid((2, 2), (0, 0), colspan=2, fig=fig_pol)
-        cm = cm = ListedColormap(['red', 'blue', 'yellow', 'black', 'green', 'purple'])
-        sc = p_det.scatter(x_pixel, y_pixel, c=self.pol, cmap=cm, s=3)
+        p_det = plt.subplot2grid((2, 2), (0, 0), rowspan=2, fig=fig_pol)
+        cm = cm = ListedColormap(['purple', 'yellow', 'blue', 'green', 'black', 'red'])
+        sc = p_det.scatter(x_pixel, y_pixel, c=self.pol, cmap=cm, s=5)
         p_det.set_aspect('equal', 'box')
         p_det.set(xlabel='x offset (deg)', ylabel='y offset (deg)', title='Polarization Map')
 
         cbar = plt.colorbar(sc)
-        tick_locs = (np.arange(N_POLS) + 0.5)*(N_POLS-1)/N_POLS
+        tick_locs = (all_pol + 7.5)*(n_pol-1)/n_pol
         cbar.set_ticks(tick_locs)
-        cbar.set_ticklabels(np.arange(N_POLS))
+        cbar.set_ticklabels(all_pol)
 
         # --- POLARIZATION HISTOGRAM ---
 
         pol_hits = []
         pol_hits_rem = []
-        for n in range(N_POLS):
-            mask = self.pol == n
+        for p in all_pol:
+            mask = self.pol == p
             pol_hits.append(sum(self.det_hist[mask]))
             pol_hits_rem.append(sum(self.det_hist_rem[mask]))
         
@@ -520,16 +545,18 @@ class Hitmap():
         print('pol hits:', sum(pol_hits), sum(pol_hits_rem))
 
         # Total hits 
-        p1 = plt.subplot2grid((2, 2), (1, 0), fig=fig_pol)
-        p1.hist(range(N_POLS), bins=np.arange(-0.5, N_POLS, 1), weights=pol_hits + pol_hits_rem, edgecolor='black', linewidth=1)
+        p1 = plt.subplot2grid((2, 2), (0, 1), fig=fig_pol)
+        p1.hist(all_pol, bins=(-7.5, 7.5, 22.5, 37.5, 52.5, 67.5, 82.5), weights=pol_hits + pol_hits_rem, edgecolor='black', linewidth=1)
         p1.set(xlabel='Polarization', ylabel='# of hits', title='Total Hits')
         p1.set_aspect('auto')
+        p1.set_xticks(all_pol)
 
         # Kept hits
         p2 = plt.subplot2grid((2, 2), (1, 1), sharex=p1, sharey=p1, fig=fig_pol)
-        p2.hist(range(N_POLS), bins=np.arange(-0.5, N_POLS, 1), weights=pol_hits, edgecolor='black', linewidth=1)
+        p2.hist(all_pol, bins=(-7.5, 7.5, 22.5, 37.5, 52.5, 67.5, 82.5), weights=pol_hits, edgecolor='black', linewidth=1)
         p2.set(xlabel='Polarization', ylabel='# of hits', title='Kept Hits')
         p2.set_aspect('auto')
+        p2.set_xticks(all_pol)
 
         fig_pol.tight_layout()
         plt.show()
@@ -573,6 +600,43 @@ class Hitmap():
 
         fig_time.tight_layout()
         plt.show()
+
+    def pol_hist(self):
+        
+        # all polarization options
+        all_pol = np.array([0, 15, 30, 45, 60, 75])
+
+        # rotation angle as the detector moves
+        rot_angle = self.scan.rot_angle.to(u.deg).value
+        det_rot = self.det_rot.to(u.deg).value
+
+        # get polarization combined with rotation angle
+        pol_dict = dict()
+        for det_pol in all_pol:
+            pol_dict[det_pol] = (det_pol - rot_angle - det_rot)%90
+
+        num_pol = len(all_pol)
+        num_det_elem_per_pol = len(self.pol)/num_pol
+        print(f'Total Hits: {len(rot_angle)*num_pol*num_det_elem_per_pol}')
+
+        # --- PLOTTING ---
+
+        #b define minimum and maximum for histogram bins
+        min_angle = math.ceil(0 - max(rot_angle + det_rot))%90
+        max_angle = math.ceil(75 - min(rot_angle + det_rot))%90
+        print(min_angle, max_angle)
+
+        fig = plt.figure(1)
+        ax = plt.subplot2grid((1, 1), (0, 0), fig=fig)
+        ax.set(xlabel='Angle (between 0 and 90) [deg]', ylabel='Hits', title='Polarization + Rotation angles')
+
+        for p in all_pol:
+            ax.hist(pol_dict[p], bins=90*4, range=(0, 90), weights=[num_det_elem_per_pol]*len(rot_angle), label=f'pol = {p}')
+
+        ax.legend(loc='upper right')
+        plt.show()        
+
+    # GETTER FUNCTIOSN
 
     @property
     def x_pixel(self): # list of angle-like
@@ -695,6 +759,71 @@ class ScanPattern():
         if data_csv is None:
             self.data = self._generate_scan()
 
+    def to_csv(self, data_csv, param_csv=None, with_param_file=True):
+        """
+        Save generated data into a csv file and its associated parameters. 
+
+        Parameters
+        -----------------
+        data_csv : str
+            File path you want to save data into. 
+        param_csv : str, defaults to finding/making a default paramter file 
+            File path to parameter file 
+        with_param_file : bool, defaults to True
+            Whether to place the data file in the same directory as param_csv (True) or cwd (False)
+        """
+
+        common_path = os.path.join(self._default_folder, self._default_param_csv)
+
+        if param_csv is None:
+
+            # check if param file already exists
+            if os.path.isfile(self._default_param_csv):
+                param_csv = self._default_param_csv
+            elif os.path.isfile(common_path):
+                param_csv = common_path
+           
+            # make a new param file
+            else:
+                if not os.path.isdir(self._default_folder):
+                    os.mkdir(self._default_folder)
+
+                #param_file_unit = {param_name: [str(self._param_unit[param_name])] for param_name in self._param_unit.keys()}
+                #param_file_unit['file_name'] = ['']
+                #pd.DataFrame(param_file_unit).to_csv(common_path, index=False)
+                pd.DataFrame(columns=['file_name']).to_csv(common_path, index=False)
+                print(f'Created new parameter file: {param_csv}')
+
+                param_csv = common_path
+        
+        # save data csv file next to the param file 
+        if with_param_file:
+            if not os.path.dirname(param_csv) == os.path.dirname(data_csv):
+                data_csv = os.path.join(os.path.dirname(param_csv), data_csv)
+            
+        # UPDATE PARAM FILE
+
+        param_df = pd.read_csv(param_csv, index_col='file_name')
+        base_name = os.path.basename(data_csv)
+
+        # base scan pattern parameters
+        for p in self.param.keys():
+            param_df.loc[base_name, p + f' ({str(self._param_unit[p])})'] = self.param[p].value
+
+        # parameters for the setting
+        if self.setting_param:
+            param_df.loc[base_name, 'ra (deg)'] = self.setting_param['ra'].value
+            param_df.loc[base_name, 'dec (deg)'] = self.setting_param['dec'].value
+            param_df.loc[base_name, 'alt (deg)'] = self.setting_param['alt'].value
+            param_df.loc[base_name, 'time0'] = self.setting_param['time0']
+
+        param_df.to_csv(param_csv)
+        print(f'Updated parameter file {param_csv}')
+
+        # SAVE DATA FILE
+        self.data.to_csv(data_csv, index=False)
+        print(f'Saved data to {data_csv}')    
+
     def _central_diff(self, a):
         h = self.sample_interval.to(u.s).value
         new_a = [(a[1] - a[0])/h]
@@ -702,6 +831,8 @@ class ScanPattern():
             new_a.append( (a[i+1] - a[i-1])/(2*h) )
         new_a.append( (a[-1] - a[-2])/h )
         return np.array(new_a)
+
+    # INITIALIZE SETTING
 
     @u.quantity_input(dec='angle', lat='angle', ha='angle')
     def _find_altitude(self, dec, lat, ha):
@@ -848,70 +979,7 @@ class ScanPattern():
         self.data['para_angle'] = para_deg
         self.data['rot_angle'] = rot_deg
 
-    def to_csv(self, data_csv, param_csv=None, with_param_file=True):
-        """
-        Save generated data into a csv file and its associated parameters. 
-
-        Parameters
-        -----------------
-        data_csv : str
-            File path you want to save data into. 
-        param_csv : str, defaults to finding/making a default paramter file 
-            File path to parameter file 
-        with_param_file : bool, defaults to True
-            Whether to place the data file in the same directory as param_csv (True) or cwd (False)
-        """
-
-        common_path = os.path.join(self._default_folder, self._default_param_csv)
-
-        if param_csv is None:
-
-            # check if param file already exists
-            if os.path.isfile(self._default_param_csv):
-                param_csv = self._default_param_csv
-            elif os.path.isfile(common_path):
-                param_csv = common_path
-           
-            # make a new param file
-            else:
-                if not os.path.isdir(self._default_folder):
-                    os.mkdir(self._default_folder)
-
-                #param_file_unit = {param_name: [str(self._param_unit[param_name])] for param_name in self._param_unit.keys()}
-                #param_file_unit['file_name'] = ['']
-                #pd.DataFrame(param_file_unit).to_csv(common_path, index=False)
-                pd.DataFrame(columns=['file_name']).to_csv(common_path, index=False)
-                print(f'Created new parameter file: {param_csv}')
-
-                param_csv = common_path
-        
-        # save data csv file next to the param file 
-        if with_param_file:
-            if not os.path.dirname(param_csv) == os.path.dirname(data_csv):
-                data_csv = os.path.join(os.path.dirname(param_csv), data_csv)
-            
-        # UPDATE PARAM FILE
-
-        param_df = pd.read_csv(param_csv, index_col='file_name')
-        base_name = os.path.basename(data_csv)
-
-        # base scan pattern parameters
-        for p in self.param.keys():
-            param_df.loc[base_name, p + f' ({str(self._param_unit[p])})'] = self.param[p].value
-
-        # parameters for the setting
-        if self.setting_param:
-            param_df.loc[base_name, 'ra (deg)'] = self.setting_param['ra'].value
-            param_df.loc[base_name, 'dec (deg)'] = self.setting_param['dec'].value
-            param_df.loc[base_name, 'alt (deg)'] = self.setting_param['alt'].value
-            param_df.loc[base_name, 'time0'] = self.setting_param['time0']
-
-        param_df.to_csv(param_csv)
-        print(f'Updated parameter file {param_csv}')
-
-        # SAVE DATA FILE
-        self.data.to_csv(data_csv, index=False)
-        print(f'Saved data to {data_csv}')    
+    # SETTERS
 
     @property
     def time_offset(self):
