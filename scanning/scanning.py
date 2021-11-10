@@ -18,7 +18,7 @@ from fast_histogram import histogram2d
 
 # astropy imports
 import astropy.units as u
-from astropy.time import Time
+from astropy.time import Time, TimeDelta
 from astropy.coordinates import SkyCoord, EarthLocation, AltAz
 from astropy.convolution import Gaussian2DKernel, convolve_fft
 
@@ -28,6 +28,7 @@ import matplotlib.patches as patches
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 from matplotlib.colors import ListedColormap
+import matplotlib.dates as mdates
 
 # system imports
 import os
@@ -35,6 +36,148 @@ import copy
 
 # constants
 FYST_LOC = EarthLocation(lat='-22d59m08.30s', lon='-67d44m25.00s', height=5611.8*u.m)
+
+###################################
+#       OTHER FUNCTIONS
+###################################
+
+def visibility(start_datetime, end_datetime, objects, max_airmass=2, min_elevation=0*u.deg, max_elevation=90*u.deg, freq=10*u.s, x_axis='hour_angle'):
+
+    min_elevation = u.Quantity(min_elevation, u.deg)
+    max_elevation = u.Quantity(max_elevation, u.deg)
+
+    # create datetime range between the start and end
+    freq = TimeDelta(u.Quantity(freq, u.s)).to_datetime()
+    datetime_range = pd.date_range(start_datetime, end_datetime, freq=freq)
+    obs_time_range = Time(datetime_range, scale='utc', location=FYST_LOC)
+
+    # create plot figures
+    fig1 = plt.figure(1)
+    ax_elev = plt.subplot2grid((1, 2), (0, 0), fig=fig1)
+    ax_airmass = plt.subplot2grid((1, 2), (0, 1), fig=fig1, sharex=ax_elev)
+
+    fig2 = plt.figure(2)
+    ax_para = plt.subplot2grid((1, 3), (0, 0), fig=fig2)
+    ax_rot = plt.subplot2grid((1, 3), (0, 1), fig=fig2, sharex=ax_para, sharey=ax_para)
+    ax_rot_rate = plt.subplot2grid((1, 3), (0, 2), fig=fig2, sharex=ax_para)
+
+    for obj in objects:
+
+        # extract provided ra/dec and transform to alt/az
+        dec = u.Quantity(obj[0], u.deg)
+        ra = u.Quantity(obj[1], u.hourangle)
+        print(f'dec={dec.to(u.deg).value}N ra={ra.to(u.hourangle).value}h')
+        obs = SkyCoord(dec=dec, ra=ra).transform_to(AltAz(obstime=datetime_range, location=FYST_LOC))
+
+        # select for points with low air mass and between the elevation range
+        mask = (obs.secz <= max_airmass) & (obs.alt.deg > min_elevation.to(u.deg).value) & (obs.alt.deg < max_elevation.to(u.deg).value)
+
+        # parallactic and rotation angle
+        lst = obs_time_range.sidereal_time('apparent')
+        hour_angle = lst - ra
+        hour_angle_rad = hour_angle.to(u.rad).value
+
+        dec_rad = dec.to(u.rad).value
+        para_angle = np.arctan2(
+            np.sin(hour_angle_rad),
+            (cos(dec_rad)*tan(FYST_LOC.lat.rad) - sin(dec_rad)*np.cos(hour_angle_rad))
+        )*u.rad
+        rot_angle = para_angle + obs.alt
+
+        # choose x_axis
+        if x_axis == 'hourangle':
+            hour_angle_hrang = hour_angle.to(u.hourangle).value
+            hour_angle_hrang[hour_angle_hrang > 12] = hour_angle_hrang[hour_angle_hrang > 12] - 24
+            x_values = hour_angle_hrang[mask]
+            label = f'dec={dec.to(u.deg).value}N'
+        elif x_axis == 'time':
+            x_values = datetime_range[mask]
+            label = f'dec={dec.to(u.deg).value}N ra={ra.to(u.hourangle).value}h'
+
+        # add to plot
+        ax_airmass.plot(x_values, obs.secz[mask], label=label)
+        ax_elev.plot(x_values, obs.alt.deg[mask], label=label)
+        ax_para.plot(x_values, para_angle.to(u.deg).value[mask], label=label)
+        ax_rot.plot(x_values, rot_angle.to(u.deg).value[mask], label=label)
+
+    # handle xticks and other settings of ax
+
+    if x_axis == 'hourangle':
+        xlabel = 'Hourangle [hours]'
+        xticks = [i for i in range(-12, 13, 3)]
+        xtick_labels = [f'{t + 24}h' if t < 0 else f'{t}h' for t in xticks]
+
+        ax_airmass.set(xticks=xticks, xticklabels=xtick_labels)
+        ax_airmass.set_yscale('function', functions=(lambda x: np.log10(x), lambda x: 10**x))
+        ax_elev.set(xticks=xticks, xticklabels=xtick_labels)
+        ax_para.set(xticks=xticks, xticklabels=xtick_labels)
+        ax_rot.set(xticks=xticks, xticklabels=xtick_labels)
+    
+    elif x_axis == 'time':
+        xlabel = f'Time from {datetime_range[-1].strftime("%Y-%m-%d")} [UTC]'
+        xlim=(datetime_range[0], datetime_range[-1])
+
+        ax_airmass.set(xlim=xlim)
+        ax_elev.set(xlim=xlim)
+        ax_para.set(xlim=xlim)
+        ax_rot.set(xlim=xlim)
+
+        fig1.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+        fig2.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+
+    ax_airmass.set(
+        title='Airmass for Visible Objects (airmass < 2) at FYST', xlabel=xlabel, 
+        ylabel='Airmass', ylim=(1.001, max_airmass)
+    )
+    ax_elev.set(
+        title='Elevation for Visible Objects (airmass < 2) at FYST', xlabel=xlabel,
+        ylabel='Elevation [deg]', ylim=(min_elevation.to(u.deg).value, min(max_elevation.to(u.deg).value, 87))
+    )
+    ax_para.set(title='Parallactic Angle for Visible Objects (airmass < 2) at FYST', xlabel=xlabel, ylabel='Parallactic Angle [deg]')
+    ax_rot.set(title='Rotation Angle for Visible Objects (airmass < 2) at FYST', xlabel=xlabel, ylabel='Rotation Angle [deg]')
+    
+    ax_airmass.invert_yaxis()
+    ax_elev.axhline(75, ls='dashed', color='black')
+
+    # secondary axis for azimuthal scale factor
+
+    def transform(x):
+        new_x = 1/np.sin(np.arccos(1/x))
+        mask = np.isinf(new_x)
+        new_x[mask] = math.nan
+        return new_x
+
+    def inverse(x):
+        new_x = 1/np.cos(np.arcsin(1/x)) 
+        mask = np.isinf(new_x)
+        new_x[mask] = math.nan
+        return new_x
+
+    ax_airmass_right = ax_airmass.secondary_yaxis('right', functions=(transform, inverse))
+    ax_airmass_right.set(ylabel='Azimuthal Scale Factor')
+    ax_airmass_right.set_yticks([1.2, 1.5, 2, 2.5, 3, 4])
+
+    ax_elev_right = ax_elev.secondary_yaxis('right', functions=( lambda x: 1/np.cos(np.radians(x)), lambda x: np.degrees(np.arccos(1/x)) ))
+    ax_elev_right.set(ylabel='Azimuthal Scale Factor')
+    ax_elev_right.set_yticks([1.2, 2, 3, 4, 5, 6, 15])
+
+    # final touchups to axis
+
+    ax_airmass.legend(loc='lower right')
+    ax_elev.legend(loc='lower right')
+    ax_para.legend(loc='upper right')
+    ax_rot.legend(loc='upper right')
+
+    ax_airmass.grid()
+    ax_elev.grid()
+    ax_para.grid()
+    ax_rot.grid()
+
+    fig1.tight_layout()
+    fig2.tight_layout()
+
+    plt.show()
+
 
 ###################################
 #            HITMAP
@@ -979,7 +1122,7 @@ class ScanPattern():
         self.data['para_angle'] = para_deg
         self.data['rot_angle'] = rot_deg
 
-    # SETTERS
+    # GETTERS
 
     @property
     def time_offset(self):
