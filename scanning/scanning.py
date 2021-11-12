@@ -262,7 +262,8 @@ class Hitmap():
         self.validity_mask = self._get_valid_data()
 
         # hitmap preprocessing for both the kept and removed hitmaps
-        self.max_pixel, num_bins, x_range_pxan, y_range_pxan, dividing_factor = self._hitmap_preprocessing()
+        max_pixel = u.Quantity(kwargs['max_pixel'], u.arcsec).value if 'max_pixel' in kwargs.keys() else None
+        self.max_pixel, num_bins, x_range_pxan, y_range_pxan, dividing_factor = self._hitmap_preprocessing(max_pixel)
         hitmap_kwargs = {'x_range_pxan': x_range_pxan, 'y_range_pxan': y_range_pxan, 'dividing_factor': dividing_factor}
 
         # --- HITMAP ---
@@ -344,7 +345,7 @@ class Hitmap():
 
         return mask
 
-    def _hitmap_preprocessing(self):
+    def _hitmap_preprocessing(self, max_pixel):
 
         # find the distance from the center of the pixel location that is farthest away 
         x_pixel = self.x_pixel.to(u.arcsec).value
@@ -359,7 +360,8 @@ class Hitmap():
 
         # get params for bin edges
         pixel_scale = self.pixel_scale.to(u.arcsec).value
-        max_pixel = math.ceil((farthest_det_elem + farthest_ts)/pixel_scale)*pixel_scale
+        if max_pixel is None:
+            max_pixel = math.ceil((farthest_det_elem + farthest_ts)/pixel_scale)*pixel_scale
         num_bins = int(2*max_pixel/pixel_scale)
 
         # set up for pixel analysis
@@ -494,7 +496,7 @@ class Hitmap():
 
     # PLOTS 
 
-    def hitmap(self, total_max=None, kept_max=None, rem_max=None):
+    def hitmap(self, total_max=None, kept_max=None, rem_max=None, mini_size=None):
 
         hist_sum = sum(self.hist.flatten())
         hist_rem_sum = sum(self.hist_rem.flatten())
@@ -503,10 +505,15 @@ class Hitmap():
         fig = plt.figure(1)
         hit_per_str = 'px/s' if self.norm_time else 'px'
 
+        pixel_scale = self.pixel_scale.to(u.deg).value
+        max_pixel = self.max_pixel.to(u.deg).value
+        num_bins = int(2*max_pixel/pixel_scale)
+        x_edges = np.linspace(-max_pixel, max_pixel, num_bins, endpoint=False)
+        y_edges = np.linspace(-max_pixel, max_pixel, num_bins, endpoint=False)
+
         # --- HISTOGRAMS ---
 
-        max_pixel = self.max_pixel.to(u.deg).value
-
+        # reference FoV
         if self.scan.scan_type == 'pong':
             width = self.scan.width.to(u.deg).value
             height = self.scan.height.to(u.deg).value
@@ -515,7 +522,12 @@ class Hitmap():
             R0 = self.scan.R0.to(u.deg).value
             field = patches.Circle((0, 0), R0, linewidth=1, edgecolor='r', facecolor='none')
 
-        # combined histogram
+        # mini map
+        if not mini_size is None:
+            mini_size = u.Quantity(mini_size, u.deg).value
+            field_mini = patches.Rectangle((-mini_size/2, -mini_size/2), mini_size, mini_size, linewidth=1, edgecolor='r', facecolor='none', ls='dashed')
+
+        # Combined Histogram
         ax1 = plt.subplot2grid((4, 4), (0, 0), rowspan=3, fig=fig)
         hist_comb = self.hist + self.hist_rem
         pcm = ax1.imshow(hist_comb.T, extent=[-max_pixel, max_pixel, -max_pixel, max_pixel], vmin=0, vmax=total_max, interpolation='nearest', origin='lower')
@@ -524,6 +536,7 @@ class Hitmap():
         ax1.set_title(f'Total hits/{hit_per_str}')
 
         ax1.add_patch(copy.copy(field))
+        ax1.add_patch(copy.copy(field_mini))
         ax1.axvline(x=0, c='black')
         ax1.axhline(y=0, c='black')
 
@@ -531,7 +544,7 @@ class Hitmap():
         cax1 = divider.append_axes("bottom", size="3%", pad=0.5)
         fig.colorbar(pcm, cax=cax1, orientation='horizontal')
 
-        # kept histogram
+        # Kept Histogram
         ax2 = plt.subplot2grid((4, 4), (0, 1), rowspan=3, fig=fig, sharex=ax1, sharey=ax1)
         pcm = ax2.imshow(self.hist.T, extent=[-max_pixel, max_pixel, -max_pixel, max_pixel], vmin=0, vmax=kept_max, interpolation='nearest', origin='lower')
         ax2.set_aspect('equal', 'box')
@@ -539,6 +552,7 @@ class Hitmap():
         ax2.set_title(f'Kept hits/{hit_per_str}')
 
         ax2.add_patch(copy.copy(field))
+        ax2.add_patch(copy.copy(field_mini))
         ax2.axvline(x=0, c='black')
         ax2.axhline(y=0, c='black')
 
@@ -546,7 +560,7 @@ class Hitmap():
         cax2 = divider.append_axes("bottom", size="3%", pad=0.5)
         fig.colorbar(pcm, cax=cax2, orientation='horizontal')
 
-        # removed histogram
+        # Removed Histogram
         ax3 = plt.subplot2grid((4, 4), (0, 2), rowspan=3, fig=fig, sharex=ax1, sharey=ax1)
         pcm = ax3.imshow(self.hist_rem.T, extent=[-max_pixel, max_pixel, -max_pixel, max_pixel], vmin=0, vmax=rem_max, interpolation='nearest', origin='lower')
         ax3.set_aspect('equal', 'box')
@@ -554,6 +568,7 @@ class Hitmap():
         ax3.set_title(f'Removed hits/{hit_per_str}')
 
         ax3.add_patch(copy.copy(field))
+        ax3.add_patch(copy.copy(field_mini))
         ax3.axvline(x=0, c='black')
         ax3.axhline(y=0, c='black')
 
@@ -579,12 +594,6 @@ class Hitmap():
         cax4.axis('off')
 
         # --- BIN PLOTS ---
-
-        pixel_scale = self.pixel_scale.to(u.deg).value
-        num_bins = int(2*max_pixel/pixel_scale)
-        
-        x_edges = np.linspace(-max_pixel, max_pixel, num_bins, endpoint=False)
-        y_edges = np.linspace(-max_pixel, max_pixel, num_bins, endpoint=False)
 
         # bin line plot (#1)
         ax5 = plt.subplot2grid((4, 4), (3, 0), colspan=2, fig=fig)
@@ -627,6 +636,7 @@ class Hitmap():
         fig.tight_layout()
         plt.show()
 
+    
     def pxan_det(self):
         assert(self.pixel_analysis)
 
