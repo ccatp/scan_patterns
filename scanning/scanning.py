@@ -51,15 +51,25 @@ def visibility(start_datetime, end_datetime, objects, max_airmass=2, min_elevati
     datetime_range = pd.date_range(start_datetime, end_datetime, freq=freq)
     obs_time_range = Time(datetime_range, scale='utc', location=FYST_LOC)
 
+    # freq for rotation angle derivative
+    freq_min = freq.seconds/60 
+
     # create plot figures
     fig1 = plt.figure(1)
     ax_elev = plt.subplot2grid((1, 2), (0, 0), fig=fig1)
     ax_airmass = plt.subplot2grid((1, 2), (0, 1), fig=fig1, sharex=ax_elev)
 
     fig2 = plt.figure(2)
-    ax_para = plt.subplot2grid((1, 3), (0, 0), fig=fig2)
-    ax_rot = plt.subplot2grid((1, 3), (0, 1), fig=fig2, sharex=ax_para, sharey=ax_para)
-    ax_rot_rate = plt.subplot2grid((1, 3), (0, 2), fig=fig2, sharex=ax_para)
+    ax_para = plt.subplot2grid((2, 2), (0, 0), fig=fig2)
+    ax_rot = plt.subplot2grid((2, 2), (0, 1), fig=fig2, sharex=ax_para, sharey=ax_para)
+    ax_rot_norm = plt.subplot2grid((2, 2), (1, 0), fig=fig2, sharex=ax_para, sharey=ax_para)
+    ax_rot_rate = plt.subplot2grid((2, 2), (1, 1), fig=fig2, sharex=ax_para)
+
+    fig3 = plt.figure(3)
+    ax_hist1 = plt.subplot2grid((1, 2), (0, 0), fig=fig3)
+    ax_hist2 = plt.subplot2grid((1, 2), (0, 1), fig=fig3, sharex=ax_hist1, sharey=ax_hist1)
+
+    ax_list = (ax_elev, ax_airmass, ax_para, ax_rot, ax_rot_norm, ax_rot_rate)
 
     for obj in objects:
 
@@ -70,12 +80,20 @@ def visibility(start_datetime, end_datetime, objects, max_airmass=2, min_elevati
         obs = SkyCoord(dec=dec, ra=ra).transform_to(AltAz(obstime=datetime_range, location=FYST_LOC))
 
         # select for points with low air mass and between the elevation range
-        mask = (obs.secz <= max_airmass) & (obs.alt.deg > min_elevation.to(u.deg).value) & (obs.alt.deg < max_elevation.to(u.deg).value)
+        mask = (obs.secz <= max_airmass) & (obs.alt.deg > min_elevation.to(u.deg).value)
+        mask_max_elev = obs.alt.deg >= max_elevation.to(u.deg).value
+
+        def nan_above_max_elev(a):
+            b = np.copy(a)
+            b[mask_max_elev] = math.nan
+            return b
 
         # parallactic and rotation angle
         lst = obs_time_range.sidereal_time('apparent')
         hour_angle = lst - ra
         hour_angle_rad = hour_angle.to(u.rad).value
+        hour_angle_hrang = hour_angle.to(u.hourangle).value
+        hour_angle_hrang[hour_angle_hrang > 12] = hour_angle_hrang[hour_angle_hrang > 12] - 24
 
         dec_rad = dec.to(u.rad).value
         para_angle = np.arctan2(
@@ -83,22 +101,36 @@ def visibility(start_datetime, end_datetime, objects, max_airmass=2, min_elevati
             (cos(dec_rad)*tan(FYST_LOC.lat.rad) - sin(dec_rad)*np.cos(hour_angle_rad))
         )*u.rad
         rot_angle = para_angle + obs.alt
+        rot_angle_deg = rot_angle.to(u.deg).value
+        rot_angle_deg_nan = nan_above_max_elev(rot_angle_deg)
 
         # choose x_axis
         if x_axis == 'hourangle':
-            hour_angle_hrang = hour_angle.to(u.hourangle).value
-            hour_angle_hrang[hour_angle_hrang > 12] = hour_angle_hrang[hour_angle_hrang > 12] - 24
             x_values = hour_angle_hrang[mask]
             label = f'dec={dec.to(u.deg).value}N'
         elif x_axis == 'time':
             x_values = datetime_range[mask]
-            label = f'dec={dec.to(u.deg).value}N ra={ra.to(u.hourangle).value}h'
+            label = f'({round(ra.to(u.hourangle).value)}h {round(dec.to(u.deg).value)}N)'
 
         # add to plot
-        ax_airmass.plot(x_values, obs.secz[mask], label=label)
-        ax_elev.plot(x_values, obs.alt.deg[mask], label=label)
-        ax_para.plot(x_values, para_angle.to(u.deg).value[mask], label=label)
-        ax_rot.plot(x_values, rot_angle.to(u.deg).value[mask], label=label)
+        ax_airmass.plot(x_values, nan_above_max_elev(obs.secz)[mask], label=label)
+        ax_elev.plot(x_values, nan_above_max_elev(obs.alt.deg)[mask], label=label)
+        ax_para.plot(x_values, nan_above_max_elev(para_angle.to(u.deg).value)[mask], label=label)
+        ax_rot.plot(x_values, rot_angle_deg_nan[mask], label=label)
+
+        # rotation angle offset from meridian 
+        center_rot_i = abs(hour_angle_hrang[mask]).argmin()
+        low_rot = rot_angle_deg[mask][center_rot_i] - 180
+        rot_norm = (rot_angle_deg_nan[mask] - low_rot)%360 - 180 # ((value - low) % diff) + low (+ center_rot to normalize it)
+        ax_rot_norm.plot(x_values, rot_norm, label=label)
+
+        # rotation angle rate 
+        rot_rate = np.diff(rot_norm)/freq_min
+        ax_rot_rate.plot(x_values[:-1], rot_rate, label=label)
+
+        # histograms of rotation angle
+        ax_hist1.hist(rot_angle_deg_nan[mask & (hour_angle_hrang < 0)]%90, bins=range(0, 91, 5), label=label, histtype='step')
+        ax_hist2.hist(rot_angle_deg_nan[mask & (hour_angle_hrang >= 0)]%90, bins=range(0, 91, 5), label=label, histtype='step')
 
     # handle xticks and other settings of ax
 
@@ -107,27 +139,24 @@ def visibility(start_datetime, end_datetime, objects, max_airmass=2, min_elevati
         xticks = [i for i in range(-12, 13, 3)]
         xtick_labels = [f'{t + 24}h' if t < 0 else f'{t}h' for t in xticks]
 
-        ax_airmass.set(xticks=xticks, xticklabels=xtick_labels)
+        for ax in ax_list:
+            ax.set(xticks=xticks, xticklabels=xtick_labels)
+
         ax_airmass.set_yscale('function', functions=(lambda x: np.log10(x), lambda x: 10**x))
-        ax_elev.set(xticks=xticks, xticklabels=xtick_labels)
-        ax_para.set(xticks=xticks, xticklabels=xtick_labels)
-        ax_rot.set(xticks=xticks, xticklabels=xtick_labels)
     
     elif x_axis == 'time':
         xlabel = f'Time from {datetime_range[-1].strftime("%Y-%m-%d")} [UTC]'
         xlim=(datetime_range[0], datetime_range[-1])
 
-        ax_airmass.set(xlim=xlim)
-        ax_elev.set(xlim=xlim)
-        ax_para.set(xlim=xlim)
-        ax_rot.set(xlim=xlim)
+        for ax in ax_list:
+            ax.set(xlim=xlim)
 
         fig1.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
         fig2.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
 
     ax_airmass.set(
         title='Airmass for Visible Objects (airmass < 2) at FYST', xlabel=xlabel, 
-        ylabel='Airmass', ylim=(1.001, max_airmass)
+        ylabel='Airmass', ylim=(max(1.001, 1/cos(pi/2 - max_elevation.to(u.rad).value)), max_airmass)
     )
     ax_elev.set(
         title='Elevation for Visible Objects (airmass < 2) at FYST', xlabel=xlabel,
@@ -135,6 +164,10 @@ def visibility(start_datetime, end_datetime, objects, max_airmass=2, min_elevati
     )
     ax_para.set(title='Parallactic Angle for Visible Objects (airmass < 2) at FYST', xlabel=xlabel, ylabel='Parallactic Angle [deg]')
     ax_rot.set(title='Rotation Angle for Visible Objects (airmass < 2) at FYST', xlabel=xlabel, ylabel='Rotation Angle [deg]')
+    ax_rot_norm.set(title='Rotation Angle (offset from meridian) for Visible Objects (airmass < 2) at FYST', xlabel=xlabel, ylabel='Rotation Angle [deg]')
+    ax_rot_rate.set(title='Rotation Angle Rate for Visible Objects (airmass < 2) at FYST', xlabel=xlabel, ylabel='Rotation Angle Rate [deg/min]')
+    ax_hist1.set(title='Rotation Angle Histogram (hourangle < 0, airmass < 2)', xlabel='Rotation Angle (mod 90)', ylabel='# of Hits')
+    ax_hist2.set(title='Rotation Angle Histogram (hourangle >= 0, airmass < 2)', xlabel='Rotation Angle (mod 90)', ylabel='# of Hits')
     
     ax_airmass.invert_yaxis()
     ax_elev.axhline(75, ls='dashed', color='black')
@@ -164,17 +197,15 @@ def visibility(start_datetime, end_datetime, objects, max_airmass=2, min_elevati
     # final touchups to axis
 
     ax_airmass.legend(loc='lower right')
-    ax_elev.legend(loc='lower right')
-    ax_para.legend(loc='upper right')
     ax_rot.legend(loc='upper right')
+    ax_hist2.legend(loc='upper right')
 
-    ax_airmass.grid()
-    ax_elev.grid()
-    ax_para.grid()
-    ax_rot.grid()
+    for ax in ax_list:
+        ax.grid()
 
     fig1.tight_layout()
     fig2.tight_layout()
+    fig3.tight_layout()
 
     plt.show()
 
