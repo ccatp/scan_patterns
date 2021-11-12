@@ -1,16 +1,16 @@
 """
 TODO
-- Hitmap.pol and pols_on using angle-like
 - add other plotting functions
+- not using kwargs 
 - __init__ check if required combinations of parameters are present
+- units of x_coord, y_coord, etc.
+- rename pixel_scale
 - brush up on docs for functions and classes
 """
 
 # imports
 import math
 from math import pi, sin, cos, tan, sqrt
-from astropy.units.equivalencies import pixel_scale
-import fast_histogram
 import numpy as np
 import pandas as pd
 from datetime import timezone
@@ -482,10 +482,10 @@ class Hitmap():
         
         # Normalize for time
         if self.norm_time:
-            T = self.scan.T.to(u.s).value
-            hist = hist/T
-            det_hist = det_hist/T
-            time_hist = time_hist/T
+            total_time = self.scan.time_offset[-1].to(u.s).value + self.scan.sample_interval.to(u.s).value
+            hist = hist/total_time
+            det_hist = det_hist/total_time
+            time_hist = time_hist/total_time
 
         if not self.pixel_analysis:
             det_hist = time_hist = None
@@ -494,7 +494,7 @@ class Hitmap():
 
     # PLOTS 
 
-    def hitmap(self):
+    def hitmap(self, total_max=None, kept_max=None, rem_max=None):
 
         hist_sum = sum(self.hist.flatten())
         hist_rem_sum = sum(self.hist_rem.flatten())
@@ -512,13 +512,13 @@ class Hitmap():
             height = self.scan.height.to(u.deg).value
             field = patches.Rectangle((-width/2, -height/2), width=width, height=height, linewidth=1, edgecolor='r', facecolor='none') 
         elif self.scan.scan_type == 'daisy':
-            R0 = self.scan.R0.to(u.deg).valuesoun
+            R0 = self.scan.R0.to(u.deg).value
             field = patches.Circle((0, 0), R0, linewidth=1, edgecolor='r', facecolor='none')
 
         # combined histogram
         ax1 = plt.subplot2grid((4, 4), (0, 0), rowspan=3, fig=fig)
         hist_comb = self.hist + self.hist_rem
-        pcm = ax1.imshow(hist_comb.T, extent=[-max_pixel, max_pixel, -max_pixel, max_pixel], vmin=0, interpolation='nearest', origin='lower')
+        pcm = ax1.imshow(hist_comb.T, extent=[-max_pixel, max_pixel, -max_pixel, max_pixel], vmin=0, vmax=total_max, interpolation='nearest', origin='lower')
         ax1.set_aspect('equal', 'box')
         ax1.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
         ax1.set_title(f'Total hits/{hit_per_str}')
@@ -533,7 +533,7 @@ class Hitmap():
 
         # kept histogram
         ax2 = plt.subplot2grid((4, 4), (0, 1), rowspan=3, fig=fig, sharex=ax1, sharey=ax1)
-        pcm = ax2.imshow(self.hist.T, extent=[-max_pixel, max_pixel, -max_pixel, max_pixel], vmin=0, interpolation='nearest', origin='lower')
+        pcm = ax2.imshow(self.hist.T, extent=[-max_pixel, max_pixel, -max_pixel, max_pixel], vmin=0, vmax=kept_max, interpolation='nearest', origin='lower')
         ax2.set_aspect('equal', 'box')
         ax2.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
         ax2.set_title(f'Kept hits/{hit_per_str}')
@@ -548,7 +548,7 @@ class Hitmap():
 
         # removed histogram
         ax3 = plt.subplot2grid((4, 4), (0, 2), rowspan=3, fig=fig, sharex=ax1, sharey=ax1)
-        pcm = ax3.imshow(self.hist_rem.T, extent=[-max_pixel, max_pixel, -max_pixel, max_pixel], vmin=0, interpolation='nearest', origin='lower')
+        pcm = ax3.imshow(self.hist_rem.T, extent=[-max_pixel, max_pixel, -max_pixel, max_pixel], vmin=0, vmax=rem_max, interpolation='nearest', origin='lower')
         ax3.set_aspect('equal', 'box')
         ax3.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
         ax3.set_title(f'Removed hits/{hit_per_str}')
@@ -568,8 +568,8 @@ class Hitmap():
         y_pixel = self.y_pixel.to(u.deg).value
 
         ax4 = plt.subplot2grid((4, 4), (0, 3), rowspan=3, sharex=ax1, sharey=ax1, fig=fig)
-        ax4.scatter(x_pixel*cos(det_rot) + y_pixel*sin(det_rot), -x_pixel*sin(det_rot) + y_pixel*cos(det_rot), s=0.01)
-        ax4.scatter(self.scan.x_coord.to(u.deg).value, self.scan.y_coord.to(u.deg).value, color='red', s=0.01, alpha=0.5)
+        ax4.scatter(self.scan.x_coord.to(u.deg).value, self.scan.y_coord.to(u.deg).value, color='red', s=0.01, alpha=0.1)
+        ax4.scatter(x_pixel*cos(det_rot) + y_pixel*sin(det_rot), -x_pixel*sin(det_rot) + y_pixel*cos(det_rot), s=0.05)
 
         ax4.set_aspect('equal', 'box')
         ax4.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
@@ -601,7 +601,7 @@ class Hitmap():
             ax5.axvline(x=-width/2, c='r')
             ax5.axvline(x=width/2, c='r') 
 
-        ax5.set(ylabel=f'Hits/{hit_per_str}', xlabel='y offset (deg)')
+        ax5.set(ylabel=f'Hits/{hit_per_str}', xlabel='y offset (deg)', ylim=(0, total_max))
         ax5.set_title(f'Hit count in x={round(bin_edge, 3)} to x={round(bin_edge+pixel_scale, 3)} bin', fontsize=12)
         ax5.legend(loc='upper right')
 
@@ -620,7 +620,7 @@ class Hitmap():
             ax6.axvline(x=-width/2, c='r')
             ax6.axvline(x=width/2, c='r') 
 
-        ax6.set(ylabel=f'Hits/{hit_per_str}', xlabel='y offset (deg)')
+        ax6.set(ylabel=f'Hits/{hit_per_str}', xlabel='y offset (deg)', ylim=(0, total_max))
         ax6.set_title(f'Hit count in x={round(bin_edge, 3)} to x={round(bin_edge+pixel_scale, 3)} bin', fontsize=12)
         ax6.legend(loc='upper right')
 
@@ -794,11 +794,6 @@ class Hitmap():
         print(f'Total Hits: {len(rot_angle)*num_pol*num_det_elem_per_pol}')
 
         # --- PLOTTING ---
-
-        #b define minimum and maximum for histogram bins
-        min_angle = math.ceil(0 - max(rot_angle + det_rot))%90
-        max_angle = math.ceil(75 - min(rot_angle + det_rot))%90
-        print(min_angle, max_angle)
 
         fig = plt.figure(1)
         ax = plt.subplot2grid((1, 1), (0, 0), fig=fig)
@@ -1299,7 +1294,6 @@ class CurvyPong(ScanPattern):
             data['time_offset'][i] = t_count
             t_count += sample_interval
         
-        self.param['T'] = period*u.s
         return pd.DataFrame(data)
     
     def _fourier_expansion(self, num_term, amp, t_count, peri):
@@ -1349,9 +1343,6 @@ class CurvyPong(ScanPattern):
     def sample_interval(self):
         return self.param['sample_interval']
 
-    @property
-    def T(self):
-        return self.param['T']
 
 class Daisy(ScanPattern):
     """
@@ -1378,10 +1369,10 @@ class Daisy(ScanPattern):
     """
 
     scan_type = 'daisy'
-    default_folder = 'daisy'
-    default_param_csv = 'daisy_params'
+    _default_folder = 'daisy'
+    _default_param_csv = 'daisy_params.csv'
 
-    _param_default = {'sample_interval': 1/400*u.s, 'y': 0*u.deg}
+    _param_default = {'sample_interval': 1/400*u.s, 'y_offset': 0*u.deg}
     _param_unit = {
         'velocity': u.deg/u.s, 'start_acc': u.deg/u.s/u.s, 
         'R0': u.deg, 'Rt': u.deg, 'Ra': u.deg,
@@ -1394,10 +1385,10 @@ class Daisy(ScanPattern):
         speed = self.velocity.to(u.arcsec/u.s).value
         start_acc = self.start_acc.to(u.arcsec/u.s/u.s).value
         R0 = self.R0.to(u.arcsec).value
-        Rt = self.Rt.to(u.arcsec).valie
+        Rt = self.Rt.to(u.arcsec).value
         Ra = self.Ra.to(u.arcsec).value
         T = self.T.to(u.s).value
-        dt = self.dt.to(u.s).value
+        dt = self.sample_interval.to(u.s).value
         y_offset = self.y_offset.to(u.arcsec).value
 
         # --- START OF ALGORITHM ---
