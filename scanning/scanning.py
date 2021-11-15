@@ -65,13 +65,16 @@ def visibility(start_datetime, end_datetime, objects, max_airmass=2, min_elevati
     ax_rot_norm = plt.subplot2grid((2, 2), (1, 0), fig=fig2, sharex=ax_para, sharey=ax_para)
     ax_rot_rate = plt.subplot2grid((2, 2), (1, 1), fig=fig2, sharex=ax_para)
 
-    fig3 = plt.figure(3)
-    ax_hist1 = plt.subplot2grid((1, 2), (0, 0), fig=fig3)
-    ax_hist2 = plt.subplot2grid((1, 2), (0, 1), fig=fig3, sharex=ax_hist1, sharey=ax_hist1)
+    ax_hist_ncols = 2
+    ax_hist_nrows = math.ceil(len(objects)/ax_hist_ncols)
+    fig3, ax_hist = plt.subplots(ax_hist_nrows, ax_hist_ncols, sharex=True, sharey=True)
 
     ax_list = (ax_elev, ax_airmass, ax_para, ax_rot, ax_rot_norm, ax_rot_rate)
 
-    for obj in objects:
+    # get colormap for hist
+    cm = plt.cm.get_cmap('tab20').colors
+
+    for i, obj in enumerate(objects):
 
         # extract provided ra/dec and transform to alt/az
         dec = u.Quantity(obj[0], u.deg)
@@ -119,6 +122,7 @@ def visibility(start_datetime, end_datetime, objects, max_airmass=2, min_elevati
         ax_rot.plot(x_values, rot_angle_deg_nan[mask], label=label)
 
         # rotation angle offset from meridian 
+        np.seterr(invalid='ignore')
         center_rot_i = abs(hour_angle_hrang[mask]).argmin()
         low_rot = rot_angle_deg[mask][center_rot_i] - 180
         rot_norm = (rot_angle_deg_nan[mask] - low_rot)%360 - 180 # ((value - low) % diff) + low (+ center_rot to normalize it)
@@ -129,8 +133,20 @@ def visibility(start_datetime, end_datetime, objects, max_airmass=2, min_elevati
         ax_rot_rate.plot(x_values[:-1], rot_rate, label=label)
 
         # histograms of rotation angle
-        ax_hist1.hist(rot_angle_deg_nan[mask & (hour_angle_hrang < 0)]%90, bins=range(0, 91, 5), label=label, histtype='step')
-        ax_hist2.hist(rot_angle_deg_nan[mask & (hour_angle_hrang >= 0)]%90, bins=range(0, 91, 5), label=label, histtype='step')
+        ax_hist_row = math.floor(i/ax_hist_ncols)
+        ax_hist_col = i%ax_hist_ncols
+
+        a1 = rot_angle_deg_nan[mask & (hour_angle_hrang < 0)]%90
+        a2 = rot_angle_deg_nan[mask & (hour_angle_hrang >= 0)]%90
+
+        ax_hist[ax_hist_row, ax_hist_col].hist([a1, a2], bins=range(0, 91, 1), stacked=True, color=cm[2*i:2*(i+1)], label=['hourangle < 0', 'hourangle >= 0'], density=True)
+        ax_hist[ax_hist_row, ax_hist_col].set(xlabel='Rotation Angle (mod 90) [deg]', ylabel='Fraction of Time', title=f'Rotation Angle Histogram (airmass < 2), {label}')
+        ax_hist[ax_hist_row, ax_hist_col].legend(loc='upper right')
+        ax_hist[ax_hist_row, ax_hist_col].grid()
+        ax_hist[ax_hist_row, ax_hist_col].xaxis.set_tick_params(labelbottom=True)
+        ax_hist[ax_hist_row, ax_hist_col].yaxis.set_tick_params(labelbottom=True)
+
+        np.seterr(invalid='warn')
 
     # handle xticks and other settings of ax
 
@@ -166,24 +182,27 @@ def visibility(start_datetime, end_datetime, objects, max_airmass=2, min_elevati
     ax_rot.set(title='Rotation Angle for Visible Objects (airmass < 2) at FYST', xlabel=xlabel, ylabel='Rotation Angle [deg]')
     ax_rot_norm.set(title='Rotation Angle (offset from meridian) for Visible Objects (airmass < 2) at FYST', xlabel=xlabel, ylabel='Rotation Angle [deg]')
     ax_rot_rate.set(title='Rotation Angle Rate for Visible Objects (airmass < 2) at FYST', xlabel=xlabel, ylabel='Rotation Angle Rate [deg/min]')
-    ax_hist1.set(title='Rotation Angle Histogram (hourangle < 0, airmass < 2)', xlabel='Rotation Angle (mod 90)', ylabel='# of Hits')
-    ax_hist2.set(title='Rotation Angle Histogram (hourangle >= 0, airmass < 2)', xlabel='Rotation Angle (mod 90)', ylabel='# of Hits')
     
     ax_airmass.invert_yaxis()
+    ax_airmass.axhline(1/cos(pi/2 - math.radians(75)), ls='dashed', color='black')
     ax_elev.axhline(75, ls='dashed', color='black')
 
     # secondary axis for azimuthal scale factor
 
     def transform(x):
+        np.seterr(invalid='ignore', divide='ignore')
         new_x = 1/np.sin(np.arccos(1/x))
         mask = np.isinf(new_x)
         new_x[mask] = math.nan
+        np.seterr(invalid='warn', divide='warn')
         return new_x
 
     def inverse(x):
+        np.seterr(invalid='ignore', divide='ignore')
         new_x = 1/np.cos(np.arcsin(1/x)) 
         mask = np.isinf(new_x)
         new_x[mask] = math.nan
+        np.seterr(invalid='warn', divide='warn')
         return new_x
 
     ax_airmass_right = ax_airmass.secondary_yaxis('right', functions=(transform, inverse))
@@ -197,8 +216,12 @@ def visibility(start_datetime, end_datetime, objects, max_airmass=2, min_elevati
     # final touchups to axis
 
     ax_airmass.legend(loc='lower right')
+    ax_elev.legend(loc='lower right')
+
+    ax_para.legend(loc='upper right')
     ax_rot.legend(loc='upper right')
-    ax_hist2.legend(loc='upper right')
+    ax_rot_norm.legend(loc='upper right')
+    ax_rot_rate.legend(loc='upper right')
 
     for ax in ax_list:
         ax.grid()
@@ -313,8 +336,8 @@ class Hitmap():
             
         # convert to corresponding angle 
         p1 = 45*p # 0 = 0, 1 = 45
-        p2 = 45*p + 30 # 2 = 30, 3 = 75
-        p3 = -45*p + 60 # 4 = 60, 5 = 15
+        p2 = -45*p + 60 # 4 = 60, 5 = 15
+        p3 = 45*p + 30 # 2 = 30, 3 = 75
 
         pol = np.append(p1, np.append(p2, p3))
         pol = np.tile(pol, 3)
@@ -636,7 +659,26 @@ class Hitmap():
         fig.tight_layout()
         plt.show()
 
-    
+    def detector_polarization(self):
+        all_pol = np.array([0, 15, 30, 45, 60, 75])
+        n_pol = len(all_pol)
+
+        x_pixel = self.x_pixel.to(u.deg).value
+        y_pixel = self.y_pixel.to(u.deg).value
+
+        p_det = plt.subplot2grid((2, 2), (0, 0), rowspan=2)
+        cm = ListedColormap(['purple', 'yellow', 'blue', 'green', 'black', 'red'])
+        sc = p_det.scatter(x_pixel, y_pixel, c=self.pol, cmap=cm, s=5)
+        p_det.set_aspect('equal', 'box')
+        p_det.set(xlabel='x offset (deg)', ylabel='y offset (deg)', title='Map of Polarization in Detector Array')
+
+        cbar = plt.colorbar(sc, fraction=0.046, pad=0.04)
+        tick_locs = (all_pol + 7.5)*(n_pol-1)/n_pol
+        cbar.set_ticks(tick_locs)
+        cbar.set_ticklabels(all_pol)
+        cbar.ax.set_ylabel('Crosshair Rotation [deg]')
+        plt.show()
+
     def pxan_det(self):
         assert(self.pixel_analysis)
 
