@@ -52,7 +52,7 @@ def visibility(start_datetime, end_datetime, objects, max_airmass=2, min_elevati
     obs_time_range = Time(datetime_range, scale='utc', location=FYST_LOC)
 
     # freq for rotation angle derivative
-    freq_min = freq.seconds/60 
+    freq_hr = freq.seconds/3600 
 
     # create plot figures
     fig1 = plt.figure(1)
@@ -60,20 +60,19 @@ def visibility(start_datetime, end_datetime, objects, max_airmass=2, min_elevati
     ax_airmass = plt.subplot2grid((1, 2), (0, 1), fig=fig1, sharex=ax_elev)
 
     fig2 = plt.figure(2)
-    ax_para = plt.subplot2grid((2, 2), (0, 0), fig=fig2)
-    ax_rot = plt.subplot2grid((2, 2), (0, 1), fig=fig2, sharex=ax_para, sharey=ax_para)
-    ax_rot_norm = plt.subplot2grid((2, 2), (1, 0), fig=fig2, sharex=ax_para, sharey=ax_para)
-    ax_rot_rate = plt.subplot2grid((2, 2), (1, 1), fig=fig2, sharex=ax_para)
+    ax_rot = plt.subplot2grid((1, 2), (0, 0), fig=fig2)
+    ax_rot_rate = plt.subplot2grid((1, 2), (0, 1), fig=fig2, sharex=ax_rot)
 
     ax_hist_ncols = 2
     ax_hist_nrows = math.ceil(len(objects)/ax_hist_ncols)
     fig3, ax_hist = plt.subplots(ax_hist_nrows, ax_hist_ncols, sharex=True, sharey=True)
 
-    ax_list = (ax_elev, ax_airmass, ax_para, ax_rot, ax_rot_norm, ax_rot_rate)
+    ax_list = (ax_elev, ax_airmass, ax_rot, ax_rot_rate)
 
     # get colormap for hist
     cm = plt.cm.get_cmap('tab20').colors
 
+    max_abs_rot_rate = 0
     for i, obj in enumerate(objects):
 
         # extract provided ra/dec and transform to alt/az
@@ -84,69 +83,73 @@ def visibility(start_datetime, end_datetime, objects, max_airmass=2, min_elevati
 
         # select for points with low air mass and between the elevation range
         mask = (obs.secz <= max_airmass) & (obs.alt.deg > min_elevation.to(u.deg).value)
-        mask_max_elev = obs.alt.deg >= max_elevation.to(u.deg).value
-
-        def nan_above_max_elev(a):
-            b = np.copy(a)
-            b[mask_max_elev] = math.nan
-            return b
+        mask_max_elev = obs.alt.deg[mask] < max_elevation.to(u.deg).value
 
         # parallactic and rotation angle
-        lst = obs_time_range.sidereal_time('apparent')
+        lst = obs_time_range.sidereal_time('apparent')[mask]
         hour_angle = lst - ra
         hour_angle_rad = hour_angle.to(u.rad).value
         hour_angle_hrang = hour_angle.to(u.hourangle).value
         hour_angle_hrang[hour_angle_hrang > 12] = hour_angle_hrang[hour_angle_hrang > 12] - 24
+        mask_hrangle = hour_angle_hrang < 0
 
         dec_rad = dec.to(u.rad).value
         para_angle = np.arctan2(
             np.sin(hour_angle_rad),
             (cos(dec_rad)*tan(FYST_LOC.lat.rad) - sin(dec_rad)*np.cos(hour_angle_rad))
         )*u.rad
-        rot_angle = para_angle + obs.alt
+        rot_angle = para_angle + obs.alt[mask]
         rot_angle_deg = rot_angle.to(u.deg).value
-        rot_angle_deg_nan = nan_above_max_elev(rot_angle_deg)
 
         # choose x_axis
         if x_axis == 'hourangle':
-            x_values = hour_angle_hrang[mask]
+            x_values = hour_angle_hrang
             label = f'dec={dec.to(u.deg).value}N'
         elif x_axis == 'time':
             x_values = datetime_range[mask]
             label = f'({round(ra.to(u.hourangle).value)}h {round(dec.to(u.deg).value)}N)'
 
         # add to plot
-        ax_airmass.plot(x_values, nan_above_max_elev(obs.secz)[mask], label=label)
-        ax_elev.plot(x_values, nan_above_max_elev(obs.alt.deg)[mask], label=label)
-        ax_para.plot(x_values, nan_above_max_elev(para_angle.to(u.deg).value)[mask], label=label)
-        ax_rot.plot(x_values, rot_angle_deg_nan[mask], label=label)
+        ax_airmass.plot(x_values, obs.secz[mask], label=label)
+        ax_elev.plot(x_values, obs.alt.deg[mask], label=label)
+        #ax_rot.plot(x_values, rot_angle_deg, label=label)
 
-        # rotation angle offset from meridian 
-        np.seterr(invalid='ignore')
-        center_rot_i = abs(hour_angle_hrang[mask]).argmin()
-        low_rot = rot_angle_deg[mask][center_rot_i] - 180
-        rot_norm = (rot_angle_deg_nan[mask] - low_rot)%360 - 180 # ((value - low) % diff) + low (+ center_rot to normalize it)
-        ax_rot_norm.plot(x_values, rot_norm, label=label)
+        # rotation angle 
+        center_rot_i = list(hour_angle_hrang).index( max(hour_angle_hrang[mask_hrangle]) )
+        low_rot = rot_angle_deg[center_rot_i] - 180
+        rot_norm = (rot_angle_deg - low_rot)%360 + low_rot # ((value - low) % diff) + low 
+
+        ax_rot.plot(x_values[mask_max_elev & mask_hrangle], rot_norm[mask_max_elev & mask_hrangle], label=label, color=cm[2*i])
+        ax_rot.plot(x_values[mask_max_elev & ~mask_hrangle], rot_norm[mask_max_elev & ~mask_hrangle], color=cm[2*i])
+        ax_rot.plot(x_values[~mask_max_elev], rot_norm[~mask_max_elev], color=cm[2*i], ls='dashed')
 
         # rotation angle rate 
-        rot_rate = np.diff(rot_norm)/freq_min
-        ax_rot_rate.plot(x_values[:-1], rot_rate, label=label)
+        rot_rate = np.diff(rot_norm, append=math.nan)/freq_hr
+        ax_rot_rate.plot(x_values[mask_max_elev & mask_hrangle], rot_rate[mask_max_elev & mask_hrangle], label=label, color=cm[2*i])
+        ax_rot_rate.plot(x_values[mask_max_elev & ~mask_hrangle], rot_rate[mask_max_elev & ~mask_hrangle], color=cm[2*i])
+        ax_rot_rate.plot(x_values[~mask_max_elev], rot_rate[~mask_max_elev], color=cm[2*i], ls='dashed')
+
+        max_abs_rot_rate = max( max_abs_rot_rate, np.max(abs(rot_rate[mask_max_elev])) )
 
         # histograms of rotation angle
         ax_hist_row = math.floor(i/ax_hist_ncols)
         ax_hist_col = i%ax_hist_ncols
 
-        a1 = rot_angle_deg_nan[mask & (hour_angle_hrang < 0)]%90
-        a2 = rot_angle_deg_nan[mask & (hour_angle_hrang >= 0)]%90
+        a1 = rot_angle_deg[mask_hrangle & mask_max_elev]%90
+        a2 = rot_angle_deg[~mask_hrangle & mask_max_elev]%90
 
-        ax_hist[ax_hist_row, ax_hist_col].hist([a1, a2], bins=range(0, 91, 1), stacked=True, color=cm[2*i:2*(i+1)], label=['hourangle < 0', 'hourangle >= 0'], density=True)
-        ax_hist[ax_hist_row, ax_hist_col].set(xlabel='Rotation Angle (mod 90) [deg]', ylabel='Fraction of Time', title=f'Rotation Angle Histogram (airmass < 2), {label}')
+        total_seconds = len(a1) + len(a2)
+        print('total:', total_seconds)
+
+        ax_hist[ax_hist_row, ax_hist_col].hist(a1, bins=range(0, 91, 1), color=cm[2*i], label='hourangle < 0', weights=np.full(len(a1), 1/total_seconds))
+        ax_hist[ax_hist_row, ax_hist_col].hist(a2, bins=range(0, 91, 1), color=cm[2*i+1], label='hourangle >= 0', histtype='step', weights=np.full(len(a2), 1/total_seconds))
+        ax_hist[ax_hist_row, ax_hist_col].set(xlabel='Rotation Angle (mod 90) [deg]', ylabel='Fraction of Time', title=label)
         ax_hist[ax_hist_row, ax_hist_col].legend(loc='upper right')
         ax_hist[ax_hist_row, ax_hist_col].grid()
         ax_hist[ax_hist_row, ax_hist_col].xaxis.set_tick_params(labelbottom=True)
         ax_hist[ax_hist_row, ax_hist_col].yaxis.set_tick_params(labelbottom=True)
 
-        np.seterr(invalid='warn')
+    max_abs_rot_rate = max(max_abs_rot_rate, 60)
 
     # handle xticks and other settings of ax
 
@@ -172,20 +175,27 @@ def visibility(start_datetime, end_datetime, objects, max_airmass=2, min_elevati
 
     ax_airmass.set(
         title='Airmass for Visible Objects (airmass < 2) at FYST', xlabel=xlabel, 
-        ylabel='Airmass', ylim=(max(1.001, 1/cos(pi/2 - max_elevation.to(u.rad).value)), max_airmass)
+        ylabel='Airmass', ylim=( max(1.001, 1/cos(pi/2 - max_elevation.to(u.rad).value)) , max_airmass)
     )
+    ax_airmass.invert_yaxis()
+    ax_airmass.axhline(1/cos(pi/2 - math.radians(75)), ls='dashed', color='black')
+
     ax_elev.set(
         title='Elevation for Visible Objects (airmass < 2) at FYST', xlabel=xlabel,
         ylabel='Elevation [deg]', ylim=(min_elevation.to(u.deg).value, min(max_elevation.to(u.deg).value, 87))
     )
-    ax_para.set(title='Parallactic Angle for Visible Objects (airmass < 2) at FYST', xlabel=xlabel, ylabel='Parallactic Angle [deg]')
-    ax_rot.set(title='Rotation Angle for Visible Objects (airmass < 2) at FYST', xlabel=xlabel, ylabel='Rotation Angle [deg]')
-    ax_rot_norm.set(title='Rotation Angle (offset from meridian) for Visible Objects (airmass < 2) at FYST', xlabel=xlabel, ylabel='Rotation Angle [deg]')
-    ax_rot_rate.set(title='Rotation Angle Rate for Visible Objects (airmass < 2) at FYST', xlabel=xlabel, ylabel='Rotation Angle Rate [deg/min]')
-    
-    ax_airmass.invert_yaxis()
-    ax_airmass.axhline(1/cos(pi/2 - math.radians(75)), ls='dashed', color='black')
+    ax_elev.set_yticks(np.append(ax_elev.get_yticks(), 75))
     ax_elev.axhline(75, ls='dashed', color='black')
+
+    ax_rot.set(title='Rotation Angle for Visible Objects (airmass < 2) at FYST', xlabel=xlabel, ylabel='Rotation Angle [deg]')
+
+    ax_rot_rate.set(
+        title='Rotation Angle Rate for Visible Objects (airmass < 2) at FYST', xlabel=xlabel, 
+        ylabel='Rotation Angle Rate [deg/hr]', ylim=(-max_abs_rot_rate, max_abs_rot_rate)
+    )
+    ax_rot_rate.axhline(15, ls=':', color='black')
+    ax_rot_rate.axhline(-15, ls=':', color='black')
+    ax_rot_rate.set_yticks(np.append(ax_rot_rate.get_yticks(), [-15, 15]))
 
     # secondary axis for azimuthal scale factor
 
@@ -218,10 +228,8 @@ def visibility(start_datetime, end_datetime, objects, max_airmass=2, min_elevati
     ax_airmass.legend(loc='lower right')
     ax_elev.legend(loc='lower right')
 
-    ax_para.legend(loc='upper right')
-    ax_rot.legend(loc='upper right')
-    ax_rot_norm.legend(loc='upper right')
-    ax_rot_rate.legend(loc='upper right')
+    ax_rot.legend(loc='lower right')
+    ax_rot_rate.legend(loc='lower right')
 
     for ax in ax_list:
         ax.grid()
@@ -545,11 +553,6 @@ class Hitmap():
             R0 = self.scan.R0.to(u.deg).value
             field = patches.Circle((0, 0), R0, linewidth=1, edgecolor='r', facecolor='none')
 
-        # mini map
-        if not mini_size is None:
-            mini_size = u.Quantity(mini_size, u.deg).value
-            field_mini = patches.Rectangle((-mini_size/2, -mini_size/2), mini_size, mini_size, linewidth=1, edgecolor='r', facecolor='none', ls='dashed')
-
         # Combined Histogram
         ax1 = plt.subplot2grid((4, 4), (0, 0), rowspan=3, fig=fig)
         hist_comb = self.hist + self.hist_rem
@@ -559,7 +562,6 @@ class Hitmap():
         ax1.set_title(f'Total hits/{hit_per_str}')
 
         ax1.add_patch(copy.copy(field))
-        ax1.add_patch(copy.copy(field_mini))
         ax1.axvline(x=0, c='black')
         ax1.axhline(y=0, c='black')
 
@@ -575,7 +577,6 @@ class Hitmap():
         ax2.set_title(f'Kept hits/{hit_per_str}')
 
         ax2.add_patch(copy.copy(field))
-        ax2.add_patch(copy.copy(field_mini))
         ax2.axvline(x=0, c='black')
         ax2.axhline(y=0, c='black')
 
@@ -591,13 +592,20 @@ class Hitmap():
         ax3.set_title(f'Removed hits/{hit_per_str}')
 
         ax3.add_patch(copy.copy(field))
-        ax3.add_patch(copy.copy(field_mini))
         ax3.axvline(x=0, c='black')
         ax3.axhline(y=0, c='black')
 
         divider = make_axes_locatable(ax3)
         cax3 = divider.append_axes("bottom", size="3%", pad=0.5)
         fig.colorbar(pcm, cax=cax3, orientation='horizontal')
+
+        # mini map
+        if not mini_size is None:
+            mini_size = u.Quantity(mini_size, u.deg).value
+            field_mini = patches.Rectangle((-mini_size/2, -mini_size/2), mini_size, mini_size, linewidth=1, edgecolor='r', facecolor='none', ls='dashed')
+            ax1.add_patch(copy.copy(field_mini))
+            ax2.add_patch(copy.copy(field_mini))
+            ax3.add_patch(copy.copy(field_mini))
 
         # --- DETECTOR ELEMENTS AND PATH ----
 
@@ -849,12 +857,13 @@ class Hitmap():
 
         fig = plt.figure(1)
         ax = plt.subplot2grid((1, 1), (0, 0), fig=fig)
-        ax.set(xlabel='Angle (between 0 and 90) [deg]', ylabel='Hits', title='Polarization + Rotation angles')
+        ax.grid()
+        ax.set(xlabel='Polarization Angle [deg]', ylabel='# of Hits', title='Histogram of Polarization + Field Rotation')
 
         for p in all_pol:
-            ax.hist(pol_dict[p], bins=90*4, range=(0, 90), weights=[num_det_elem_per_pol]*len(rot_angle), label=f'pol = {p}')
+            ax.hist(pol_dict[p], bins=90*4, range=(0, 90), weights=[num_det_elem_per_pol]*len(rot_angle), label=f'{p}$^\circ$')
 
-        ax.legend(loc='upper right')
+        ax.legend(loc='upper right', title='Initial Polarization')
         plt.show()        
 
     # GETTER FUNCTIOSN
@@ -968,6 +977,9 @@ class ScanPattern():
                     self.setting_param[param_name] = kwargs_uncleaned[unclean_param_name]*u.deg
                 else:
                     kwargs[param_name] = kwargs_uncleaned[unclean_param_name]
+
+            # set self.has_setting
+            self.has_setting = 'az_coord' in self.data.columns
 
         # initialize parameters with their corresponding unit
         for param_name in self._param_unit.keys():
@@ -1200,6 +1212,206 @@ class ScanPattern():
         self.data['para_angle'] = para_deg
         self.data['rot_angle'] = rot_deg
 
+    # PLOT
+
+    def plot_coord_elevation_rot(self):
+
+        fig = plt.figure(1)
+        ax_coord = plt.subplot2grid((1, 2), (0, 0), fig=fig)
+        ax_elevation = plt.subplot2grid((1, 2), (0, 1), fig=fig)
+
+        x_coord = self.x_coord.to(u.deg).value
+        y_coord = self.y_coord.to(u.deg).value
+        rot_angle = self.rot_angle.to(u.deg).value
+        time_offset = self.time_offset.to(u.s).value
+        elevation =  self.data['alt_coord'].to_numpy()
+    
+        # Scan Pattern
+        ax_coord.plot(x_coord, y_coord, linewidth=1)
+        ax_coord.set_aspect('equal', 'box')
+        ax_coord.set(xlabel='Right Ascension [deg]', ylabel='Declination [deg]', title='RA/DEC')
+        ax_coord.grid()
+
+        # Elevation & Rot Angle
+        ax_elevation.plot(time_offset, elevation, label='Elevation', linewidth=3)
+        ax_elevation.set(xlabel='Time Offset [s]', ylabel='Elevation [deg]', title=f'Elevation and Rotation Angle vs. Time')
+        ax_elevation.grid()
+        ax_elevation.legend(loc='upper left')
+
+        ax_rot_angle = ax_elevation.twinx()
+        ax_rot_angle.plot(time_offset, rot_angle, label='Rotation Angle', color='tab:orange', ls='dashed')
+        ax_rot_angle.set(ylabel='Rotation Angle [deg]')
+        ax_rot_angle.legend(loc='upper right')
+
+        fig.tight_layout()
+        plt.show()
+
+    def plot(self, graphs=['coord', 'coord-time', 'vel', 'acc', 'jerk']):
+        
+        if 'coord' in graphs:
+            fig_coord, ax_coord = plt.subplots(1, 2)
+            ax_coord[0].plot(self.data['x_coord'], self.data['y_coord'], linewidth=0.5)
+            ax_coord[0].set_aspect('equal', 'box')
+            ax_coord[0].set(xlabel='Right Ascension Offset [deg]', ylabel='Declination Offset [deg]', title='RA/DEC')
+            ax_coord[0].grid()
+            if self.scan_type == 'daisy':
+                n=100
+                circle1_x = [math.cos(2*pi/n*x)*self.R0 for x in range(0,n+1)]
+                circle1_y = [math.sin(2*pi/n*x)*self.R0 for x in range(0,n+1)]
+                ax_coord[0].plot(circle1_x, circle1_y, linewidth=2, color='r', ls='--', label='R0')
+
+                circle1_x = [math.cos(2*pi/n*x)*self.Ra for x in range(0,n+1)]
+                circle1_y = [math.sin(2*pi/n*x)*self.Ra for x in range(0,n+1)]
+                ax_coord[0].plot(circle1_x, circle1_y, linewidth=2, color='r', label='Ra')
+                
+                ax_coord[0].legend(loc='upper right')
+
+            if self.has_setting:
+                ax_coord[1].plot(self.data['az_coord'], self.data['alt_coord'])
+                ax_coord[1].set_aspect('equal', 'box')
+                ax_coord[1].set(xlabel='Azimuth [deg]', ylabel='Altitude [deg]', title=f'AZ/ALT')
+                ax_coord[1].grid()
+
+            fig_coord.tight_layout()
+
+        if 'coord-time' in graphs:
+            fig_coord_time, ax_coord_time = plt.subplots(2, 1, sharex=True, sharey=True)
+
+            ax_coord_time[0].plot(self.data['time_offset'], self.data['x_coord'], label='RA')
+            ax_coord_time[0].plot(self.data['time_offset'], self.data['y_coord'], label='DEC')
+            ax_coord_time[0].legend(loc='upper right')
+            ax_coord_time[0].set(xlabel='time offset (s)', ylabel='Position offset (deg)', title=f'Position')
+            ax_coord_time[0].grid()
+            ax_coord_time[0].xaxis.set_tick_params(labelbottom=True)
+
+            if self.has_setting:
+                ax_coord_time[1].plot(self.data['time_offset'], (self.data['az_coord'] - self.data.loc[0, 'az_coord'])*cos(pi/6), label='Azimuth')
+                ax_coord_time[1].plot(self.data['time_offset'], self.data['alt_coord'] - self.data.loc[0, 'alt_coord'], label='Elevation')
+                #ax_coord_time[1].plot(self.data['time_offset'], self.data['alt_coord'], label='Elevation')
+                ax_coord_time[1].legend(loc='upper right')
+                ax_coord_time[1].set(xlabel='Time Offset [s]', ylabel='Position [deg]', title=f'AZ/ALT')
+                ax_coord_time[1].grid()
+
+            fig_coord_time.tight_layout()
+        
+        if 'vel' in graphs:
+            fig_vel, ax_vel = plt.subplots(2, 1, sharex=True, sharey=True)
+
+            total_vel = np.sqrt(self.data['x_vel']**2 + self.data['y_vel']**2)
+            ax_vel[0].plot(self.data['time_offset'], total_vel, label='Total', c='black', ls='dashed', alpha=0.25)
+            ax_vel[0].plot(self.data['time_offset'], self.data['x_vel'], label='RA')
+            #ax_vel[0].plot(self.data['time_offset'], self.data['y_vel'], label='DEC')
+            ax_vel[0].legend(loc='upper right')
+            ax_vel[0].set(xlabel='time offset (s)', ylabel='velocity (deg/s)', title=f'Velocity')
+            ax_vel[0].grid()
+            ax_vel[0].xaxis.set_tick_params(labelbottom=True)
+
+            if self.has_setting:
+                total_vel = np.sqrt(self.data['az_vel']**2 + self.data['alt_vel']**2)
+                ax_vel[1].plot(self.data['time_offset'], total_vel, label='Total', c='black', ls='dashed', alpha=0.25)
+                ax_vel[1].plot(self.data['time_offset'], self.data['az_vel'], label='AZ')
+                ax_vel[1].plot(self.data['time_offset'], self.data['alt_vel'], label='ALT')
+                ax_vel[1].legend(loc='upper right')
+                ax_vel[1].set(xlabel='time offset (s)', ylabel='velocity (deg/s)', title=f'AZ/ALT')
+                ax_vel[1].grid()
+
+            fig_vel.tight_layout()
+        
+        if 'acc' in graphs:
+            fig_acc, ax_acc = plt.subplots(2, 1, sharex=True, sharey=True)
+
+            total_acc = np.sqrt(self.data['x_acc']**2 + self.data['y_acc']**2)
+            ax_acc[0].plot(self.data['time_offset'], total_acc, label='Total', c='black', ls='dashed', alpha=0.25)
+            ax_acc[0].plot(self.data['time_offset'], self.data['x_acc'], label='RA')
+            #ax_acc[0].plot(self.data['time_offset'], self.data['y_acc'], label='DEC')
+            ax_acc[0].legend(loc='upper right')
+            ax_acc[0].set(xlabel='time offset (s)', ylabel='acceleration (deg/s^2)', title=f'Acceleration')
+            ax_acc[0].grid()
+            ax_acc[0].xaxis.set_tick_params(labelbottom=True)
+
+            if self.has_setting:
+                total_acc = np.sqrt(self.data['az_acc']**2 + self.data['alt_acc']**2)
+                ax_acc[1].plot(self.data['time_offset'], total_acc, label='Total', c='black', ls='dashed', alpha=0.25)
+                ax_acc[1].plot(self.data['time_offset'], self.data['az_acc'], label='AZ')
+                ax_acc[1].plot(self.data['time_offset'], self.data['alt_acc'], label='ALT')
+                ax_acc[1].legend(loc='upper right')
+                ax_acc[1].set(xlabel='time offset (s)', ylabel='acceleration (deg/s^2)', title=f'AZ/ALT')
+                ax_acc[1].grid()
+
+            fig_acc.tight_layout()
+
+        if 'jerk' in graphs:
+            fig_jerk, ax_jerk = plt.subplots(2, 1, sharex=True, sharey=True)
+
+            total_jerk = np.sqrt(self.data['x_jerk']**2 + self.data['y_jerk']**2)
+            ax_jerk[0].plot(self.data['time_offset'], self.data['x_jerk'], label='RA')
+            #ax_jerk[0].plot(self.data['time_offset'], self.data['y_jerk'], label='DEC')
+            ax_jerk[0].plot(self.data['time_offset'], total_jerk, label='Total', c='black', ls='dashed', alpha=0.25)
+            ax_jerk[0].legend(loc='upper right')
+            ax_jerk[0].set(xlabel='time offset (s)', ylabel='Jerk (deg/s^2)', title=f'Jerk')
+            ax_jerk[0].grid()
+            ax_jerk[0].xaxis.set_tick_params(labelbottom=True)
+
+            if self.has_setting:
+                total_jerk = np.sqrt(self.data['az_jerk']**2 + self.data['alt_jerk']**2)
+                ax_jerk[1].plot(self.data['time_offset'], self.data['az_jerk'], label='AZ')
+                ax_jerk[1].plot(self.data['time_offset'], self.data['alt_jerk'], label='ALT')
+                ax_jerk[1].plot(self.data['time_offset'], total_jerk, label='Total', c='black', ls='dashed', alpha=0.25)
+                ax_jerk[1].legend(loc='upper right')
+                ax_jerk[1].set(xlabel='time offset (s)', ylabel='Jerk (deg/s^2)', title=f'AZ/ALT')
+                ax_jerk[1].grid()
+
+            fig_jerk.tight_layout()
+        
+        if 'quiver' in graphs:
+            fig_quiver, ax_quiver = plt.subplots(1, 2, sharex=True, sharey=True)
+            subsample = 50
+            endpoint = None
+
+            # --- ACCELERATION ---
+
+            # plot acc
+            total_acc = np.sqrt(self.data['x_acc']**2 + self.data['y_acc']**2).to_numpy()
+            ax_quiver[0].plot(self.data['x_coord'], self.data['y_coord'], alpha=0.25, color='black')
+            pcm = ax_quiver[0].quiver(
+                self.data['x_coord'].to_numpy()[:endpoint:subsample], self.data['y_coord'].to_numpy()[:endpoint:subsample], 
+                self.data['x_acc'].to_numpy()[:endpoint:subsample], self.data['y_acc'].to_numpy()[:endpoint:subsample],
+                total_acc[:endpoint:subsample], #clim=(0, 1)
+            )
+            ax_quiver[0].set_aspect('equal', 'box')
+            ax_quiver[0].set(xlabel='Map height [deg]', ylabel='Map width [deg]', title='RA/DEC acc [deg/s^2]')
+
+            # colorbar acc
+            divider = make_axes_locatable(ax_quiver[0])
+            cax = divider.append_axes("right", size="3%", pad=0.5)
+            fig_quiver.colorbar(pcm, cax=cax)
+
+            # --- JERK ---
+
+            # get jerk
+            self.data['x_jerk'] = self._central_diff(self.data['x_acc'].to_numpy(), self.sample_interval)
+            self.data['y_jerk'] = self._central_diff(self.data['y_acc'].to_numpy(), self.sample_interval)
+            total_jerk = np.sqrt(self.data['x_jerk']**2 + self.data['y_jerk']**2).to_numpy()
+
+            # plot jerk
+            ax_quiver[1].plot(self.data['x_coord'], self.data['y_coord'], alpha=0.25, color='black')
+            pcm = ax_quiver[1].quiver(
+                self.data['x_coord'].to_numpy()[:endpoint:subsample], self.data['y_coord'].to_numpy()[:endpoint:subsample], 
+                self.data['x_jerk'].to_numpy()[:endpoint:subsample], self.data['y_jerk'].to_numpy()[:endpoint:subsample]/3600,
+                total_jerk[:endpoint:subsample], #clim=(0, 1)
+            )
+            ax_quiver[1].set_aspect('equal', 'box')
+            ax_quiver[1].set(xlabel='Map height [deg]', ylabel='Map width [deg]', title='RA/DEC jerk [deg/s^3]')
+
+            # colorbar
+            divider = make_axes_locatable(ax_quiver[1])
+            cax = divider.append_axes("right", size="3%", pad=0.5)
+            fig_quiver.colorbar(pcm, cax=cax)
+            
+            fig_quiver.tight_layout()
+
+        plt.show()
+
     # GETTERS
 
     @property
@@ -1225,6 +1437,14 @@ class ScanPattern():
     @property
     def rot_angle(self):
         return self.data['rot_angle'].to_numpy()*u.deg
+
+    @property
+    def az_coord(self):
+        return self.data['az_coord'].to_numpy()*u.deg
+    
+    @property
+    def alt_coord(self):
+        return self.data['alt_coord'].to_numpy()*u.deg
 
 class CurvyPong(ScanPattern):
     """
