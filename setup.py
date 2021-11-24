@@ -7,6 +7,7 @@ setup(
     description='Python mapping and scanning implementation and optimization.',
     long_description=open('README.md').read(),
     packages=['scanning'],
+    package_data={'scanning': ['data']},
     #scripts=['bin/script1','bin/script2'],
     install_requires=[
         'astropy>=4.3.1',
