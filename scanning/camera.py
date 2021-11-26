@@ -3,12 +3,23 @@ import math
 from math import sin, cos
 import numpy as np
 import pandas as pd
+from scipy.constants import speed_of_light
+
+import json
 import warnings
+
+import astropy.units as u
 
 """ - handling units (storing and checking), checking parameters type/config, error handling
 - if polarization is in alternate direction
 - Module csv file is just pixel positions and does not include pol
+
+- more flexible file parsing (e.g. allow user to specify units, data is in dist not angle-like units)
 """
+
+def param_type_checker(param, param_name, valid_types):
+    if not isinstance(param, valid_types):
+        raise TypeError(f'argument {param_name} has value {param} but must be of type {valid_types}')
 
 #####################
 #   CAMERA MODULE
@@ -21,59 +32,89 @@ class Module():
     
     Attributes
     ------------------
-    mod_rot : deg
-        CCW rotation of the module
     data : pd.DataFrame
         x (deg), y (deg), pol (deg int), rhombus (int), wafer (int)
-    center_freq : GHz 
-            center of frequency band
-            if each wafer is different (such as EoRSpec), it is an iterable like [center1, center2, center3]
-    F_lambda : float 
-        factor for spacing between individual detectors
+    prop : dict
+        containing frequency and F_Lambda 
     """
 
-    def __init__(self, file=None, center_freq=None, F_lambda=1.4, mod_rot=0) -> None:
+    def __init__(self, data=None, **kwargs) -> None:
         """
         Create a camera module either through:
-            option1 : a csv file and module rotation
-            option2 : pass center frequency, F_lambda and module rotation
+            option1 : Module(file)
+            option2 : Module(freq=, F_lambda=)
+            option3 : Module(wavelength=, F_lambda=)
 
         Parameters
         --------------------
-        file : str (option1)
-            file path to csv file with columns: x, y, pol, rhombus, wafer
-        center_freq : GHz (option2)
-            center of frequency band, default is 280 GHz
-            if each wafer is different (such as EoRSpec), pass as an iterable like [center1, center2, center3]
-        F_lambda : float (option2) 
-            factor for spacing between individual detectors, default is 1.5
-        mod_rot : deg
-            CCW rotation of the module, default is 0 deg
+        data : str or dict (option1)
+            file path to csv file
+            dict containing data
+            has columns: x, y, pol (all in degrees)
+        
+        **kwargs
+        Other keyword arguments as applicable to user-defined Module object 
+
+        freq : frequency-like (option2)
+            center of frequency band, default unit is GHz
+            if each wafer is different (such as EoRSpec), pass as an iterable like [freq1, freq2, freq3]
+        wavelength : distance-like (option2)
+            intended wavelength of light, default unit is micron
+            if each wafer is different (such as EoRSpec), pass as an iterable like [wavelength1, wavelength2, wavelength3]
+        F_lambda : float (option2, option3) 
+            factor for spacing between individual detectors, default is 1.4
         """
 
-        self._mod_rot = mod_rot
-        self._center_freq = center_freq 
-        self._F_lambda = F_lambda
-        
-        if not center_freq is None:
-            self.data = self.generate_module(center_freq, F_lambda)
-        elif not file is None:
-            self.data = pd.read_csv(file, index_col=False)
+        # -- OPTION 1 --
+        if not data is None:
+
+            # using an existing Module object 
+            if isinstance(data, str):
+                self.data = pd.read_csv(data, index_col=False)
+            # passing a dictionary (likely from Instrument class)
+            else:
+                self.data = pd.DataFrame(data)
+
+            if not ('x' in self.data.columns or 'y' in self.data.columns):
+                    raise ValueError(f'{data} must have x and y columns')
+
+            if not 'pol' in self.data.columns:
+                warnings.warn(f'{data} does not have a polarization column titled "pol"')
+
+        # -- OPTION 2 --
         else:
-            raise ValueError('Value required for file or center.')
-        
-    def to_csv(self, file, columns='all', with_mod_rot=True):
+            F_lambda = kwargs.pop('F_lambda', 1.4)
+
+            if 'freq' in kwargs.keys():
+                freq = u.Quantity(kwargs.pop('freq'), u.Hz*10**9).value
+            elif 'wavelength' in kwargs.keys():
+                wavelength = u.Quantity(kwargs.pop('wavelength'), u.micron).to(u.m).value
+                freq = speed_of_light/wavelength/10**9
+            else:
+                raise ValueError('cannot create Module without one of file, freq, or wavelength')
+            
+            if kwargs:
+                raise ValueError(f'unneccary keywords passed: {kwargs}')
+
+            self.prop = {'freq': freq, 'F_lambda': F_lambda}
+            self.data = self.generate_module(freq, F_lambda)        
+
+    def to_csv(self, file, columns='all'):
+        """
+        Write Module object to file. If you want just the header, 
+
+        Parameters
+        ----------------------
+        file : str
+            file path to save location 
+        columns : sequence or 'all'
+            columns to save data to, default is 'all' columns (incl. rhombus and wafer number)
+            otherwise, pass a list of columns e.g. ['x', 'y', 'pol']
+        """
 
         if columns == 'all':
             columns = ['x', 'y', 'pol', 'rhombus', 'wafer']
-
-        if with_mod_rot:
-            data_temp = self.data.copy()
-            data_temp['x'] = self.x
-            data_temp['y'] = self.y
-            data_temp.to_csv(file, columns=columns, index=False)
-        else:
-            self.data.to_csv(file, columns=columns, index=False)
+        self.data.to_csv(file, columns=columns, index=False)
 
     def _waferpixelpos(p, numrows, numcols, numrhombus, centeroffset):
         """Obtains pixel positions in a wafer, origin centered at wafer center"""
@@ -228,49 +269,25 @@ class Module():
             columns=['x', 'y', 'pol', 'rhombus', 'wafer']
         ).astype({'pol': np.int16, 'rhombus': np.uint8, 'wafer': np.uint8})
 
-    @property
-    def mod_rot(self):
-        return self._mod_rot
-    
-    @mod_rot.setter
-    def mod_rot(self, value):
-        self._mod_rot = value
-
-    @property
-    def center_freq(self):
-        return self._center_freq
-
-    @property
-    def F_lambda(self):
-        return self._F_lambda
-    
-    @property
-    def ang_res(self):
-        return self.F_lambda*math.degrees((3*10**8)/(self.center_freq*10**9)/6)
-
-    @property
-    def pitch(self):
-        ratio = 280/self.center_freq
-        return 2.75*10**-3 * ratio
+    # ATTRIBUTES 
 
     @property
     def x(self):
-        mod_rot_rad = math.radians(self.mod_rot)
-        return self.data['x'].to_numpy()*cos(mod_rot_rad) - self.data['y'].to_numpy()*sin(mod_rot_rad)
+        return self.data['x'].to_numpy()*u.deg
     
     @property
     def y(self):
-        mod_rot_rad = math.radians(self.mod_rot)
-        return self.data['x'].to_numpy()*sin(mod_rot_rad) + self.data['y'].to_numpy()*cos(mod_rot_rad)
+        return self.data['y'].to_numpy()*u.deg
     
     @property
     def pol(self):
-        return self.data['pol'].to_numpy()
+        return self.data['pol'].to_numpy()*u.deg
 
-CMBPol = Module(center_freq=350)
-SFH = Module(center_freq=860)
-EoRSpec = Module(center_freq=[262.5, 262.5, 367.5])
-Mod280 = Module(center_freq=280)
+# some standard modules FIXME will probably change in the future
+CMBPol = Module(freq=350, F_lambda=1.4)
+SFH = Module(freq=860, F_lambda=1.4)
+EoRSpec = Module(freq=[262.5, 262.5, 367.5], F_lambda=1.4)
+Mod280 = Module(freq=280, F_lambda=1.4)
 
 #######################
 #     INSTRUMENT
@@ -286,18 +303,93 @@ class Instrument():
         CCW rotation of the instrument
     modules : dict
         holds all the modules that populate the instrument with dict shape
-        {'module': Module, 'dist': deg, 'theta': deg}
-    
+        {identifier: {'module': Module, 'dist': deg, 'theta': deg, 'mod_rot': deg}, }
+    slots : dict
+        all default optics tube slots like {'i1': (dist, theta), }
+
     """
 
-    def __init__(self, instr_offset=(0, 0), instr_rot=0) -> None:
-        self._instr_offset = instr_offset
-        self._instr_rot = instr_rot
-        
-        # initialize empty dictionary of module objects 
-        self._modules = dict()
+    def __init__(self, config_file=None, instr_offset=(0, 0), instr_rot=0) -> None:
+
+        # config file is passed
+        if not config_file is None:
+            with open(config_file, 'r') as f:
+                config = json.load(f)
+
+            self._instr_offset = config['instr_offset']
+            self._instr_rot = config['instr_rot']
+
+            # populate modules
+            self._modules = dict()
+            for identifier in config['modules'].keys():
+                self._modules[identifier] = {prop: config['modules'][identifier].pop(prop) for prop in ('dist', 'theta', 'mod_rot')}
+                self._modules[identifier]['module'] = Module(config['modules'][identifier])
+
+        # empty instrument
+        else:
+            self._instr_offset = u.Quantity(instr_offset, u.deg).value
+            self._instr_rot = u.Quantity(instr_rot, u.deg).value
+            
+            # initialize empty dictionary of module objects 
+            self._modules = dict()
     
-    def add_module(self, module, location, identifier=None, mod_rot=0):
+    def save_config(self, path=None):
+        """
+        Saves as a dictionary like 
+        {   'instr_offset': , 
+            'instr_rot': , 
+            'modules':  {
+                module_name: {'dist':, 'theta':, 'mod_rot':, 'x': ,'y':, 'pol':},
+            }
+        }
+
+        Parameters
+        -------------
+        path_or_buf : str or file handle, default None
+            File path or object, if None is provided the result is returned as a dict.
+        """
+
+        # organize the configuration 
+        config = {'instr_offset': list(self.instr_offset.value), 'instr_rot': self.instr_rot.value, 'modules': dict()}
+
+        for identifier in self._modules.keys():
+            config['modules'][identifier] = {
+                'dist': self._modules[identifier]['dist'], 
+                'theta': self._modules[identifier]['theta'],
+                'mod_rot': self._modules[identifier]['mod_rot'],
+                'x': list(self._modules[identifier]['module'].x.value),
+                'y': list(self._modules[identifier]['module'].y.value),
+                'pol': list(self._modules[identifier]['module'].pol.value)
+            }
+        
+        # push configuration 
+        if path is None:
+            return config
+        else:
+            with open(path, 'w') as f:
+                json.dump(config, f)
+
+    def __repr__(self) -> str:
+        instr_repr = f'instrument: offset {self.instr_offset}, rotation {self.instr_rot}\n------------------------------------'
+
+        if len(self._modules) == 0:
+            instr_repr += '\nempty'
+        else:
+            for identifier in self._modules.keys():
+                instr_repr +=  "\n" + f"{identifier} \n (r, theta) = {(self._modules[identifier]['dist'], self._modules[identifier]['theta'])}, rotation = {self._modules[identifier]['mod_rot']}"
+        
+        return instr_repr
+
+    def _check_identifier(func):
+        def wrapper(self, identifier, *args, **kwargs):
+            if not identifier in self._modules.keys():
+                raise ValueError(f'identifier {identifier} is not valid')
+            return func(self, identifier, *args, **kwargs)
+        return wrapper
+
+    # CHANGING INSTRUMENT CONFIGURATION
+
+    def add_module(self, module, location, mod_rot=0, identifier=None):
         """
         Add a module to PrimeCam.
 
@@ -308,11 +400,11 @@ class Instrument():
         location : (distance [deg], theta [deg]) or str
             A tuple containing the module location from the center in polar coordinates (deg)
             or one of the default options ['c', 'i1', 'i2', 'o1', 'o2', etc] (see Ebina 2021 for picture)
+        mod_rot : deg
+            CCW rotation of the module, default is 0 deg
         idenitifier : str
             Name of the module. If user chose a default module option, then this this identifier
             will be its corresponging name unless otherwise specified. 
-        mod_rot : deg
-            CCW rotation of the module, default is 0 deg
         """
 
         # if a default option of module was chosen
@@ -336,21 +428,22 @@ class Instrument():
 
         # if a default option for location was chosen
         if isinstance(location, str):
-            location = self._default_config[location]
+            location = self.slots[location]
+        else:
+            location = u.Quantity(location, u.deg).value
+
+        # change module rotation
+        mod_rot = u.Quantity(mod_rot, u.deg).value
         
         # if identifier is already a module that's saved
         if identifier in self._modules.keys():
             warnings.warn(f'Module {identifier} already exists. Overwriting it...')
 
-        # change module rotation
-        module.mod_rot = mod_rot
+        self._modules[identifier] = {'module': module, 'dist': location[0], 'theta': location[1], 'mod_rot': mod_rot}
 
-        self._modules[identifier] = {'module': module, 'dist': location[0], 'theta': location[1]}
-
+    @_check_identifier
     def change_module(self, identifier, new_location=None, new_mod_rot=None, new_identifier=None, ):
-        
-        if not identifier in self._modules.keys():
-            raise ValueError(f'identifier {identifier} is not valid')
+    
         if new_identifier is None and new_location is None and new_mod_rot is None:
             warnings.warn(f'Nothing has changed for {identifier}.')
             return
@@ -363,81 +456,75 @@ class Instrument():
         # change location
         if not new_location is None:
             if isinstance(new_location, str):
-                new_location = self._default_config[new_location]
+                new_location = self.slots[new_location]
             else:
                 if new_location[0] is None:
                     new_location[0] = self._modules[identifier]['dist']
                 if new_location[1] is None:
                     new_location[1] = self._modules[identifier]['theta']
-            
+                new_location = u.Quantity(new_location, u.deg).value
+                
             self._modules[identifier]['dist'] = new_location[0]
             self._modules[identifier]['theta'] = new_location[1]
 
         # change module rotation
         if not new_mod_rot is None:
-            self._modules[identifier].mod_rot = new_mod_rot 
+            self._modules[identifier]['mod_rot'] = u.Quantity(new_mod_rot, u.deg).value
 
+    @_check_identifier
     def delete_module(self, identifier):
-        if not identifier in self._modules.keys():
-            raise ValueError(f'identifier {identifier} is not valid')
-
         self._modules.pop(identifier)
 
+    # GETTERS 
+    
+    @_check_identifier
     def get_module(self, identifier):
-        if not identifier in self._modules.keys():
-            raise ValueError(f'identifier {identifier} is not valid')
+        return self._modules[identifier]['module']
 
-        return self._modules[identifier]
+    @_check_identifier
+    def get_dist(self, identitifer):
+        return self._modules[identitifer]['dist']*u.deg
+    
+    @_check_identifier
+    def get_theta(self, identifier):
+        return self._modules[identifier]['theta']*u.deg
+    
+    @_check_identifier
+    def get_mod_rot(self, identifier):
+        return self._modules[identifier]['mod_rot']*u.deg
 
-    def get_module_location(self, identifier):
-        if not identifier in self._modules.keys():
-            raise ValueError(f'identifier {identifier} is not valid')
-
-        return [self._modules[identifier]['dist'], self._modules[identifier]['theta']]
-
-    def get_module_rotation(self, identifier):
-        if not identifier in self._modules.keys():
-            raise ValueError(f'identifier {identifier} is not valid')
-
-        return self._modules[identifier]['module'].mod_rot
-
-    def list_modules(self):
-        
-        for mod in self._modules.keys():
-            print(f"""{mod} \n  (r, theta) = ({self._modules[mod]['dist']}, {self._modules[mod]['theta']}) | rotation = {self._modules[mod]['module'].mod_rot}""")
+    def get_location(self, identifier):
+        return (self.get_dist(identifier), self.get_theta(identifier))
 
     @property
     def instr_offset(self):
-        return self._instr_offset
-    
-    @instr_offset.setter
-    def instr_offset(self, value):
-        self._instr_offset = value
+        return self._instr_offset*u.deg
     
     @property
     def instr_rot(self):
-        return self._instr_rot
+        return self._instr_rot*u.deg
     
+    # SETTERS
+
+    @instr_offset.setter
+    def instr_offset(self, value):
+        self._instr_offset = u.Quantity(value, u.deg).value
+
     @instr_rot.setter
     def instr_rot(self, value):
-        self.instr_rot = value
+        self.instr_rot = u.Quantity(value, u.deg).value
 
-    @property
-    def default_config(self):
-        return self._default_config
 
 class ModCam(Instrument): 
-    _default_config = {'c': (0, 0)}
+    slots = {'c': (0, 0)}
 
 class PrimeCam(Instrument):
 
     # default configuration of optics tubes at 0 deg elevation 
     # in terms of (radius from center [deg], angle [deg])
     _default_ir = 1.78
-    _default_or = 3.08
-    _default_config = {
+    slots = {
         'c': (0, 0), 
         'i1': (_default_ir, -90), 'i2': (_default_ir, -30), 'i3': (_default_ir, 30), 'i4': (_default_ir, 90), 'i5': (_default_ir, 150), 'i6': (_default_ir, -150),
-        'o1': (_default_or, -60), 'o2': (_default_or), 'o3': (_default_or, 60), 'o4': (_default_or, 120), 'o5': (_default_or, 180), 'o6': (_default_or, -120) 
     }
     
