@@ -17,10 +17,6 @@ import astropy.units as u
 - more flexible file parsing (e.g. allow user to specify units, data is in dist not angle-like units)
 """
 
-def param_type_checker(param, param_name, valid_types):
-    if not isinstance(param, valid_types):
-        raise TypeError(f'argument {param_name} has value {param} but must be of type {valid_types}')
-
 #####################
 #   CAMERA MODULE
 #####################
@@ -33,36 +29,35 @@ class Module():
     Attributes
     ------------------
     data : pd.DataFrame
-        x (deg), y (deg), pol (deg int), rhombus (int), wafer (int)
-    prop : dict
-        containing frequency and F_Lambda 
+        x (deg), y (deg), pol (deg)
     """
 
-    def __init__(self, data=None, **kwargs) -> None:
+    _data_unit = {'x': u.deg, 'y': u.deg, 'pol': u.deg, 'rhombus': u.dimensionless_unscaled, 'wafer': u.dimensionless_unscaled}
+
+    def __init__(self, data=None, units='deg', **kwargs) -> None:
         """
         Create a camera module either through:
-            option1 : Module(file)
+            option1 : Module(data, units)
             option2 : Module(freq=, F_lambda=)
             option3 : Module(wavelength=, F_lambda=)
 
         Parameters
         --------------------
-        data : str or dict (option1)
-            file path to csv file
-            dict containing data
-            has columns: x, y, pol (all in degrees)
+        data : str; ndarray, Iterable, dict, or DataFrame (option1)
+            File path to csv file. Dict can contain Series, arrays, constants, dataclass or list-like objects. 
+            Has columns: x, y, pol (all in degrees).
+        units : str, astropy.units.Unit, or dict, default is 'deg'
+            Unit to apply to all columns. If dict, apply to each column separately. 
         
         **kwargs
-        Other keyword arguments as applicable to user-defined Module object 
-
-        freq : frequency-like (option2)
-            center of frequency band, default unit is GHz
-            if each wafer is different (such as EoRSpec), pass as an iterable like [freq1, freq2, freq3]
-        wavelength : distance-like (option2)
-            intended wavelength of light, default unit is micron
-            if each wafer is different (such as EoRSpec), pass as an iterable like [wavelength1, wavelength2, wavelength3]
-        F_lambda : float (option2, option3) 
-            factor for spacing between individual detectors, default is 1.4
+        freq : frequency-like (option2), default unit is GHz
+            Center of frequency band.
+            If each wafer is different (such as EoRSpec), pass a three-length list like [freq1, freq2, freq3].
+        wavelength : distance-like (option2), default unit is micron
+            intended wavelength of light.
+            if each wafer is different (such as EoRSpec), pass a three-length list like [wavelength1, wavelength2, wavelength3].
+        F_lambda : float (option2, option3), default is 1.25
+            Factor for spacing between individual detectors.
         """
 
         # -- OPTION 1 --
@@ -70,53 +65,46 @@ class Module():
 
             # using an existing Module object 
             if isinstance(data, str):
-                self.data = pd.read_csv(data, index_col=False)
+                self.data = pd.read_csv(data, index_col=False, usecols=['x', 'y', 'pol'])
             # passing a dictionary (likely from Instrument class)
             else:
-                self.data = pd.DataFrame(data)
+                self.data = pd.DataFrame(data, columns=['x', 'y', 'pol'])
 
-            if not ('x' in self.data.columns or 'y' in self.data.columns):
-                    raise ValueError(f'{data} must have x and y columns')
-
-            if not 'pol' in self.data.columns:
-                warnings.warn(f'{data} does not have a polarization column titled "pol"')
+            # change units 
+            if not isinstance(units, dict):
+                units = u.Unit(units)
+                units = {'x': units, 'y': units, 'pol': units}
+            
+            for col, un in units.items():
+                self.data[col] = (self.data[col].to_numpy()*un).to(u.deg).value
 
         # -- OPTION 2 --
         else:
-            F_lambda = kwargs.pop('F_lambda', 1.4)
 
+            # check F_lambda
+            F_lambda = kwargs.pop('F_lambda', 1.25)
+            if F_lambda <= 0:
+                raise ValueError(f'F_lambda = {F_lambda} must be positive')
+
+            # get freq
             if 'freq' in kwargs.keys():
                 freq = u.Quantity(kwargs.pop('freq'), u.Hz*10**9).value
+                if freq <= 0:
+                    raise ValueError(f'freq = {freq} must be positive')
             elif 'wavelength' in kwargs.keys():
                 wavelength = u.Quantity(kwargs.pop('wavelength'), u.micron).to(u.m).value
+                if wavelength <= 0:
+                    raise ValueError(f'wavelength = {wavelength} must be positive')
                 freq = speed_of_light/wavelength/10**9
             else:
                 raise ValueError('cannot create Module without one of file, freq, or wavelength')
-            
+
             if kwargs:
                 raise ValueError(f'unneccary keywords passed: {kwargs}')
 
-            self.prop = {'freq': freq, 'F_lambda': F_lambda}
-            self.data = self.generate_module(freq, F_lambda)        
+            self.data = self._generate_module(freq, F_lambda)        
 
-    def to_csv(self, file, columns='all'):
-        """
-        Write Module object to file. If you want just the header, 
-
-        Parameters
-        ----------------------
-        file : str
-            file path to save location 
-        columns : sequence or 'all'
-            columns to save data to, default is 'all' columns (incl. rhombus and wafer number)
-            otherwise, pass a list of columns e.g. ['x', 'y', 'pol']
-        """
-
-        if columns == 'all':
-            columns = ['x', 'y', 'pol', 'rhombus', 'wafer']
-        self.data.to_csv(file, columns=columns, index=False)
-
-    def _waferpixelpos(p, numrows, numcols, numrhombus, centeroffset):
+    def _waferpixelpos(self, p, numrows, numcols, numrhombus, centeroffset):
         """Obtains pixel positions in a wafer, origin centered at wafer center"""
 
         theta_axes = 2*np.pi/numrhombus # 120 degree offset between the row and column axes of each rhombus
@@ -152,19 +140,11 @@ class Module():
 
         return pixelpos
 
-    @classmethod
-    def generate_module(cls, center_freq, F_lambda=1.4):
+    def _generate_module(self, center_freq, F_lambda=1.25):
         """
         Generates the pixel positions of a module centered at a particular frequency, based 
         off of code from the eor_spec_models package. The numerical values in the code are
         based off of the parameters for a detector array centered at 280 GHz. 
-
-        Parameters
-        ----------------------------------
-        F_lambda : float 
-            factor for spacing between individual detectors, default is 1.5
-        center1, center2, center3 : GHz
-            center of frequency band for each respective wafer, default is 280 GHz
         """
 
         # --- SETUP ---
@@ -176,7 +156,7 @@ class Module():
             center2 = center_freq[1]
             center3 = center_freq[2]
         else:
-            raise ValueError('center_freq is invalid')
+            raise ValueError(f'freq {center_freq} is invalid')
 
         # Each detector wafer is 72mm from the center of the focal plane
         # Let wafer 1 be shifted in +x by 72mm,
@@ -215,9 +195,9 @@ class Module():
         # --- DETECTOR PLANE PIXEL POSITIONS ---
 
         # Obtain pixel coordinates for a wafer with above parameters
-        pixelcoords1 = cls._waferpixelpos(p1,numrows1,numcols1,numrhombus1,pixeloffset1)
-        pixelcoords2 = cls._waferpixelpos(p2,numrows2,numcols2,numrhombus2,pixeloffset2)
-        pixelcoords3 = cls._waferpixelpos(p3,numrows3,numcols3,numrhombus3,pixeloffset3)
+        pixelcoords1 = self._waferpixelpos(p1,numrows1,numcols1,numrhombus1,pixeloffset1)
+        pixelcoords2 = self._waferpixelpos(p2,numrows2,numcols2,numrhombus2,pixeloffset2)
+        pixelcoords3 = self._waferpixelpos(p3,numrows3,numcols3,numrhombus3,pixeloffset3)
         
         ### Detector Array 1
 
@@ -263,31 +243,63 @@ class Module():
         pixelcoords2 = np.hstack( (pixelcoords2, [[1]]*numpixels2) )
         pixelcoords3 = np.hstack( (pixelcoords3, [[2]]*numpixels3) )
 
-        # save to data frame
+        # save to data frame FIXME does not really make use of rhombus and wafer
         return pd.DataFrame(
             np.append(np.append(pixelcoords1, pixelcoords2, axis=0), pixelcoords3, axis=0), 
             columns=['x', 'y', 'pol', 'rhombus', 'wafer']
         ).astype({'pol': np.int16, 'rhombus': np.uint8, 'wafer': np.uint8})
 
-    # ATTRIBUTES 
+    def save_data(self, path_or_buf=None, columns='default'):
+        """
+        Write Module object to file.
+
+        Parameters
+        ----------------------
+        path_or_buf : str or file handle, default None
+            File path or object, if None is provided the result is returned as a dictionary.
+        columns : sequence or str, default 'default'
+            Columns to write. 
+            'default' is ['x', 'y', 'pol']
+            'all' is ['x', 'y', 'pol', 'rhombus', 'wafer']
+
+        Returns
+        ----------------------
+        None or dict
+            If path_or_buf is None, returns the resulting csv format as a dictionary. Otherwise returns None.
+        """
+
+        # checking columns
+        if columns == 'default':
+            columns = ['x', 'y', 'pol']
+        elif columns == 'all':
+            columns = ['x', 'y', 'pol', 'rhombus', 'wafer']
+        
+        # write to path_or_buf
+        if path_or_buf is None:
+            return self.data[columns].to_dict()
+        else:
+            self.data.to_csv(path_or_buf, columns=columns, index=False)
+
+    # ATTRIBUTES
+
+    def __getattr__(self, attr):
+        if attr in self.data.columns:
+            if self._data_unit[attr] is u.dimensionless_unscaled:
+                return self.data[attr].to_numpy()
+            else:
+                return self.data[attr].to_numpy()*self._data_unit[attr]
+        else:
+            raise AttributeError(f'invalid attribute {attr}')
 
     @property
-    def x(self):
-        return self.data['x'].to_numpy()*u.deg
-    
-    @property
-    def y(self):
-        return self.data['y'].to_numpy()*u.deg
-    
-    @property
-    def pol(self):
-        return self.data['pol'].to_numpy()*u.deg
+    def data(self):
+        return self.data.copy()
 
-# some standard modules FIXME will probably change in the future
-CMBPol = Module(freq=350, F_lambda=1.4)
-SFH = Module(freq=860, F_lambda=1.4)
-EoRSpec = Module(freq=[262.5, 262.5, 367.5], F_lambda=1.4)
-Mod280 = Module(freq=280, F_lambda=1.4)
+# some standard modules 
+CMBPol = Module(freq=350)
+SFH = Module(freq=860)
+EoRSpec = Module(freq=[262.5, 262.5, 367.5])
+Mod280 = Module(freq=280)
 
 #######################
 #     INSTRUMENT
@@ -298,23 +310,41 @@ class Instrument():
     Attributes
     ------------------------
     instr_offset : (deg, deg)
-        offset in azimuth/elevation of the instrument from the boresight
     instr_rot : deg
-        CCW rotation of the instrument
-    modules : dict
-        holds all the modules that populate the instrument with dict shape
+    slots : dict : all default optics tube slots like {'i1': (dist, theta), }
+    modules : dict : holds all the modules that populate the instrument with dict shape
         {identifier: {'module': Module, 'dist': deg, 'theta': deg, 'mod_rot': deg}, }
-    slots : dict
-        all default optics tube slots like {'i1': (dist, theta), }
-
     """
 
+    slots = dict()
+
     def __init__(self, config_file=None, instr_offset=(0, 0), instr_rot=0) -> None:
+        """
+        Initialize a filled Instrument:
+            option 1: Instrument(config_file) 
+        or an empty Intrument:
+            option 2: Instrument(instr_offset, instr_rot)
+
+        Parameters
+        -----------------------------
+        config_file : str
+            File path to json file. Overwrites instr_offset and instr_rot. 
+        instr_offset : (angle-like, angle-like), default (0, 0), default unit deg
+            offset of the instrument from the boresight
+        instr_rot : angle-like, default 0, default unit deg
+            CCW rotation of the instrument
+        """
 
         # config file is passed
         if not config_file is None:
-            with open(config_file, 'r') as f:
-                config = json.load(f)
+
+            if isinstance(config_file, str):
+                with open(config_file, 'r') as f:
+                    config = json.load(f)
+            elif isinstance(config_file, dict):
+                config = config_file
+            else:
+                TypeError('config_file')
 
             self._instr_offset = config['instr_offset']
             self._instr_rot = config['instr_rot']
@@ -333,7 +363,7 @@ class Instrument():
             # initialize empty dictionary of module objects 
             self._modules = dict()
     
-    def save_config(self, path=None):
+    def save_config(self, path_or_buf=None):
         """
         Saves as a dictionary like 
         {   'instr_offset': , 
@@ -347,6 +377,11 @@ class Instrument():
         -------------
         path_or_buf : str or file handle, default None
             File path or object, if None is provided the result is returned as a dict.
+
+        Returns
+        ----------------------
+        None or dict
+            If path_or_buf is None, returns the resulting json format as a dictionary. Otherwise returns None.
         """
 
         # organize the configuration 
@@ -363,10 +398,10 @@ class Instrument():
             }
         
         # push configuration 
-        if path is None:
+        if path_or_buf is None:
             return config
         else:
-            with open(path, 'w') as f:
+            with open(path_or_buf, 'w') as f:
                 json.dump(config, f)
 
     def __repr__(self) -> str:
@@ -397,14 +432,14 @@ class Instrument():
         -------------------------
         module : Module or str
             A Module object or one of the default options ['CMBPol', 'SFH', 'EoRSpec', 'Mod280']
-        location : (distance [deg], theta [deg]) or str
+        location : (distance, theta) or str, default unit deg
             A tuple containing the module location from the center in polar coordinates (deg)
             or one of the default options ['c', 'i1', 'i2', 'o1', 'o2', etc] (see Ebina 2021 for picture)
-        mod_rot : deg
-            CCW rotation of the module, default is 0 deg
-        idenitifier : str
-            Name of the module. If user chose a default module option, then this this identifier
-            will be its corresponging name unless otherwise specified. 
+        mod_rot : deg, default 0, default unit deg
+            CCW rotation of the module
+        idenitifier : str or None
+            Name of the module. 
+            If user chose a default module option, then this identifier will be its corresponging name unless otherwise specified. 
         """
 
         # if a default option of module was chosen
@@ -482,8 +517,8 @@ class Instrument():
         return self._modules[identifier]['module']
 
     @_check_identifier
-    def get_dist(self, identitifer):
-        return self._modules[identitifer]['dist']*u.deg
+    def get_dist(self, identifier):
+        return self._modules[identifier]['dist']*u.deg
     
     @_check_identifier
     def get_theta(self, identifier):
@@ -493,8 +528,9 @@ class Instrument():
     def get_mod_rot(self, identifier):
         return self._modules[identifier]['mod_rot']*u.deg
 
+    @_check_identifier
     def get_location(self, identifier):
-        return (self.get_dist(identifier), self.get_theta(identifier))
+        return [self._modules[identifier]['dist'], self._modules[identifier]['theta']]*u.deg
 
     @property
     def instr_offset(self):
@@ -504,6 +540,14 @@ class Instrument():
     def instr_rot(self):
         return self._instr_rot*u.deg
     
+    @property
+    def slots(self):
+        return self.slots.copy()
+
+    @property
+    def modules(self):
+        return self.modules.copy()
+
     # SETTERS
 
     @instr_offset.setter
@@ -513,7 +557,6 @@ class Instrument():
     @instr_rot.setter
     def instr_rot(self, value):
         self.instr_rot = u.Quantity(value, u.deg).value
-
 
 class ModCam(Instrument): 
     slots = {'c': (0, 0)}
