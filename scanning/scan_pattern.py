@@ -611,6 +611,7 @@ class TelescopePattern():
         'ra': u.deg, 'dec': u.deg, 'location': u.dimensionless_unscaled,
         'start_hrang': u.hourangle, 
         'start_datetime': u.dimensionless_unscaled, 
+        'start_lst': u.hourangle,
         'start_el': u.deg, 'moving_up': u.dimensionless_unscaled
     }
     _data_unit = {'time_offset': u.s, 'lst': u.hourangle, 'alt_coord': u.deg, 'az_coord': u.deg}
@@ -620,7 +621,7 @@ class TelescopePattern():
     def __init__(self, instrument=None, module='boresight', sky_pattern=None, data=None, obs_param=None, **kwargs) -> None:
         """
         Determine the motion of the telescope.
-            option1: instrument, module, (sky_pattern or data), ra, dec, location, (start_datetime or start_hrang or [start_el and moving_up])
+            option1: instrument, module, (sky_pattern or data), ra, dec, location, (start_datetime or start_hrang or start_lst or [start_el and moving_up])
             option2: instrument, module, (sky_pattern or data), obs_param = {ra:, dec:, location: {lat:, lon:, height:, }, start_:}, **kwargs for updating 
             option3: instrument, module, data*, location
             * data includes lst (local sidereal time)
@@ -656,6 +657,8 @@ class TelescopePattern():
             starting date and time of observation
         start_hrang : angle-like, default unit hourangle
             starting hour angle of observation
+        start_lst : angle-like, default unit hourangle
+            starting local sidereal time
         start_el : angle-like, default unit deg
             starting elevation of obervation, must be used with moving_up
         moving_up : bool, default True
@@ -757,6 +760,8 @@ class TelescopePattern():
             kwargs['start_hrang'] = u.Quantity(kwargs['start_hrang'], u.hourangle).value
         elif 'start_datetime' in kwarg_keys:
             kwargs['start_datetime'] = pd.Timestamp(kwargs['start_datetime']).to_pydatetime()
+        elif 'start_lst' in kwarg_keys:
+            kwargs['start_lst'] = u.Quantity(kwargs['start_lst'], u.hourangle).value
         elif 'start_el' in kwarg_keys:
             kwargs['start_el'] = u.Quantity(kwargs['start_el'], u.deg).value
             kwargs['moving_up'] = kwargs.get('moving_up', True)
@@ -764,7 +769,6 @@ class TelescopePattern():
         return kwargs
 
     def _get_lst(self, sky_pattern=None):
-        # FIXME start_hrang, start_el, ra, dec of module or boresight?? 
 
         if not sky_pattern is None:
             extra_ra_offset = sky_pattern.x_coord[0]
@@ -782,6 +786,10 @@ class TelescopePattern():
         elif 'start_hrang' in self.param.keys():
             # FIXME check for valid hourangle
             start_lst = self.start_hrang + extra_ra_offset + self.ra
+        
+        # given a starting lst
+        elif 'start_lst' in self.param.keys():
+            start_lst = self.start_lst
 
         # given a starting elevation
         elif 'start_el' in self.param.keys():
@@ -819,7 +827,7 @@ class TelescopePattern():
             start_lst = start_hrang_rad*u.rad + extra_ra_offset + self.ra
         
         else:
-            raise TypeError('start_datetime or start_hrang or start_el is required')
+            raise TypeError('start_datetime or start_hrang or start_lst or start_el is required')
 
         # find sidereal time
         SIDEREAL_TO_UT1 = 1.002737909350795
@@ -836,7 +844,11 @@ class TelescopePattern():
 
         alt_rad = np.arcsin( np.sin(dec_rad)*sin(lat_rad) + np.cos(dec_rad)*cos(lat_rad)*np.cos(hour_angle_rad) )
 
-        az_rad = np.arccos( (np.sin(dec_rad) - np.sin(alt_rad)*sin(lat_rad)) / (np.cos(alt_rad)*cos(lat_rad)) )
+        cos_az_rad = (np.sin(dec_rad) - np.sin(alt_rad)*sin(lat_rad)) / (np.cos(alt_rad)*cos(lat_rad))
+        cos_az_rad[cos_az_rad > 1] = 1
+        cos_az_rad[cos_az_rad < -1] = -1
+
+        az_rad = np.arccos( cos_az_rad )
         mask = np.sin(hour_angle_rad) > 0 
         az_rad[mask] = 2*pi - az_rad[mask]
 
@@ -919,6 +931,7 @@ class TelescopePattern():
         #cos_diff_az0 = ( np.cos(alt0)*cos(dist) - np.sin(alt0)*sin(dist)*np.sin(theta + alt0) )/np.cos(alt1)
         cos_diff_az0 = (cos(dist) - np.sin(alt0)*np.sin(alt1))/(np.cos(alt0)*np.cos(alt1))
         cos_diff_az0[cos_diff_az0 > 1] = 1
+        cos_diff_az0[cos_diff_az0 < -1] = -1
         diff_az0 = np.arccos(cos_diff_az0)
 
         # check if diff_az is positive or negative
