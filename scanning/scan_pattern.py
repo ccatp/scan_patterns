@@ -1051,12 +1051,14 @@ class TelescopePattern():
         lat_rad = self.location.lat.rad
         alt_coord_rad = self.alt_coord.to(u.rad).value
         az_coord_rad = self.az_coord.to(u.rad).value
+        dec_rad = self.dec_coord.to(u.rad).value
 
-        hour_angle_rad = np.arctan2( 
-            np.cos(alt_coord_rad)*np.sin(az_coord_rad),
-            cos(lat_rad)*np.sin(alt_coord_rad) + sin(lat_rad)*np.cos(alt_coord_rad)*np.cos(az_coord_rad)
-        )
-        return (hour_angle_rad*u.rad).to(u.hourangle)
+        hrang_rad = np.arccos( (np.sin(alt_coord_rad) - np.sin(dec_rad)*sin(lat_rad)) / (np.cos(dec_rad)*cos(lat_rad)) )
+        
+        mask = np.sin(az_coord_rad) > 0
+        hrang_rad[mask] = 2*pi - hrang_rad[mask]
+
+        return (hrang_rad*u.rad).to(u.hourangle)
     
     @property
     def ra_coord(self):
