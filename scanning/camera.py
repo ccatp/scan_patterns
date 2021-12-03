@@ -89,12 +89,8 @@ class Module():
             # get freq
             if 'freq' in kwargs.keys():
                 freq = u.Quantity(kwargs.pop('freq'), u.Hz*10**9).value
-                if freq <= 0:
-                    raise ValueError(f'freq = {freq} must be positive')
             elif 'wavelength' in kwargs.keys():
                 wavelength = u.Quantity(kwargs.pop('wavelength'), u.micron).to(u.m).value
-                if wavelength <= 0:
-                    raise ValueError(f'wavelength = {wavelength} must be positive')
                 freq = speed_of_light/wavelength/10**9
             else:
                 raise ValueError('cannot create Module without one of file, freq, or wavelength')
@@ -291,9 +287,11 @@ class Module():
         else:
             raise AttributeError(f'invalid attribute {attr}')
 
+    """
     @property
     def data(self):
         return self.data.copy()
+    """
 
 # some standard modules 
 CMBPol = Module(freq=350)
