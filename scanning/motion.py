@@ -1,22 +1,15 @@
 import math
 from math import pi, sin, cos, tan, sqrt
-from multiprocessing import Value
-from astropy.coordinates.earth import EarthLocation
-from astropy.utils.misc import isiterable
+import json
+
 import numpy as np
 import pandas as pd
 from scipy.optimize import root_scalar
-
-import warnings
-import json
-
 from astropy.time import Time
-from astropy.coordinates import SkyCoord, AltAz
 import astropy.units as u
+from astropy.coordinates.earth import EarthLocation
 
-import matplotlib.pyplot as plt
-
-from scanning import FYST_LOC, _central_diff, Instrument
+from scanning import FYST_LOC, _central_diff
 
 """
 specify units when passing in x, y
@@ -94,6 +87,7 @@ class SkyPattern():
         else:
             if 'max_scan_duration' in kwarg_keys or 'num_repeat' in kwarg_keys:
                 raise ValueError('this is not a repeatable SkyPattern, so max_scan_duration and num_repeat cannot be initialized')
+            kwargs['num_repeat'] = 1
 
         return kwargs
 
@@ -132,6 +126,11 @@ class SkyPattern():
             'all' for ['time_offset', 'x_coord', 'y_coord', 'x_vel', 'y_vel', 'vel', 'x_acc', 'y_acc', 'acc', 'x_jerk', 'y_jerk', 'jerk']
         include_repeats : bool, default 'True'
             include repeats of the SkyPattern
+
+        Returns
+        ----------------------
+        None or dict
+            If path_or_buf is None, returns the resulting json format as a dictionary. Otherwise returns None.
         """
 
         # replace str options
@@ -147,27 +146,10 @@ class SkyPattern():
             before_index = int(len(data.index)/self.num_repeat)
             data = data.iloc[:before_index]
 
-        # calculate accelerations and jerks if necessary
-        if 'x_vel' in columns:
-            data['x_vel'] = self.x_vel.value
-        if 'y_vel' in columns:
-            data['y_vel'] = self.y_vel.value
-        if 'vel' in columns:
-            data['vel'] = self.vel.value
-
-        if 'x_acc' in columns:
-            data['x_acc'] = self.x_acc.value
-        if 'y_acc' in columns:
-            data['y_acc'] = self.y_acc.value
-        if 'acc' in columns:
-            data['acc'] = self.acc.value
-
-        if 'x_jerk' in columns:
-            data['x_jerk'] = self.x_jerk.value
-        if 'y_jerk' in columns:
-            data['y_jerk'] = self.y_jerk.value
-        if 'jerk' in columns:
-            data['jerk'] = self.jerk.value
+        # generate required data
+        for col in columns:
+            if not col in ['time_offset', 'x_coord', 'y_coord']:
+                data[col] = getattr(self, col).value
         
         # save data file 
         if path_or_buf is None:
@@ -181,6 +163,11 @@ class SkyPattern():
         ----------------------------
         path_or_buf : str or file handle, default None
             File path or object, if None is provided the result is returned as a dictionary.
+        
+        Returns
+        ----------------------
+        None or dict
+            If path_or_buf is None, returns the resulting json format as a dictionary. Otherwise returns None.
         """
         
         param_temp = self.param.copy()
@@ -605,6 +592,7 @@ class TelescopePattern():
     instrument
     param: ra, dec, location, (start_datetime or start_hrang or [start_el and moving_up])
     sample_interval
+    data: time_offset, lst, alt_coord, az_coord
     """
 
     _param_unit = {
@@ -618,16 +606,20 @@ class TelescopePattern():
 
     # INITIALIZATION
 
-    def __init__(self, instrument=None, module='boresight', sky_pattern=None, data=None, obs_param=None, **kwargs) -> None:
+    def __init__(self, data, instrument=None, module='boresight', obs_param=None, **kwargs) -> None:
         """
         Determine the motion of the telescope.
-            option1: instrument, module, (sky_pattern or data), ra, dec, location, (start_datetime or start_hrang or start_lst or [start_el and moving_up])
-            option2: instrument, module, (sky_pattern or data), obs_param = {ra:, dec:, location: {lat:, lon:, height:, }, start_:}, **kwargs for updating 
+            option1: data, instrument (optional), module (optional), ra, dec, location, (start_datetime or start_hrang or start_lst or [start_el and moving_up])
+            option2: data, instrument (optional), module (optional), obs_param = {ra:, dec:, location: {lat:, lon:, height:, }, start_:}, **kwargs for updating 
             option3: instrument, module, data*, location
-            * data includes lst (local sidereal time)
+            * data includes 'lst' (local sidereal time)
 
         Parameters
         -----------------------------
+        data : SkyPattern; str, ndarray, Iterable, dict, or DataFrame
+            If SkyPattern, then it is a SkyPattern object with time_offset, ra, dec.
+            Otherwise, is a csv file or dict that has columns 'time_offset', 'az_coord', 'alt_coord' and optionally 'lst'.
+
         instrument : Instrument or None, default None
             instrument object to be used if any
         module : str or (distance, theta), default 'boresight'
@@ -635,12 +627,6 @@ class TelescopePattern():
                 'boresight' for boresight of the telescope 
                 string indicating a module name in the instrument e.g. 'SFH' or one of the default slots in the instrument e.g. 'c', 'i1'
                 tuple of (distance, theta) indicating module's offset from the center of the instrument, default unit deg
-        
-        sky_pattern : SkyPattern
-            SkyPattern object with time_offset, ra, dec
-        data : str; ndarray, Iterable, dict, or DataFrame
-            File path to csv file. Dict can contain Series, arrays, constants, dataclass or list-like objects. 
-            Has columns 'time_offset', 'az_coord', 'alt_coord' and optionally 'lst'
 
         obs_param : str
             File path to json containing all required obervation parameters (see **kwargs).
@@ -683,11 +669,8 @@ class TelescopePattern():
 
         # --- SkyPattern or data ---
 
-        if (data is None and sky_pattern is None) or (not data is None and not sky_pattern is None):
-            raise TypeError('one (and only one) of data and sky_pattern must be passed')
-
         # passed data
-        if not data is None:
+        if not isinstance(data, SkyPattern):
             if isinstance(data, str):
                 try:
                     self.data = pd.read_csv(data, index_col=False, usecols=['time_offset', 'lst', 'az_coord', 'alt_coord'])
@@ -711,22 +694,18 @@ class TelescopePattern():
 
         # passed sky_pattern
         else:
-            assert(isinstance(sky_pattern, SkyPattern))
-            self.sample_interval = sky_pattern.sample_interval.value
+            self.sample_interval = data.sample_interval.value
 
-            self.data=pd.DataFrame({'time_offset':sky_pattern.time_offset})
-            self.data['lst'] = self._get_lst(sky_pattern)
-            az1, alt1 = self._from_sky_pattern(sky_pattern)
+            self.data=pd.DataFrame({'time_offset':data.time_offset})
+            self.data['lst'] = self._get_lst(data)
+            az1, alt1 = self._from_sky_pattern(data)
 
             self.data['az_coord'] = az1
             self.data['alt_coord'] = alt1
 
         # --- Instrument and module --- 
 
-        if not instrument is None:
-            assert(isinstance(instrument, Instrument))
         self.instrument = instrument
-
         dist, theta = self._true_module_loc(module)
         
         # az_coord and alt_coord are for the module's location
@@ -737,9 +716,8 @@ class TelescopePattern():
             self.data['az_coord'] = az0
             self.data['alt_coord'] = alt0
         else:
-            pass
-            #self.data['alt_coord'] = self.alt_coord.value%360
-            #self.data['az_coord'] = self._norm_azimuth(self.az_coord.value)
+            self.data['alt_coord'] = self.alt_coord.value%360
+            self.data['az_coord'] = self._norm_angle(self.az_coord.value)
 
     def _clean_param(self, **kwargs):
         kwarg_keys = kwargs.keys()
@@ -749,12 +727,13 @@ class TelescopePattern():
         if 'dec' in kwarg_keys:
             kwargs['dec'] = u.Quantity(kwargs['dec'], u.deg).value
 
-        if not isinstance(kwargs['location'], EarthLocation):
-            location = kwargs['location']
+        location = kwargs.get('location', FYST_LOC)
+        if not isinstance(location, EarthLocation):
             lat = u.Quantity(location['lat'], u.deg).value
             lon = u.Quantity(location['lon'], u.deg).value
             height = u.Quantity(location['height'], u.m).value
-            kwargs['location'] = EarthLocation(lat=lat, lon=lon, height=height)
+            location = EarthLocation(lat=lat, lon=lon, height=height)
+        kwargs['location'] = location
 
         if 'start_hrang' in kwarg_keys:
             kwargs['start_hrang'] = u.Quantity(kwargs['start_hrang'], u.hourangle).value
@@ -856,7 +835,7 @@ class TelescopePattern():
 
     # TRANSFORMATIONS
 
-    def _norm_azimuth(self, az):
+    def _norm_angle(self, az):
         # normalize azimuth values so that:
         # 1. starting azimuth is between 0 and 360
         # 2. azmiuth values are between start-180 to start+180 (centered around the start)
@@ -945,7 +924,7 @@ class TelescopePattern():
         dist_check = np.degrees(np.arcsin( np.cos(alt1)*np.sin(alpha)/np.cos(theta + alt0)  ))
         plt.plot(dist_check)"""
 
-        return self._norm_azimuth(np.degrees(az0)), np.degrees(alt0)%360
+        return self._norm_angle(np.degrees(az0)), np.degrees(alt0)%360
 
     def _transform_from_boresight(self, az0, alt0, dist, theta):
         
@@ -963,7 +942,7 @@ class TelescopePattern():
         cos_az1 = 1/np.cos(alt1) * ( np.cos(alt0)*np.cos(az0)*cos(dist) - np.sin(az0)*np.cos(theta + alt0)*sin(dist) - np.sin(alt0)*np.cos(az0)*sin(dist)*np.sin(theta + alt0) )
         az1 = np.arctan2(sin_az1, cos_az1)
 
-        return self._norm_azimuth(np.degrees(az1)), np.degrees(alt1)%360
+        return self._norm_angle(np.degrees(az1)), np.degrees(alt1)%360
 
     def view_module(self, module):
         """
@@ -973,6 +952,11 @@ class TelescopePattern():
             string indicating a module name in the instrument e.g. 'SFH'
             string indicating one of the default slots in the instrument e.g. 'c', 'i1'
             tuple of (distance, theta) indicating module's offset from the center of the instrument
+
+        Returns
+        -------------------------
+        TelescopePattern 
+            a TelescopePattern object where the "boresight" is the path of the provided module
         """
 
         dist, theta = self._true_module_loc(module)
@@ -981,6 +965,21 @@ class TelescopePattern():
         data = {'time_offset': self.time_offset.value, 'lst': self.lst.value, 'az_coord': az1, 'alt_coord': alt1}
 
         return TelescopePattern(data=data, location=self.location)
+
+    def get_sky_pattern(self) -> SkyPattern:
+        """
+        Returns
+        -------------------------
+        SkyPattern
+            A SkyPattern object tracing the path of the boresight.
+        """
+
+        data = {
+            'time_offset': self.time_offset.value, 
+            'x_coord': self.ra_coord.value - self.ra_coord[0].value,
+            'y_coord': self.dec_coord.value - self.dec_coord[0].value
+        }
+        return SkyPattern(data=data)
 
     # SAVING/EXTRACTING DATA
 
@@ -991,6 +990,11 @@ class TelescopePattern():
         param_json : str or False
             path to intended file location for the parametes
             if None, return it as a dictionary
+        
+        Returns
+        ----------------------
+        None or dict
+            If path_or_buf is None, returns the resulting json format as a dictionary. Otherwise returns None.
         """
 
         param_temp = self.param.copy()
@@ -1014,21 +1018,26 @@ class TelescopePattern():
             File path or object, if None is provided the result is returned as a dictionary.
         columns : sequence or str, default 'default'
             Columns to write. 
-            'default' for ['time_offset', 'az_coord', 'alt_coord', 'az_vel', 'alt_vel']
+            'default' for ['time_offset', 'lst', 'az_coord', 'alt_coord', 'az_vel', 'alt_vel']
             'all' for ['time_offset', 'az_coord', 'alt_coord', 'az_vel', 'alt_vel', 'vel', 'az_acc', 'alt_acc', 'acc', 'az_jerk', 'alt_jerk', 'jerk', 'lst', 'hour_angle', 'para_angle', 'rot_angle', 'ra_coord', 'dec_coord']
+        
+        Returns
+        ----------------------
+        None or dict
+            If path_or_buf is None, returns the resulting json format as a dictionary. Otherwise returns None.
         """
 
         # replace str options
         if columns == 'default':
-            columns = ['time_offset', 'az_coord', 'alt_coord', 'az_vel', 'alt_vel']
+            columns = ['time_offset', 'lst', 'az_coord', 'alt_coord', 'az_vel', 'alt_vel']
         elif columns == 'all':
             columns = ['time_offset', 'az_coord', 'alt_coord', 'az_vel', 'alt_vel', 'vel', 'az_acc', 'alt_acc', 'acc', 'az_jerk', 'alt_jerk', 'jerk', 'lst', 'hour_angle', 'para_angle', 'rot_angle', 'ra_coord', 'dec_coord']
         
         # generate required data
         data = self.data.copy()
         for col in columns:
-            if not col in ['time_offset', 'az_coord', 'alt_coord']:
-                data[col] = getattr(self, col)
+            if not col in ['time_offset', 'lst', 'az_coord', 'alt_coord']:
+                data[col] = getattr(self, col).value
         
         # save data file 
         if path_or_buf is None:
@@ -1127,6 +1136,3 @@ class TelescopePattern():
     @property
     def jerk(self):
         return np.sqrt(self.az_jerk**2 + self.alt_jerk**2)
-
-# visibility function, getting hour angles when object has appropriate airmass, elevation/scale_factor, field rotation angle rate
-# plotting functions
