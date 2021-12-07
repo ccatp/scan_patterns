@@ -10,7 +10,7 @@ setup(
     #package_data={'scanning': ['data']},
     #scripts=['bin/script1','bin/script2'],
     install_requires=[
-        'astropy>=5.0',
+        'astropy>=4.3.1',
         'matplotlib>=3.4.3',
         'numpy>=1.21.2',
         'pandas>=1.3.2',
