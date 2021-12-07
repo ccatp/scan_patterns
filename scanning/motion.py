@@ -1066,7 +1066,7 @@ class TelescopePattern():
         az_coord_rad = self.az_coord.to(u.rad).value
 
         dec_rad = np.arcsin( sin(lat_rad)*np.sin(alt_coord_rad) + cos(lat_rad)*np.cos(alt_coord_rad)*np.cos(az_coord_rad) )
-        return np.degrees(dec_rad)*u.deg
+        return self._norm_angle(np.degrees(dec_rad))*u.deg
 
     @property
     def hour_angle(self):
@@ -1081,25 +1081,26 @@ class TelescopePattern():
         hrang_rad[mask] = 2*pi - hrang_rad[mask]
 
         return (hrang_rad*u.rad).to(u.hourangle)
-    
+
     @property
     def ra_coord(self):
-        return (self.lst - self.hour_angle).to(u.deg)
+        return self._norm_angle((self.lst - self.hour_angle).to(u.deg).value)*u.deg
 
     @property
     def para_angle(self):
-        dec_rad = self.dec.to(u.rad).value
+        dec_rad = self.dec_coord.to(u.rad).value
         hour_angle_rad = self.hour_angle.to(u.rad).value
-        lat_rad = self.location.rad
-        
-        return np.degrees(np.arctan2( 
+        lat_rad = self.location.lat.rad
+
+        para_angle_deg = np.degrees(np.arctan2( 
             np.sin(hour_angle_rad), 
-            cos(dec_rad)*tan(lat_rad) - sin(dec_rad)*np.cos(hour_angle_rad) 
-        ))*u.deg
+            np.cos(dec_rad)*tan(lat_rad) - np.sin(dec_rad)*np.cos(hour_angle_rad) 
+        ))
+        return self._norm_angle(para_angle_deg)*u.deg
 
     @property
     def rot_angle(self):
-        return self.para_angle + self.alt_coord
+        return self._norm_angle((self.para_angle + self.alt_coord).value)*u.deg
 
     @property
     def az_vel(self):
