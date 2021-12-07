@@ -12,7 +12,7 @@ from scanning import FYST_LOC
 
 # Modules and Instruments
 
-def plot_module(mod, include_pol=True, path=None, show_plot=True):
+def plot_module(mod, mode=None, path=None, show_plot=True):
     """
     Plot the pixel positions and default polarizations of a given module. 
 
@@ -20,12 +20,15 @@ def plot_module(mod, include_pol=True, path=None, show_plot=True):
     -----------------------------
     mod : Module
         A Module object. 
+    mode : str or None, default None
+        None for just the pixel positions.
+        'pol' to include default orientations.
+        'rhomubs' to include rhombus info.
+        'wafer' to include wafer info. 
     path : str or None, default None
         If not None, saves the image to the file path. 
     show_plot : bool, default True
         Whether to display the resulting figure.
-    include_pol : bool, default True
-        Whether to show the Module's default polarizations. 
     """
 
     fig_mod = plt.figure('Module', figsize=(8, 8))
@@ -33,32 +36,46 @@ def plot_module(mod, include_pol=True, path=None, show_plot=True):
     x_deg = mod.x.value
     y_deg = mod.y.value
 
-    if include_pol:
+    if mode is None:
+        plot_mod = ax_mod.scatter(x_deg, y_deg, s=1)
+    else:
 
-        default_orientations = np.unique(mod.pol.value)
-
+        # mode
+        if mode == 'pol':
+            categories = np.unique(mod.pol.value)
+            num_def = len(categories)
+            y_label = 'Default Orientation [deg]'
+            tick_locs = (categories + 7.5)*(num_def-1)/num_def
+            c = mod.pol
+        elif mode == 'rhombus':
+            categories = np.unique(mod.rhombus)
+            num_def = len(categories)
+            y_label = 'Rhombus'
+            tick_locs = (categories + 0.5)*(num_def-1)/num_def
+            c = mod.rhombus
+        elif mode == 'wafer':
+            categories = np.unique(mod.wafer)
+            num_def = len(categories)
+            y_label = 'Wafer'
+            tick_locs = (categories + 0.5)*(num_def-1)/num_def
+            c = mod.wafer
+        else:
+            raise ValueError(f'mode={mode} is not valid')
+        
         # determine which colormap to use
-        num_def = len(default_orientations)
         if num_def <= 9:
             cmap = plt.cm.get_cmap('Set1', num_def)
         else:
             cmap = plt.cm.get_cmap('hsv', num_def)
 
         # plot
-        plot_mod = ax_mod.scatter(x_deg, y_deg, c=mod.pol, cmap=cmap, s=1) # FIXME make pixel sizes proportional
+        plot_mod = ax_mod.scatter(x_deg, y_deg, c=c, cmap=cmap, s=1) # FIXME make pixel sizes proportional
 
         # color bar
         cbar = plt.colorbar(plot_mod, fraction=0.046, pad=0.04)
-        tick_locs = (default_orientations + 7.5)*(num_def-1)/num_def
         cbar.set_ticks(tick_locs)
-        cbar.set_ticklabels(default_orientations)
-        cbar.ax.set_ylabel('Default Orientation [deg]')
-    
-    else:
-
-        # plot
-        ax_mod = plt.subplot2grid((1, 1), (0, 0))
-        plot_mod = ax_mod.scatter(x_deg, y_deg, s=1)
+        cbar.set_ticklabels(categories)
+        cbar.ax.set_ylabel(y_label)
 
     ax_mod.set_aspect('equal', 'box')
     ax_mod.set(xlabel='x offset (deg)', ylabel='y offset (deg)', title='Map of Detector Array')

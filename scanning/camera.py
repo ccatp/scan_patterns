@@ -61,10 +61,22 @@ class Module():
 
             # using an existing Module object 
             if isinstance(data, str):
-                self.data = pd.read_csv(data, index_col=False, usecols=['x', 'y', 'pol'])
+                self.data = pd.read_csv(data, index_col=False)
             # passing a dictionary (likely from Instrument class)
             else:
-                self.data = pd.DataFrame(data, columns=['x', 'y', 'pol'])
+                self.data = pd.DataFrame(data)
+
+            # check for certain columns inside
+            assert('x' in self.data.columns)
+            assert('y' in self.data.columns)
+
+            for col in ['pol', 'rhombus', 'wafer']:
+                if not col in self.data.columns:
+                    warnings.warn(f'column {col} not in data, marking all points as 0')
+                    self.data[col] = 0
+            
+            data_columns = ['x', 'y', 'pol', 'rhombus', 'wafer']
+            self.data = self.data[data_columns]
 
             # change units 
             if not isinstance(units, dict):
@@ -241,7 +253,7 @@ class Module():
             columns=['x', 'y', 'pol', 'rhombus', 'wafer']
         ).astype({'pol': np.int16, 'rhombus': np.uint8, 'wafer': np.uint8})
 
-    def save_data(self, path_or_buf=None, columns='default'):
+    def save_data(self, path_or_buf=None, columns='all'):
         """
         Write Module object to file.
 
@@ -251,7 +263,6 @@ class Module():
             File path or object, if None is provided the result is returned as a dictionary.
         columns : sequence or str, default 'default'
             Columns to write. 
-            'default' is ['x', 'y', 'pol']
             'all' is ['x', 'y', 'pol', 'rhombus', 'wafer']
 
         Returns
@@ -261,9 +272,7 @@ class Module():
         """
 
         # checking columns
-        if columns == 'default':
-            columns = ['x', 'y', 'pol']
-        elif columns == 'all':
+        if columns == 'all':
             columns = ['x', 'y', 'pol', 'rhombus', 'wafer']
         
         # write to path_or_buf
@@ -382,7 +391,9 @@ class Instrument():
                 'mod_rot': self._modules[identifier]['mod_rot'],
                 'x': list(self._modules[identifier]['module'].x.value),
                 'y': list(self._modules[identifier]['module'].y.value),
-                'pol': list(self._modules[identifier]['module'].pol.value)
+                'pol': list(self._modules[identifier]['module'].pol.value),
+                'rhombus': [int(x) for x in self._modules[identifier]['module'].rhombus],
+                'wafer': [int(x) for x in self._modules[identifier]['module'].wafer]
             }
         
         # push configuration 
