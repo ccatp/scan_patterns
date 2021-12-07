@@ -7,12 +7,13 @@ setup(
     description='Python mapping and scanning implementation and optimization.',
     long_description=open('README.md').read(),
     packages=['scanning'],
-    package_data={'scanning': ['data']},
+    #package_data={'scanning': ['data']},
     #scripts=['bin/script1','bin/script2'],
     install_requires=[
-        'astropy>=4.3.1',
+        'astropy>=5.0',
         'matplotlib>=3.4.3',
         'numpy>=1.21.2',
-        'pandas>=1.3.2'
+        'pandas>=1.3.2',
+        'scipy>=1.7.1'
     ],
 )

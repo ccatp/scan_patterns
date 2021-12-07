@@ -1,20 +1,16 @@
 # imports
 import math
-from math import sin, cos
-import numpy as np
-import pandas as pd
-from scipy.constants import speed_of_light
-
 import json
 import warnings
 
+import numpy as np
+import pandas as pd
+from scipy.constants import speed_of_light
 import astropy.units as u
 
-""" - handling units (storing and checking), checking parameters type/config, error handling
+""" 
 - if polarization is in alternate direction
 - Module csv file is just pixel positions and does not include pol
-
-- more flexible file parsing (e.g. allow user to specify units, data is in dist not angle-like units)
 """
 
 #####################
@@ -287,12 +283,6 @@ class Module():
         else:
             raise AttributeError(f'invalid attribute {attr}')
 
-    """
-    @property
-    def data(self):
-        return self.data.copy()
-    """
-
 # some standard modules 
 CMBPol = Module(freq=350)
 SFH = Module(freq=860)
@@ -316,16 +306,16 @@ class Instrument():
 
     slots = dict()
 
-    def __init__(self, config_file=None, instr_offset=(0, 0), instr_rot=0) -> None:
+    def __init__(self, data=None, instr_offset=(0, 0), instr_rot=0) -> None:
         """
         Initialize a filled Instrument:
-            option 1: Instrument(config_file) 
+            option 1: Instrument(data) 
         or an empty Intrument:
             option 2: Instrument(instr_offset, instr_rot)
 
         Parameters
         -----------------------------
-        config_file : str
+        data : str or dict
             File path to json file. Overwrites instr_offset and instr_rot. 
         instr_offset : (angle-like, angle-like), default (0, 0), default unit deg
             offset of the instrument from the boresight
@@ -334,15 +324,15 @@ class Instrument():
         """
 
         # config file is passed
-        if not config_file is None:
+        if not data is None:
 
-            if isinstance(config_file, str):
-                with open(config_file, 'r') as f:
+            if isinstance(data, str):
+                with open(data, 'r') as f:
                     config = json.load(f)
-            elif isinstance(config_file, dict):
-                config = config_file
+            elif isinstance(data, dict):
+                config = data
             else:
-                TypeError('config_file')
+                TypeError('data')
 
             self._instr_offset = config['instr_offset']
             self._instr_rot = config['instr_rot']
@@ -361,7 +351,7 @@ class Instrument():
             # initialize empty dictionary of module objects 
             self._modules = dict()
     
-    def save_config(self, path_or_buf=None):
+    def save_data(self, path_or_buf=None):
         """
         Saves as a dictionary like 
         {   'instr_offset': , 

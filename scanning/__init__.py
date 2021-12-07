@@ -2,8 +2,7 @@ from astropy.coordinates import EarthLocation
 import astropy.units as u
 import numpy as np
 
-from scanning.camera import Instrument
-
+# location of FYST
 FYST_LOC = EarthLocation(lat='-22d59m08.30s', lon='-67d44m25.00s', height=5611.8*u.m)
 
 def _central_diff(a, h=None, time=None):
