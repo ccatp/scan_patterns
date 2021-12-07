@@ -2,6 +2,6 @@
 /mapping.egg-info
 /delete
 script.py
-/curvy_pong
-/daisy
 **/.ipynb_checkpoints
+tutorials/*
+!tutorials/tutorial.ipynb

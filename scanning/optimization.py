@@ -1,16 +1,13 @@
 
 class Simulation():
 
-    max_acc = None     # above this acceleration, hits are removed
-    convolve = None    # apply convolution
     pols_on = None     # which initial polarizations are on 
     # wafers_on, rhombi_on 
-    norm_time = None   # normalize to get hits/px/sec
 
     px_list = None # performing stats on these pixels
     norm_pxan = None    
 
-    def __init__(self) -> None:
+    def __init__(self, max_acc=None, min_vel=None, convolve=False, norm_time=False, pols_on=None, rhombi_on=None, wafers_on=None) -> None:
         # pass TelescopePattern, Instrument
         self._simulate_scan()
         self._stats()
@@ -32,6 +29,3 @@ class Simulation():
     def std_dev(self):
         pass
 
-    
-
-# plotting functions
