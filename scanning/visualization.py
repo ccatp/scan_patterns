@@ -134,20 +134,16 @@ def instrument_config(instrument, path=None, show_plot=True):
         
     # modules 
     for identifier, value in instrument._modules.items():
-        mod_rot = radians(value['mod_rot'])
+        mod = instrument.get_module(identifier, with_rot=True)
 
         # get modules into correct position
         x_offset = value['dist']*cos(radians(value['theta']))
         y_offset = value['dist']*sin(radians(value['theta']))
         
-        x1 = value['module'].x.value*cos(mod_rot) - value['module'].y.value*sin(mod_rot) + x_offset 
-        y1 = value['module'].x.value*sin(mod_rot) + value['module'].y.value*cos(mod_rot) + y_offset 
-
-        # apply instr rot/offset
-        x2 = x1*cos(instr_rot) - y1*sin(instr_rot) + instr_offset[0]
-        y2 = x1*sin(instr_rot) + y1*cos(instr_rot) + instr_offset[1]
+        x1 = mod.x.value + instr_offset[0] + x_offset
+        y1 = mod.y.value + instr_offset[1] + y_offset 
         
-        plt.scatter(x2, y2, s=0.5, label=identifier)
+        plt.scatter(x1, y1, s=0.5, label=identifier)
         
     ax.grid()
     ax.legend()

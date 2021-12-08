@@ -153,7 +153,7 @@ class SkyPattern():
         
         # save data file 
         if path_or_buf is None:
-            return data[columns].to_dict()
+            return data[columns].to_dict('list')
         else:
             data.to_csv(path_or_buf, columns=columns, index=False)
 
@@ -1041,7 +1041,7 @@ class TelescopePattern():
         
         # save data file 
         if path_or_buf is None:
-            return data[columns].to_dict()
+            return data[columns].to_dict('list')
         else:
             data.to_csv(path_or_buf, columns=columns, index=False)
 

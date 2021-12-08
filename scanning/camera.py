@@ -277,7 +277,7 @@ class Module():
         
         # write to path_or_buf
         if path_or_buf is None:
-            return self.data[columns].to_dict()
+            return self.data[columns].to_dict('list')
         else:
             self.data.to_csv(path_or_buf, columns=columns, index=False)
 
@@ -512,8 +512,19 @@ class Instrument():
     # GETTERS 
     
     @_check_identifier
-    def get_module(self, identifier):
-        return self._modules[identifier]['module']
+    def get_module(self, identifier, with_rot=False):
+        if with_rot:
+            data = self._modules[identifier]['module'].save_data()
+            x = np.array(data['x'])
+            y = np.array(data['y'])
+            mod_rot = self.get_mod_rot(identifier).to(u.rad).value
+            instr_rot = self.instr_rot.to(u.rad).value
+
+            data['x'] = x*math.cos(mod_rot + instr_rot) - y*math.sin(mod_rot + instr_rot)
+            data['y'] = x*math.sin(mod_rot + instr_rot) + y*math.cos(mod_rot + instr_rot)
+            return Module(data)
+        else:
+            return self._modules[identifier]['module']
 
     @_check_identifier
     def get_dist(self, identifier):
