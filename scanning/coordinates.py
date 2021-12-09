@@ -23,14 +23,12 @@ azimuth in terms of east from north
 
 class SkyPattern():
     """
-    Attributes
-    ---------------------------
-    data : pd.DataFrame : time_offset [s], x_coord [deg], y_coord [deg]
-    param : dict
-    repeatable
+    Representing the path of the center of a detector array in terms of an RA/DEC offset. 
     """
 
     _param_unit = {'num_repeat': u.dimensionless_unscaled, 'sample_interval': u.s}
+    repeatable = False
+
     _data_unit = {'time_offset': u.s, 'x_coord': u.deg, 'y_coord': u.deg}
 
     def __init__(self, data, repeatable=False, **kwargs) -> None:
@@ -70,6 +68,8 @@ class SkyPattern():
 
         self.param = self._clean_param(**kwargs)
         self.data = self._repeat_scan(data)
+
+    # INITIALIZATION
 
     def _clean_param(self, **kwargs):
         kwarg_keys = kwargs.keys()
@@ -114,6 +114,8 @@ class SkyPattern():
                 data = data.append(data_temp, ignore_index=True)
 
         return data
+
+    # OBJECT DATA
 
     def save_data(self, path_or_buf=None, columns='default', include_repeats=True):
         """
@@ -182,6 +184,8 @@ class SkyPattern():
 
     # GETTERS
 
+    # param : num_repeat, sample_interval
+    # data : time_offset, x_coord, y_coord
     def __getattr__(self, attr):
 
         if attr in self.param.keys():
@@ -588,12 +592,7 @@ class Daisy(SkyPattern):
 
 class TelescopePattern():
     """
-    Attributes
-    -------------------------------
-    instrument
-    param: ra, dec, location, (start_datetime or start_hrang or [start_el and moving_up])
-    sample_interval
-    data: time_offset, lst, alt_coord, az_coord
+    Representing the path in AZ/EL coordinates of the telescope's boresight.  
     """
 
     _param_unit = {
@@ -605,20 +604,18 @@ class TelescopePattern():
     }
     _data_unit = {'time_offset': u.s, 'lst': u.hourangle, 'alt_coord': u.deg, 'az_coord': u.deg}
 
-    # INITIALIZATION
-
     def __init__(self, data, instrument=None, module='boresight', obs_param=None, **kwargs) -> None:
         """
         Determine the motion of the telescope.
             option1: data, instrument (optional), module (optional), ra, dec, location, (start_datetime or start_hrang or start_lst or [start_el and moving_up])
-            option2: data, instrument (optional), module (optional), obs_param = {ra:, dec:, location: {lat:, lon:, height:, }, start_:}, **kwargs for updating 
-            option3: instrument, module, data*, location
+            option2: data, instrument (optional), module (optional), obs_param = {ra, dec, (start_datetime or start_hrang or start_lst or [start_el and moving_up])}
+            option3: data*, instrument, module, (location or obs_param = {location})
             * data includes 'lst' (local sidereal time)
 
         Parameters
         -----------------------------
         data : SkyPattern; str, ndarray, Iterable, dict, or DataFrame
-            If SkyPattern, then it is a SkyPattern object with time_offset, ra, dec.
+            If SkyPattern, then it is a SkyPattern object with time_offset, x_coord, y_coord.
             Otherwise, is a csv file or dict that has columns 'time_offset', 'az_coord', 'alt_coord' and optionally 'lst'.
 
         instrument : Instrument or None, default None
@@ -689,13 +686,13 @@ class TelescopePattern():
             sample_interval_list = np.diff(self.data.time_offset)
             if np.std(sample_interval_list)/np.mean(sample_interval_list) <= 0.01:
                 sample_interval = np.mean(sample_interval_list)
-                self.sample_interval = sample_interval
+                self._sample_interval = sample_interval
             else:
                 raise ValueError('sample_interval must be constant')
 
         # passed sky_pattern
         else:
-            self.sample_interval = data.sample_interval.value
+            self._sample_interval = data.sample_interval.value
 
             self.data=pd.DataFrame({'time_offset':data.time_offset})
             self.data['lst'] = self._get_lst(data)
@@ -720,6 +717,8 @@ class TelescopePattern():
             if len(self.alt_coord.value[(self.alt_coord.value < 0) | (self.alt_coord.value > 90)]) > 0:
                 warnings.warn('elevation has values outside of 0 to 90 range')
             self.data['az_coord'] = self._norm_angle(self.az_coord.value)
+
+    # INITIALIZATION
 
     def _clean_param(self, **kwargs):
         kwarg_keys = kwargs.keys()
@@ -1054,6 +1053,8 @@ class TelescopePattern():
 
     # ATTRIBUTES
 
+    # data : time_offset, lst, alt_coord, az_coord
+    # param
     def __getattr__(self, attr):
 
         if attr in self.param.keys():
@@ -1066,6 +1067,10 @@ class TelescopePattern():
         else:
             raise AttributeError(f'attribtue {attr} not found')
     
+    @property
+    def sample_interval(self):
+        return self._sample_interval*u.s
+
     @property
     def dec_coord(self):
         lat_rad = self.location.lat.rad
@@ -1111,11 +1116,11 @@ class TelescopePattern():
 
     @property
     def az_vel(self):
-        return _central_diff(self.az_coord.value, self.sample_interval)*u.deg/u.s
+        return _central_diff(self.az_coord.value, self.sample_interval.value)*u.deg/u.s
 
     @property
     def alt_vel(self):
-        return _central_diff(self.alt_coord.value, self.sample_interval)*u.deg/u.s
+        return _central_diff(self.alt_coord.value, self.sample_interval.value)*u.deg/u.s
 
     @property
     def vel(self):
@@ -1123,11 +1128,11 @@ class TelescopePattern():
 
     @property
     def az_acc(self):
-        return _central_diff(self.az_vel.value, self.sample_interval)*u.deg/u.s/u.s
+        return _central_diff(self.az_vel.value, self.sample_interval.value)*u.deg/u.s/u.s
 
     @property
     def alt_acc(self):
-        return _central_diff(self.alt_vel.value, self.sample_interval)*u.deg/u.s/u.s
+        return _central_diff(self.alt_vel.value, self.sample_interval.value)*u.deg/u.s/u.s
     
     @property
     def acc(self):
@@ -1135,11 +1140,11 @@ class TelescopePattern():
 
     @property
     def az_jerk(self):
-        return _central_diff(self.az_acc.value, self.sample_interval)*u.deg/(u.s)**3
+        return _central_diff(self.az_acc.value, self.sample_interval.value)*u.deg/(u.s)**3
     
     @property
     def alt_jerk(self):
-        return _central_diff(self.alt_acc.value, self.sample_interval)*u.deg/(u.s)**3
+        return _central_diff(self.alt_acc.value, self.sample_interval.value)*u.deg/(u.s)**3
     
     @property
     def jerk(self):
