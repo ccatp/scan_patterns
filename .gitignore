@@ -4,4 +4,5 @@
 script.py
 **/.ipynb_checkpoints
 tutorials/*
-!tutorials/tutorial.ipynb
+!tutorials/scanning.ipynb
+!tutorials/simulations.ipynb
