@@ -1,6 +1,7 @@
 import math
 from math import pi, sin, cos, tan, sqrt
 import json
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -716,7 +717,8 @@ class TelescopePattern():
             self.data['az_coord'] = az0
             self.data['alt_coord'] = alt0
         else:
-            self.data['alt_coord'] = self.alt_coord.value%360
+            if len(self.alt_coord.value[(self.alt_coord.value < 0) | (self.alt_coord.value > 90)]) > 0:
+                warnings.warn('elevation has values outside of 0 to 90 range')
             self.data['az_coord'] = self._norm_angle(self.az_coord.value)
 
     def _clean_param(self, **kwargs):
@@ -905,6 +907,9 @@ class TelescopePattern():
                 alt0 = math.nan
 
             alt0[i]= a0
+        
+        if len(alt0[alt0 < 0]) > 0:
+            warnings.warn('elevation has values below 0')
 
         # getting new azimuth
         #cos_diff_az0 = ( np.cos(alt0)*cos(dist) - np.sin(alt0)*sin(dist)*np.sin(theta + alt0) )/np.cos(alt1)
@@ -924,7 +929,7 @@ class TelescopePattern():
         dist_check = np.degrees(np.arcsin( np.cos(alt1)*np.sin(alpha)/np.cos(theta + alt0)  ))
         plt.plot(dist_check)"""
 
-        return self._norm_angle(np.degrees(az0)), np.degrees(alt0)%360
+        return self._norm_angle(np.degrees(az0)), np.degrees(alt0)
 
     def _transform_from_boresight(self, az0, alt0, dist, theta):
         
@@ -936,13 +941,15 @@ class TelescopePattern():
 
         # find elevation offset
         alt1 = np.arcsin(np.sin(alt0)*cos(dist) + sin(dist)*np.cos(alt0)*np.sin(theta + alt0))
+        if len(alt1[alt1 < 0]) > 0:
+            warnings.warn('elevation has values below 0')
 
         # find azimuth offset
         sin_az1 = 1/np.cos(alt1) * ( np.cos(alt0)*np.sin(az0)*cos(dist) + np.cos(az0)*np.cos(theta + alt0)*sin(dist) - np.sin(alt0)*np.sin(az0)*sin(dist)*np.sin(theta + alt0) )
         cos_az1 = 1/np.cos(alt1) * ( np.cos(alt0)*np.cos(az0)*cos(dist) - np.sin(az0)*np.cos(theta + alt0)*sin(dist) - np.sin(alt0)*np.cos(az0)*sin(dist)*np.sin(theta + alt0) )
         az1 = np.arctan2(sin_az1, cos_az1)
 
-        return self._norm_angle(np.degrees(az1)), np.degrees(alt1)%360
+        return self._norm_angle(np.degrees(az1)), np.degrees(alt1)
 
     def view_module(self, module):
         """
@@ -1066,7 +1073,7 @@ class TelescopePattern():
         az_coord_rad = self.az_coord.to(u.rad).value
 
         dec_rad = np.arcsin( sin(lat_rad)*np.sin(alt_coord_rad) + cos(lat_rad)*np.cos(alt_coord_rad)*np.cos(az_coord_rad) )
-        return self._norm_angle(np.degrees(dec_rad))*u.deg
+        return np.degrees(dec_rad)*u.deg
 
     @property
     def hour_angle(self):

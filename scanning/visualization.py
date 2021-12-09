@@ -150,7 +150,7 @@ def instrument_config(instrument, path=None, show_plot=True):
     ax.grid()
     ax.legend()
     ax.set_aspect('equal')
-    ax.set(xlabel='[deg]', ylabel='[deg]', title='Instrument Configuration')
+    ax.set(xlabel='x offset from boresight [deg]', ylabel='y offset from boresight [deg]', title='Instrument Configuration')
 
     # saving
     if not path is None:
@@ -174,9 +174,11 @@ def sky_path(pattern, module=None, path=None, show_plot=True):
 
     if isinstance(pattern, SkyPattern):
         ax_coord.plot(pattern.x_coord.value, pattern.y_coord.value)
+        ax_coord.set(xlabel='x offset [deg]', ylabel='x offset [deg]', title=f'Sky Path')
 
     # pattern is TelescopePattern
     elif isinstance(pattern, TelescopePattern):
+        ax_coord.set(xlabel='RA [deg]', ylabel='DEC [deg]', title=f'Sky Path')
         if module is None:
             module = ['boresight']
         elif not isiterable(module):
@@ -195,7 +197,6 @@ def sky_path(pattern, module=None, path=None, show_plot=True):
         raise TypeError('pattern is not of correct type')
     
     ax_coord.set_aspect('equal', 'box')
-    ax_coord.set(xlabel='RA [deg]', ylabel='DEC [deg]', title=f'Path')
     ax_coord.grid()
 
     fig_coord.tight_layout()
@@ -230,7 +231,7 @@ def telescope_path(telescope_pattern, module=None, path=None, show_plot=True):
         ax_coord.plot(temp.az_coord.value, temp.alt_coord.value, label=m)
 
     ax_coord.set_aspect('equal', 'box')
-    ax_coord.set(xlabel='Azimuth [deg]', ylabel='Elevation [deg]', title=f'Path')
+    ax_coord.set(xlabel='Azimuth [deg]', ylabel='Elevation [deg]', title=f'Telescope Path')
     ax_coord.grid()
     ax_coord.legend()
 
