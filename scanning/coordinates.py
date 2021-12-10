@@ -443,7 +443,7 @@ class Daisy(SkyPattern):
         velocity : angle-like/time-like, default unit deg/s
             Constant velocity (CV) for scan to go at. 
         start_acc : acceleration-like, default unit deg/s^2
-            Acceleration at start of pattern.
+            Acceleration at start of pattern. Cannot be 0. 
         R0 : angle-like, default unit deg
             Radius R0. Must be positive.
         Rt : angle-like, default unit deg
@@ -502,6 +502,28 @@ class Daisy(SkyPattern):
         dt = self.sample_interval.to(u.s).value
         y_offset = self.y_offset.to(u.arcsec).value
 
+        # Determine whether the pattern will spiral and change dt accordingly.
+        # Spirals happen when the algorithm gets stuck turning as vx and vy, which are
+        # supposed to be a unit vector, get larger. Even if it doesn't spiral, 
+        # a large v_diff does not follow Ra well. The vx and vy vector will always
+        # increase, but poorer configurations will have a larger increase. 
+
+        def v_diff(time_step):
+            vx1 = 1 - (speed*time_step)**2/(2*Rt**2) 
+            vy1 = speed*time_step/Rt + (speed*time_step)**3/(6*Rt**3)
+            return abs(sqrt(vx1**2 + vy1**2) - 1)
+
+        sample_every = 1
+        if not math.isclose(v_diff(dt), 0, abs_tol=10**(-5)):
+            warnings.warn(f'dt = {dt} is a small sampling rate, turns may not look smooth')
+
+            new_dt = dt
+            while not math.isclose(v_diff(new_dt), 0, abs_tol=10**(-5)):
+                sample_every += 1
+                new_dt = dt/sample_every
+            
+            dt = new_dt
+            
         # --- START OF ALGORITHM ---
 
         # Tangent vector & start value
@@ -518,6 +540,7 @@ class Daisy(SkyPattern):
         y_coord = np.empty(N)
         #x_vel = np.empty(N)
         #y_vel = np.empty(N)
+        test = []
         
         # Effective avoidance radius so Ra is not used if Ra > R0 
         #R1 = min(R0, Ra) 
@@ -564,6 +587,7 @@ class Daisy(SkyPattern):
                     y += (s - s*s*s/Rt/Rt/6)*vy + s*s/Rt/2*Ny 
                     vx += -s*s/Rt/Rt/2*vx + (s/Rt + s*s*s/Rt/Rt/Rt/6)*Nx 
                     vy += -s*s/Rt/Rt/2*vy + (s/Rt + s*s*s/Rt/Rt/Rt/6)*Ny 
+                    test.append(sqrt(vx**2 + vy**2))
 
             # Store result for plotting and statistics
             x_coord[step] = x
@@ -579,12 +603,24 @@ class Daisy(SkyPattern):
         x_acc = np.append(x_acc, 0)
         y_acc = np.append(y_acc, 0)
         """
+        
+        # check if pattern has spiraled
+        total_R = sqrt(R0**2 - 2*Rt*Ra + Rt**2) + Rt
+        last_R = sqrt(x_coord[-1]**2 + y_coord[-1]**2)
 
-        return pd.DataFrame({
+        if last_R >= total_R + 2*Rt:
+            warnings.warn('This Daisy scan may have spiraled out.')
+
+        # return data
+        data =  pd.DataFrame({
             'time_offset': np.arange(0, T, dt), 
             'x_coord': x_coord/3600, 'y_coord': y_coord/3600, 
-            #'x_vel': x_vel/3600, 'y_vel': y_vel/3600,
         })
+
+        if sample_every == 1:
+            return data
+        else:
+            return data.iloc[::sample_every, :]
  
 #######################
 #  TELESCOPE PATTERN 
