@@ -750,9 +750,12 @@ class TelescopePattern():
             self.data['az_coord'] = az0
             self.data['alt_coord'] = alt0
         else:
-            if len(self.alt_coord.value[(self.alt_coord.value < 0) | (self.alt_coord.value > 90)]) > 0:
-                warnings.warn('elevation has values outside of 0 to 90 range')
             self.data['az_coord'] = self._norm_angle(self.az_coord.value)
+        
+        if len(self.alt_coord.value[(self.alt_coord.value < 0) | (self.alt_coord.value > 90)]) > 0:
+            warnings.warn('elevation has values outside of 0 to 90 range')
+        elif len(self.alt_coord.value[(self.alt_coord.value < 30) | (self.alt_coord.value > 75)]) > 0:
+            warnings.warn('elevation has values outside of 30 to 75 range')
 
     # INITIALIZATION
 
@@ -817,9 +820,10 @@ class TelescopePattern():
 
             try:
                 start_hrang_rad = math.acos((sin(alt_rad) - sin(dec_rad)*sin(lat_rad)) / (cos(dec_rad)*cos(lat_rad)))
-            except ValueError as e:
-                raise ValueError('Altitude is not possible at provided ra, dec, and latitude.') from e
-                # FIXME list range of possible altitudes
+            except ValueError:
+                max_el = math.floor(math.degrees(math.asin(cos(0)*cos(dec_rad)*cos(lat_rad) + sin(dec_rad)*sin(lat_rad))))
+                min_el = math.ceil(math.degrees(math.asin(cos(pi)*cos(dec_rad)*cos(lat_rad) + sin(dec_rad)*sin(lat_rad))))
+                raise ValueError(f'Elevation = {self.start_el} is not possible at provided ra, dec, and latitude. Min elevation is {min_el} and max elevation is {max_el} deg.')
 
             # choose hour angle
 
