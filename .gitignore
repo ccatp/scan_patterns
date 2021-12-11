@@ -4,6 +4,6 @@
 script.py
 **/.ipynb_checkpoints
 tutorials/*
-!tutorials/basicsa.ipynb
+!tutorials/basics.ipynb
 !tutorials/simulations.ipynb
 !tutorials/plotting.ipynb
