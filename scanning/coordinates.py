@@ -27,8 +27,6 @@ class SkyPattern():
     """
 
     _param_unit = {'num_repeat': u.dimensionless_unscaled, 'sample_interval': u.s}
-    repeatable = False
-
     _data_unit = {'time_offset': u.s, 'x_coord': u.deg, 'y_coord': u.deg}
 
     def __init__(self, data, repeatable=False, **kwargs) -> None:
@@ -56,7 +54,7 @@ class SkyPattern():
         if isinstance(data, str):
             data = pd.read_csv(data, index_col=False, usecols=['time_offset', 'x_coord', 'y_coord'])
         else:
-            data = pd.DataFrame(data, columns=['time_offset', 'x_coord', 'y_coord'])
+            data = pd.DataFrame(data)[['time_offset', 'x_coord', 'y_coord']]
 
         # determine sample_interval 
         sample_interval_list = np.diff(data['time_offset'].to_numpy())
@@ -632,32 +630,34 @@ class TelescopePattern():
     """
 
     _param_unit = {
-        'ra': u.deg, 'dec': u.deg, 'location': u.dimensionless_unscaled,
+        'start_ra': u.deg, 'start_dec': u.deg, 'lat': u.deg,
         'start_hrang': u.hourangle, 
         'start_datetime': u.dimensionless_unscaled, 
         'start_lst': u.hourangle,
-        'start_el': u.deg, 'moving_up': u.dimensionless_unscaled
+        'start_elev': u.deg, 'moving_up': u.dimensionless_unscaled
     }
     _data_unit = {'time_offset': u.s, 'lst': u.hourangle, 'alt_coord': u.deg, 'az_coord': u.deg}
 
-    def __init__(self, data, instrument=None, module='boresight', obs_param=None, **kwargs) -> None:
+    def __init__(self, telescope_data=None, sky_pattern=None, instrument=None, module='boresight', obs_param=None, **kwargs) -> None:
         """
         Determine the motion of the telescope.
-            option1: data, instrument (optional), module (optional), ra, dec, location, (start_datetime or start_hrang or start_lst or [start_el and moving_up])
-            option2: data, instrument (optional), module (optional), obs_param = {ra, dec, (start_datetime or start_hrang or start_lst or [start_el and moving_up])}
-            option3: data*, instrument, module, (location or obs_param = {location})
-            * data includes 'lst' (local sidereal time)
+            option1: sky_pattern, instrument (optional), module (optional); lat, start_ra, start_dec, (start_datetime or start_hrang or start_lst or [start_elev and moving_up])
+            option2: data (excludes lst), instrument (optional), module (optional); lat, (start_ra or start_datetime or start_lst)
+            option3: data (includes lst), instrument (optional), module (optional); lat
+            **kwargs can be passed as a file through obs_param
 
         Parameters
         -----------------------------
-        data : SkyPattern; str, ndarray, Iterable, dict, or DataFrame
-            If SkyPattern, then it is a SkyPattern object with time_offset, x_coord, y_coord.
-            Otherwise, is a csv file or dict that has columns 'time_offset', 'az_coord', 'alt_coord' and optionally 'lst'.
+        data : str or dict
+            Path to a csv file or a dict containing columns 'time_offset, 'az_coord', and 'alt_coord'.
+            If 'lst' is included as a column, certain observation parameters are not required (see options).
+        sky_pattern : str or SkyPattern
+            Path to csv file or SkyPattern object with time_offset, x_coord, y_coord.
 
-        instrument : Instrument or None, default None
-            instrument object to be used if any
+        instrument : str, Instrument or None, default None
+            Path to a json file or an Instrument object to be used if any.
         module : str or (distance, theta), default 'boresight'
-            location relative to the center of the instrument where **kwargs is applied:
+            Location relative to the center of the instrument where observation parameters are applied:
                 'boresight' for boresight of the telescope 
                 string indicating a module name in the instrument e.g. 'SFH' or one of the default slots in the instrument e.g. 'c', 'i1'
                 tuple of (distance, theta) indicating module's offset from the center of the instrument, default unit deg
@@ -666,58 +666,78 @@ class TelescopePattern():
             File path to json containing all required obervation parameters (see **kwargs).
 
         **kwargs
-        ra : angle-like, default unit deg
-            starting right acension / right acension of sky_pattern
-        dec : angle-like, default unit deg
-            starting declination / declination of sky_pattern
-        location : EarthLocation or dict
-            if dict, contains {'lat', 'lon', 'height'} with default unit deg
+        start_ra : angle-like, default unit deg
+            Starting right acension of data / right acension offset for sky_pattern.
+        start_dec : angle-like, default unit deg
+            Declination offset for sky_pattern.
+        lat : angle-like, default unit deg, default FYST_LOC.lat
+            Latitude of observation. 
 
         start_datetime : str or datetime, default timezone UTC
-            starting date and time of observation
+            Starting date and time of observation.
         start_hrang : angle-like, default unit hourangle
-            starting hour angle of observation
+            Starting hour angle of source.
         start_lst : angle-like, default unit hourangle
-            starting local sidereal time
-        start_el : angle-like, default unit deg
-            starting elevation of obervation, must be used with moving_up
+            Starting local sidereal time.
+        start_elev : angle-like, default unit deg
+            Starting elevation of source, must be used with moving_up
         moving_up : bool, default True
-            whether observation is moving towards the meridian or away, must be used with start_el 
+            whether observation is moving towards the meridian or away, must be used with start_elev. 
         """
 
         # --- Observation Parameters ---
 
         # pass by obs_param
         if not obs_param is None:
-
             with open(obs_param, 'r') as f:
                 param = json.load(f)
 
             # overwrite parameters FIXME start_
             param.update(kwargs)
-            self.param = self._clean_param(**param)
-        
-        # pass by kwargs
+
         else:
-            self.param = self._clean_param(**kwargs)
+            param = kwargs
 
-        # --- SkyPattern or data ---
+        # --- sky_pattern or data ---
 
-        # passed data
-        if not isinstance(data, SkyPattern):
-            if isinstance(data, str):
+        if (sky_pattern is None and telescope_data is None) or (not sky_pattern is None and not telescope_data is None):
+            raise TypeError('one (and only one) of sky_pattern or data must be passed')
+
+        # sky_pattern has been passed
+        elif telescope_data is None:
+                
+            self.param = self._clean_param_sky_pattern(**param)
+
+            if isinstance(sky_pattern, str):
+                sky_pattern = SkyPattern(sky_pattern)
+
+            self._sample_interval = sky_pattern.sample_interval.value
+            self.data = pd.DataFrame({'time_offset': sky_pattern.time_offset.value})
+            self.data['lst'] = self._get_lst(sky_pattern)
+            az1, alt1 = self._from_sky_pattern(sky_pattern)
+
+            self.data['az_coord'] = az1
+            self.data['alt_coord'] = alt1
+
+        # data has been passed
+        else:
+            if isinstance(telescope_data, str):
                 try:
-                    self.data = pd.read_csv(data, index_col=False, usecols=['time_offset', 'lst', 'az_coord', 'alt_coord'])
+                    self.data = pd.read_csv(telescope_data, index_col=False, usecols=['time_offset', 'lst', 'az_coord', 'alt_coord'])
+                    self.param = self._clean_param_telescope_data(False, **param)
                 except ValueError:
-                    self.data = pd.read_csv(data, index_col=False, usecols=['time_offset', 'az_coord', 'alt_coord'])
+                    self.data = pd.read_csv(telescope_data, index_col=False, usecols=['time_offset', 'az_coord', 'alt_coord'])
+                    self.param = self._clean_param_telescope_data(True, **param)
                     self.data['lst'] = self._get_lst()
             else:
                 try:
-                    self.data = pd.DataFrame(data, columns=['time_offset', 'lst', 'az_coord', 'alt_coord'])
-                except ValueError:
-                    self.data = pd.DataFrame(data, columns=['time_offset', 'az_coord', 'alt_coord'])
+                    self.data = pd.DataFrame(telescope_data)[['time_offset', 'lst', 'az_coord', 'alt_coord']]
+                    self.param = self._clean_param_telescope_data(False, **param)
+                except KeyError:
+                    self.data = pd.DataFrame(telescope_data)[['time_offset', 'az_coord', 'alt_coord']]
+                    self.param = self._clean_param_telescope_data(True, **param)
                     self.data['lst'] = self._get_lst()
-            
+
             # determine sample_interval 
             sample_interval_list = np.diff(self.data.time_offset)
             if np.std(sample_interval_list)/np.mean(sample_interval_list) <= 0.01:
@@ -725,17 +745,6 @@ class TelescopePattern():
                 self._sample_interval = sample_interval
             else:
                 raise ValueError('sample_interval must be constant')
-
-        # passed sky_pattern
-        else:
-            self._sample_interval = data.sample_interval.value
-
-            self.data=pd.DataFrame({'time_offset':data.time_offset})
-            self.data['lst'] = self._get_lst(data)
-            az1, alt1 = self._from_sky_pattern(data)
-
-            self.data['az_coord'] = az1
-            self.data['alt_coord'] = alt1
 
         # --- Instrument and module --- 
 
@@ -759,33 +768,58 @@ class TelescopePattern():
 
     # INITIALIZATION
 
-    def _clean_param(self, **kwargs):
+    def _clean_param_sky_pattern(self, **kwargs):
         kwarg_keys = kwargs.keys()
+        new_kwargs = dict()
 
-        if 'ra' in kwarg_keys:
-            kwargs['ra'] = u.Quantity(kwargs['ra'], u.deg).value
-        if 'dec' in kwarg_keys:
-            kwargs['dec'] = u.Quantity(kwargs['dec'], u.deg).value
+        # required
+        new_kwargs['lat'] = u.Quantity(kwargs.pop('lat', FYST_LOC.lat), u.deg).value
+        new_kwargs['start_ra'] = u.Quantity(kwargs.pop('start_ra'), u.deg).value
+        new_kwargs['start_dec'] = u.Quantity(kwargs.pop('start_dec'), u.deg).value
 
-        location = kwargs.get('location', FYST_LOC)
-        if not isinstance(location, EarthLocation):
-            lat = u.Quantity(location['lat'], u.deg).value
-            lon = u.Quantity(location['lon'], u.deg).value
-            height = u.Quantity(location['height'], u.m).value
-            location = EarthLocation(lat=lat, lon=lon, height=height)
-        kwargs['location'] = location
+        # choose between
+        if np.count_nonzero( ['start_hrang' in kwarg_keys, 'start_datetime' in kwarg_keys, 'start_lst' in kwarg_keys, 'start_elev' in kwarg_keys] ) != 1:
+            raise TypeError('need one (and only one) of start_datetime, start_hrang, start_lst, or start_elev')
 
         if 'start_hrang' in kwarg_keys:
-            kwargs['start_hrang'] = u.Quantity(kwargs['start_hrang'], u.hourangle).value
+            new_kwargs['start_hrang'] = u.Quantity(kwargs.pop('start_hrang'), u.hourangle).value
         elif 'start_datetime' in kwarg_keys:
-            kwargs['start_datetime'] = pd.Timestamp(kwargs['start_datetime']).to_pydatetime()
+            new_kwargs['start_datetime'] = pd.Timestamp(kwargs.pop('start_datetime')).to_pydatetime()
         elif 'start_lst' in kwarg_keys:
-            kwargs['start_lst'] = u.Quantity(kwargs['start_lst'], u.hourangle).value
-        elif 'start_el' in kwarg_keys:
-            kwargs['start_el'] = u.Quantity(kwargs['start_el'], u.deg).value
-            kwargs['moving_up'] = kwargs.get('moving_up', True)
+            new_kwargs['start_lst'] = u.Quantity(kwargs.pop('start_lst'), u.hourangle).value
+        elif 'start_elev' in kwarg_keys:
+            new_kwargs['start_elev'] = u.Quantity(kwargs.pop('start_elev'), u.deg).value
+            new_kwargs['moving_up'] = kwargs.pop('moving_up', True)
 
-        return kwargs
+        if kwargs:
+            raise TypeError(f'Unrecognized observation parameters: {kwargs.keys()}')
+
+        return new_kwargs
+
+    def _clean_param_telescope_data(self, need_lst, **kwargs):
+        kwarg_keys = kwargs.keys()
+        new_kwargs = dict()
+
+        # required
+        new_kwargs['lat'] = u.Quantity(kwargs.pop('lat', FYST_LOC.lat), u.deg).value
+
+        if need_lst:
+
+            # choose between
+            if np.count_nonzero( ['start_ra' in kwarg_keys, 'start_datetime' in kwarg_keys, 'start_lst' in kwarg_keys] ) != 1:
+                raise TypeError('need one (and only one) of start_ra, start_datetime, or start_lst')
+
+            if 'start_ra' in kwarg_keys:
+                new_kwargs['start_ra'] = u.Quantity(kwargs.pop('start_ra'), u.deg).value
+            elif 'start_datetime' in kwarg_keys:
+                new_kwargs['start_datetime'] = pd.Timestamp(kwargs.pop('start_datetime')).to_pydatetime()
+            elif 'start_lst' in kwarg_keys:
+                new_kwargs['start_lst'] = u.Quantity(kwargs.pop('start_lst'), u.hourangle).value
+
+        if kwargs:
+            raise TypeError(f'Unrecognized observation parameters: {kwargs.keys()}')
+
+        return new_kwargs
 
     def _get_lst(self, sky_pattern=None):
 
@@ -798,56 +832,51 @@ class TelescopePattern():
 
         # given a starting datetime
         if 'start_datetime' in self.param.keys():
-            start_datetime = Time(self.start_datetime, location=self.location)
+            start_datetime = Time(self.start_datetime, location=(self.lat, 0*u.deg))
             start_lst = start_datetime.sidereal_time('apparent')
 
         # given a starting hourangle
-        elif 'start_hrang' in self.param.keys():
-            # FIXME check for valid hourangle
-            start_lst = self.start_hrang + extra_ra_offset + self.ra
+        elif 'start_hrang' in self.param.keys() and not sky_pattern is None:
+            start_lst = self.start_hrang + extra_ra_offset + self.start_ra
         
         # given a starting lst
         elif 'start_lst' in self.param.keys():
             start_lst = self.start_lst
 
         # given a starting elevation
-        elif 'start_el' in self.param.keys():
+        elif 'start_elev' in self.param.keys() and not sky_pattern is None:
 
             # determine possible hour angles
-            alt_rad = self.start_el.to(u.rad).value
-            dec_rad = (self.dec + extra_dec_offset).to(u.rad).value
-            lat_rad = self.location.lat.rad
+            alt_rad = self.start_elev.to(u.rad).value
+            dec_rad = (self.start_dec + extra_dec_offset).to(u.rad).value
+            lat_rad = self.lat.to(u.rad).value
 
             try:
                 start_hrang_rad = math.acos((sin(alt_rad) - sin(dec_rad)*sin(lat_rad)) / (cos(dec_rad)*cos(lat_rad)))
             except ValueError:
                 max_el = math.floor(math.degrees(math.asin(cos(0)*cos(dec_rad)*cos(lat_rad) + sin(dec_rad)*sin(lat_rad))))
                 min_el = math.ceil(math.degrees(math.asin(cos(pi)*cos(dec_rad)*cos(lat_rad) + sin(dec_rad)*sin(lat_rad))))
-                raise ValueError(f'Elevation = {self.start_el} is not possible at provided ra, dec, and latitude. Min elevation is {min_el} and max elevation is {max_el} deg.')
+                raise ValueError(f'Elevation = {self.start_elev} is not possible at provided ra, dec, and latitude. Min elevation is {min_el} and max elevation is {max_el} deg.')
 
             # choose hour angle
-
-            def altitude(dec, lat, ha):
-                sin_alt = sin(dec)*sin(lat) + cos(dec)*cos(lat)*cos(ha)
-                return math.asin(sin_alt)
-
-            start_hrang_rad1 = (start_hrang_rad*u.rad + 1*u.deg).to(u.rad).value
-            ha1_delta = altitude(dec_rad, lat_rad, start_hrang_rad1) - altitude(dec_rad, lat_rad, start_hrang_rad)
-            ha1_up = True if ha1_delta > 0 else False
-
-            start_hrang_rad2 = (-start_hrang_rad*u.rad + 1*u.deg).to(u.rad).value
-            ha2_delta = altitude(dec_rad, lat_rad, start_hrang_rad2) - altitude(dec_rad, lat_rad, -start_hrang_rad)
-            ha2_up = True if ha2_delta > 0 else False
-            assert(ha1_up != ha2_up)
-
-            if (self.moving_up and ha2_up) or (not self.moving_up and ha1_up):
+            if not self.moving_up:
                 start_hrang_rad = -start_hrang_rad
 
             # starting sidereal time
-            start_lst = start_hrang_rad*u.rad + extra_ra_offset + self.ra
+            start_lst = start_hrang_rad*u.rad + extra_ra_offset + self.start_ra
         
-        else:
-            raise TypeError('start_datetime or start_hrang or start_lst or start_el is required')
+        elif 'start_ra' in self.param.keys() and sky_pattern is None:
+            lat_rad = self.lat.to(u.rad).value
+            alt_rad = self.alt_coord[0].to(u.rad).value
+            az_rad = self.az_coord[0].to(u.rad).value
+
+            dec_rad = math.asin( sin(lat_rad)*sin(alt_rad) + cos(lat_rad)*cos(alt_rad)*cos(az_rad) )
+            hrang_rad = math.acos( (sin(alt_rad) - sin(dec_rad)*sin(lat_rad)) / (cos(dec_rad)*cos(lat_rad)) )
+
+            if sin(az_rad) > 0:
+                hrang_rad = 2*pi - hrang_rad
+
+            start_lst = hrang_rad*u.rad + self.start_ra
 
         # find sidereal time
         SIDEREAL_TO_UT1 = 1.002737909350795
@@ -856,11 +885,11 @@ class TelescopePattern():
     def _from_sky_pattern(self, sky_pattern):
 
         # get alt/az
-        hour_angle = self.lst - (sky_pattern.x_coord + self.ra)
+        hour_angle = self.lst - (sky_pattern.x_coord + self.start_ra)
 
         hour_angle_rad = hour_angle.to(u.rad).value
-        dec_rad = (sky_pattern.y_coord + self.dec).to(u.rad).value
-        lat_rad = self.location.lat.rad
+        dec_rad = (sky_pattern.y_coord + self.start_dec).to(u.rad).value
+        lat_rad = self.lat.to(u.rad).value
 
         alt_rad = np.arcsin( np.sin(dec_rad)*sin(lat_rad) + np.cos(dec_rad)*cos(lat_rad)*np.cos(hour_angle_rad) )
 
@@ -1010,7 +1039,7 @@ class TelescopePattern():
 
         data = {'time_offset': self.time_offset.value, 'lst': self.lst.value, 'az_coord': az1, 'alt_coord': alt1}
 
-        return TelescopePattern(data=data, location=self.location)
+        return TelescopePattern(telescope_data=data, lat=self.lat)
 
     def get_sky_pattern(self) -> SkyPattern:
         """
@@ -1044,8 +1073,8 @@ class TelescopePattern():
         """
 
         param_temp = self.param.copy()
-        location = param_temp['location']
-        param_temp['location'] = {'lat': location.lat.deg, 'lon': location.lon.deg, 'height': location.height.value}
+        if 'start_datetime' in param_temp.keys():
+            param_temp['start_datetime'] = param_temp['start_datetime'].strftime('%Y-%m-%d %H:%M:%S %z') 
 
         # save param_json
         if param_json is None:
@@ -1113,7 +1142,7 @@ class TelescopePattern():
 
     @property
     def dec_coord(self):
-        lat_rad = self.location.lat.rad
+        lat_rad = self.lat.to(u.rad).value
         alt_coord_rad = self.alt_coord.to(u.rad).value
         az_coord_rad = self.az_coord.to(u.rad).value
 
@@ -1122,7 +1151,7 @@ class TelescopePattern():
 
     @property
     def hour_angle(self):
-        lat_rad = self.location.lat.rad
+        lat_rad = self.lat.to(u.rad).value
         alt_coord_rad = self.alt_coord.to(u.rad).value
         az_coord_rad = self.az_coord.to(u.rad).value
         dec_rad = self.dec_coord.to(u.rad).value
@@ -1142,7 +1171,7 @@ class TelescopePattern():
     def para_angle(self):
         dec_rad = self.dec_coord.to(u.rad).value
         hour_angle_rad = self.hour_angle.to(u.rad).value
-        lat_rad = self.location.lat.rad
+        lat_rad = self.lat.to(u.rad).value
 
         para_angle_deg = np.degrees(np.arctan2( 
             np.sin(hour_angle_rad), 
