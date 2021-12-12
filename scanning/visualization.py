@@ -1,13 +1,16 @@
 from math import pi, sin, cos, tan, radians
 import math
+import warnings
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 from astropy.utils import isiterable
 import astropy.units as u
 from astropy.convolution import Gaussian2DKernel, convolve_fft
+from astropy.time import Time
+import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import matplotlib.dates as mdates
 
 from scanning.coordinates import SkyPattern, TelescopePattern
 from scanning import FYST_LOC
@@ -415,8 +418,7 @@ def hitmap(sim, convolve=True, norm_time=False, total_max=None, kept_max=None, r
 
     # convolution
     if convolve:
-        beam_size = (50*u.arcsec).to(u.deg).value
-        stddev = (beam_size/pixel_size)/np.sqrt(8*np.log(2))
+        stddev = (sim._module.ang_res/pixel_size)/np.sqrt(8*np.log(2))
         kernel = Gaussian2DKernel(stddev)
         sky_hist = convolve_fft(sky_hist, kernel, boundary='fill', fill_value=0)
         sky_hist_rem = convolve_fft(sky_hist_rem, kernel, boundary='fill', fill_value=0)
@@ -696,156 +698,245 @@ def pxan_time(sim, norm_pxan=False, norm_time=False, path=None, show_plot=True):
     else:
         plt.close()
 
+# Observation
 
-# --------------------------
+def field_rotation_hist(obs, min_elev=30, max_elev=75, min_rot_rate=0, path=None, show_plot=True):
+    ax_ncols = 2
+    ax_nrows = math.ceil(len(obs.dec)/ax_ncols)
+    fig, ax = plt.subplots(ax_nrows, ax_ncols, sharex=True, sharey=True, figsize=(8, 3*ax_nrows))
+    cm = plt.cm.get_cmap('tab20').colors
 
-def plot_focal_plane(self):
-    pass
+    # conditions
+    min_elev = u.Quantity(min_elev, u.deg).value
+    max_elev = u.Quantity(max_elev, u.deg).value
+    min_rot_rate = u.Quantity(min_rot_rate, u.deg/u.hour).value
 
-def visibility(dec, max_airmass=2, min_elevation=30, max_elevation=75, location=FYST_LOC):
+    # LOOP OVER EACH SOURCE 
 
-    fig = plt.figure('rename', figsize=(8, 10))
+    for i, dec in enumerate(obs.dec.value):
 
-    ax_elev = plt.subplot2grid((3, 1), (0, 0))
-    ax_airmass = plt.subplot2grid((3, 1), (1, 0), sharex=ax_elev)
-    ax_rot_rate = plt.subplot2grid((3, 1), (2, 0), sharex=ax_elev)
+        # apply conditions
+        alt = obs.get_elevation(i).value
+        mask_min_elev = alt >= min_elev
 
-    ax_list = (ax_elev, ax_airmass, ax_rot_rate)
+        alt = alt[mask_min_elev]
+        rot_rate = obs.get_rot_rate(i).value[mask_min_elev]
+        mask_max_elev = (alt <= max_elev) & (abs(rot_rate) > min_rot_rate)
 
-    # get elevation
+        # x_values and label for legend
+        if obs.datetime_axis:
+            hrang_range = obs.get_hrang_range(i).value[mask_min_elev]
+            ra = obs.ra[i].to(u.hourangle).value
+            label = f'({ra}h {dec}N)'
+        else:
+            hrang_range = obs.get_hrang_range().value[mask_min_elev]
+            label = f'dec={dec}N'
 
-    hour_angle = np.linspace(-12, 12, 100, endpoint=False)
-    hour_angle_rad = (hour_angle*u.hourangle).to(u.rad).value
-    dec_rad = u.Quantity(dec, u.deg).to(u.rad).value
-    lat_rad = location.lat.rad
+        mask_hrang = hrang_range < 0
 
-    alt_rad = np.arcsin( np.sin(dec_rad)*sin(lat_rad) + np.cos(dec_rad)*cos(lat_rad)*np.cos(hour_angle_rad) )
-    alt = np.degrees(alt_rad)
+        # make plot
+        ax_hist_row = math.floor(i/ax_ncols)
+        ax_hist_col = i%ax_ncols
 
-    # filter out points
-    min_elevation = u.Quantity(min_elevation, u.deg).value
-    airmass = 1/np.cos(pi - alt_rad)
+        rot_angle = obs.get_rot_angle(i).value[mask_min_elev]
+        a1 = rot_angle[mask_hrang & mask_max_elev]%90
+        a2 = rot_angle[~mask_hrang & mask_max_elev]%90
+        total_num = len(a1) + len(a2)
 
-    mask = (airmass < max_airmass) & (alt > min_elevation)
+        if ax_nrows == 1 and ax_ncols == 1:
+            ax_hist = ax
+        elif ax_nrows == 1:
+            ax_hist = ax[ax_hist_col]
+        else:
+            ax_hist = ax[ax_hist_row, ax_hist_col]
 
-    alt_rad = alt_rad[mask]
-    hour_angle_rad = hour_angle_rad[mask]
-    alt = alt[mask]
-    hour_angle = hour_angle[mask]
-    airmass = airmass[mask]
+        ax_hist.hist(a1, bins=range(0, 91, 1), color=cm[2*i+1], label='hourangle < 0', weights=np.full(len(a1), 1/total_num))
+        ax_hist.hist(a2, bins=range(0, 91, 1), color=cm[2*i], label='hourangle >= 0', histtype='step', weights=np.full(len(a2), 1/total_num), linewidth=2)
+        ax_hist.set(xlabel='Rotation Angle (mod 90) [deg]', ylabel='Fraction of Time', title=label)
+        ax_hist.legend(loc='upper right')
+        ax_hist.grid()
+        ax_hist.xaxis.set_tick_params(labelbottom=True)
+        ax_hist.yaxis.set_tick_params(labelbottom=True)
+        ax_hist.set_xticks(range(0, 91, 15))    
 
-    # filter out max_elevation
-    max_elevation = u.Quantity(max_elevation, u.deg).value
-    mask_max_el = alt < max_elevation
-
-    # elevation plot
-    ax_elev.plot(hour_angle[mask_max_el], alt[mask_max_el], color='blue')
-    ax_elev.plot(hour_angle[~mask_max_el], alt[~mask_max_el], color='blue', ls='dashed')
-
-    # airmass plot
-    ax_airmass.plot(hour_angle[mask_max_el], airmass[mask_max_el], color='blue')
-    ax_airmass.plot(hour_angle[~mask_max_el], airmass[~mask_max_el], color='blue', ls='dashed')
-
-    # parallactic angle and rotation angle
-    para_angle_rad = np.arctan2(
-        np.sin(hour_angle_rad),
-        (cos(dec_rad)*tan(lat_rad) - sin(dec_rad)*np.cos(hour_angle_rad))
-    )
-    rot_angle_rad = para_angle_rad + alt_rad
-    rot_angle = np.degrees(rot_angle_rad)
+    fig.tight_layout()
+        
+    # saving
+    if not path is None:
+        plt.savefig(path)
+        print(f'Saved to {path}.')
     
-    # rotation angle rate
-    mask_hrang = hour_angle < 0
+    # displaying
+    if show_plot:
+        plt.show()
+    else:
+        plt.close()
 
-    center_rot_i = list(hour_angle).index( max(hour_angle[mask_hrang]) )
-    low_rot = rot_angle[center_rot_i] - 180
-    rot_norm = (rot_angle - low_rot)%360 + low_rot # ((value - low) % diff) + low 
+def filter_observation(obs, plot='elevation', min_elev=30, max_elev=75, min_rot_rate=0, path=None, show_plot=True):
 
-    SIDEREAL_TO_UT1 = 1.002737909350795
-    freq_hr = (hour_angle[1]-hour_angle[0])/SIDEREAL_TO_UT1
+    if plot not in ['elevation', 'airmass', 'para_angle', 'rot_angle', 'rot_rate']:
+        raise ValueError(f'"plot" = {plot} is not a valid choice')
 
-    rot_rate = np.diff(rot_norm, append=math.nan)/freq_hr
-    ax_rot_rate.plot(hour_angle[mask_max_el & mask_hrang], rot_rate[mask_max_el & mask_hrang], color='blue')
-    ax_rot_rate.plot(hour_angle[mask_max_el & ~mask_hrang], rot_rate[mask_max_el & ~mask_hrang], color='blue')
-    ax_rot_rate.plot(hour_angle[~mask_max_el], rot_rate[~mask_max_el], color='blue', ls='dashed')
+    # plotting 
+    fig = plt.figure(figsize=(8, 8))
+    ax = plt.subplot2grid((1, 1), (0, 0), fig=fig)
 
-    max_abs_rot_rate = max(60, np.max(abs(rot_rate[mask_max_el])) )
+    cm = plt.cm.get_cmap('tab20').colors
 
-    # handle xticks and other settings of ax
+    if len(obs.dec) > 10:
+        warnings.warn('colors may be difficult to distinguish if more than 10 sources')
 
-    xlabel = 'Hourangle [hours]'
-    xticks = [i for i in range(-12, 13, 3)]
-    xtick_labels = [f'{t + 24}h' if t < 0 else f'{t}h' for t in xticks]
+    # conditions
+    min_elev = u.Quantity(min_elev, u.deg).value
+    max_elev = u.Quantity(max_elev, u.deg).value
+    min_rot_rate = u.Quantity(min_rot_rate, u.deg/u.hour).value
 
-    for ax in ax_list:
+    # LOOP OVER EACH SOURCE 
+
+    max_abs_rot_rate = 0
+    for i, dec in enumerate(obs.dec.value):
+
+        # apply conditions
+        alt = obs.get_elevation(i).value
+        mask_min_elev = alt >= min_elev
+
+        alt = alt[mask_min_elev]
+        rot_rate = obs.get_rot_rate(i).value[mask_min_elev]
+        mask_max_elev = (alt <= max_elev) & (abs(rot_rate) > min_rot_rate)
+
+        # x_values and label for legend
+        if obs.datetime_axis:
+            x_values = obs.datetime_range[mask_min_elev]
+            hrang_range = obs.get_hrang_range(i).value[mask_min_elev]
+            ra = obs.ra[i].to(u.hourangle).value
+            label = f'({ra}h {dec}N)'
+        else:
+            x_values = hrang_range = obs.get_hrang_range().value[mask_min_elev]
+            label = f'dec={dec}N'
+
+        mask_hrang = hrang_range < 0
+
+        # make plot
+        if plot == 'elevation':
+            ax.scatter(x_values[mask_max_elev], alt[mask_max_elev], label=label, color=cm[2*i], s=1)
+            ax.scatter(x_values[~mask_max_elev], alt[~mask_max_elev], color=cm[2*i+1], s=1)
+        elif plot == 'airmass':
+            airmass = 1/np.cos(pi/2 - np.radians(alt))
+            ax.scatter(x_values[mask_max_elev], airmass[mask_max_elev], label=label, color=cm[2*i], s=1)
+            ax.scatter(x_values[~mask_max_elev], airmass[~mask_max_elev], color=cm[2*i+1], s=1)
+        elif plot == 'para_angle':
+            para_angle = obs.norm_angle(obs.get_para_angle(i).value)[mask_min_elev]
+            ax.scatter(x_values[mask_max_elev], para_angle[mask_max_elev], label=label, color=cm[2*i], s=1)
+            ax.scatter(x_values[~mask_max_elev], para_angle[~mask_max_elev], color=cm[2*i+1], s=1)
+        elif plot == 'rot_angle':
+            rot_angle = obs.get_rot_angle(i).value[mask_min_elev]
+            ax.scatter(x_values[mask_max_elev], rot_angle[mask_max_elev], label=label, color=cm[2*i], s=1)
+            ax.scatter(x_values[~mask_max_elev], rot_angle[~mask_max_elev], color=cm[2*i+1], s=1)
+        elif plot == 'rot_rate':
+            ax.scatter(x_values[mask_max_elev], rot_rate[mask_max_elev], label=label, color=cm[2*i], s=1)
+            ax.scatter(x_values[~mask_max_elev], rot_rate[~mask_max_elev], color=cm[2*i+1], s=1)
+        
+            max_abs_rot_rate = max( max_abs_rot_rate, np.max(abs(rot_rate[mask_max_elev])) )
+
+    #  handle xticks 
+
+    if obs.datetime_axis:
+        xlabel = f'Time starting from {obs.datetime_range[0].strftime("%Y-%m-%d %H:%M:%S %z")}'
+        xlim=(obs.datetime_range[0], obs.datetime_range[-1])
+        ax.set(xlim=xlim)
+        fig.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+    
+    else:
+        xlabel = 'Hourangle [hours]'
+        xticks = [i for i in range(-12, 13, 3)]
+        xtick_labels = [f'{t + 24}h' if t < 0 else f'{t}h' for t in xticks]
         ax.set(xticks=xticks, xticklabels=xtick_labels)
 
-    ax_airmass.set_yscale('function', functions=(lambda x: np.log10(x), lambda x: 10**x))
-    
-
-
-    ax_airmass.set(
-        title='Airmass for Visible Objects (airmass < 2) at FYST', xlabel=xlabel, 
-        ylabel='Airmass', ylim=( max(1.001, 1/cos(pi/2 - radians(max_elevation)) ) , max_airmass)
-    )
-    ax_airmass.invert_yaxis()
-    ax_airmass.axhline(1/cos(pi/2 - math.radians(75)), ls='dashed', color='black')
-
-    ax_elev.set(
-        title='Elevation for Visible Objects (airmass < 2) at FYST', xlabel=xlabel,
-        ylabel='Elevation [deg]', ylim=(min_elevation, min(max_elevation, 87))
-    )
-    ax_elev.set_yticks(np.append(ax_elev.get_yticks(), 75))
-    ax_elev.axhline(75, ls='dashed', color='black')
-
-    ax_rot_rate.set(
-        title='Field Rotation Angle Rate', xlabel=xlabel, 
-        ylabel='Field Rotation Angle Rate [deg/hr]', ylim=(-max_abs_rot_rate, max_abs_rot_rate)
-    )
-    ax_rot_rate.axhline(15, ls=':', color='black')
-    ax_rot_rate.axhline(-15, ls=':', color='black')
-    if max_abs_rot_rate == 60:
-        ax_rot_rate.set_yticks(range(-60, 61, 15))    
-    else:
-        ax_rot_rate.set_yticks(np.append(ax_rot_rate.get_yticks(), [-15, 15]))
+    # other settings
 
     # secondary axis for azimuthal scale factor
 
     def transform(x):
-        np.seterr(invalid='ignore', divide='ignore')
         new_x = 1/np.sin(np.arccos(1/x))
         mask = np.isinf(new_x)
         new_x[mask] = math.nan
-        np.seterr(invalid='warn', divide='warn')
         return new_x
 
     def inverse(x):
-        np.seterr(invalid='ignore', divide='ignore')
         new_x = 1/np.cos(np.arcsin(1/x)) 
         mask = np.isinf(new_x)
         new_x[mask] = math.nan
-        np.seterr(invalid='warn', divide='warn')
         return new_x
 
-    ax_airmass_right = ax_airmass.secondary_yaxis('right', functions=(transform, inverse))
-    ax_airmass_right.set(ylabel='Azimuthal Scale Factor')
-    ax_airmass_right.set_yticks([1.2, 1.5, 2, 2.5, 3, 4])
+    # elevation   
+    if plot == 'elevation':
+        warnings.filterwarnings('ignore', category=RuntimeWarning)
+        ax.set(
+            title='Elevation', xlabel=xlabel,
+            ylabel='Elevation [deg]', ylim=(min_elev, 87)
+        )
+        ax.set_yticks(np.append(ax.get_yticks(), max_elev))
+        ax.axhline(max_elev, ls='dashed', color='black')
 
-    ax_elev_right = ax_elev.secondary_yaxis('right', functions=( lambda x: 1/np.cos(np.radians(x)), lambda x: np.degrees(np.arccos(1/x)) ))
-    ax_elev_right.set(ylabel='Azimuthal Scale Factor')
-    ax_elev_right.set_yticks([1.2, 2, 3, 4, 5, 6, 15])
+        ax_elev_right = ax.secondary_yaxis('right', functions=( lambda x: 1/np.cos(np.radians(x)), lambda x: np.degrees(np.arccos(1/x)) ))
+        ax_elev_right.set(ylabel='Azimuthal Scale Factor')
+        ax_elev_right.set_yticks([1.2, 2, 3, 4, 5, 6, 15])
 
-    # final touchups to axis
+    # airmass
+    elif plot == 'airmass':
+        warnings.filterwarnings('ignore', category=RuntimeWarning)
+        ax.set_yscale('function', functions=(lambda x: np.log10(x), lambda x: 10**x))
+        max_airmass = 1/cos(pi/2 - radians(min_elev))
+        ax.set(
+            title='Airmass', xlabel=xlabel, 
+            ylabel='Airmass', ylim=(1.001, max_airmass)
+        )
+        ax.invert_yaxis()
+        ax.axhline(1/cos(pi/2 - radians(max_elev)), ls='dashed', color='black')
 
-    ax_airmass.legend(loc='lower right')
-    ax_elev.legend(loc='lower right')
+        ax_airmass_right = ax.secondary_yaxis('right', functions=(transform, inverse))
+        ax_airmass_right.set(ylabel='Azimuthal Scale Factor')
+        ax_airmass_right.set_yticks([1.2, 1.5, 2, 2.5, 3, 4])
+    
+    # parallatic angle
+    elif plot == 'para_ang':
+        ax.set(title='Parallactic Angle', xlabel=xlabel, ylabel='Parallactic Angle [deg]')
 
-    ax_rot_rate.legend(loc='lower right')
+    # rotation angle
+    elif plot == 'rot_ang':
+        ax.set(title='Field Rotation Angle', xlabel=xlabel, ylabel='Field Rotation Angle [deg]')
 
-    for ax in ax_list:
+    # rotation rate
+    elif plot == 'rot_rate':
+        max_abs_rot_rate = max(max_abs_rot_rate, 60)
+        ax.set(
+            title='Field Rotation Angle Rate', xlabel=xlabel, 
+            ylabel='Field Rotation Angle Rate [deg/hr]', ylim=(-max_abs_rot_rate, max_abs_rot_rate)
+        )
+        ax.axhline(min_rot_rate, ls=':', color='black')
+        ax.axhline(-min_rot_rate, ls=':', color='black')
+        ax.set_yticks(np.append(ax.get_yticks(), [-min_rot_rate, min_rot_rate]))
+
+    # final touchups
+    if plot != 'rot_hist':
+        ax.legend(loc='lower right')
         ax.grid()
 
     fig.tight_layout()
+        
+    # saving
+    if not path is None:
+        plt.savefig(path)
+        print(f'Saved to {path}.')
+    
+    # displaying
+    if show_plot:
+        plt.show()
+    else:
+        plt.close()
 
-    plt.show()
+# --------------------------
+
+def plot_focal_plane():
+    pass
 
