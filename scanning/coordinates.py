@@ -637,21 +637,20 @@ class TelescopePattern():
     }
     _data_unit = {'time_offset': u.s, 'lst': u.hourangle, 'alt_coord': u.deg, 'az_coord': u.deg}
 
-    def __init__(self, telescope_data=None, sky_pattern=None, instrument=None, module='boresight', obs_param=None, **kwargs) -> None:
+    def __init__(self, data, instrument=None, module='boresight', obs_param=None, **kwargs) -> None:
         """
         Determine the motion of the telescope.
-            option1: sky_pattern, instrument (optional), module (optional); lat, start_ra, start_dec, (start_datetime or start_hrang or start_lst or [start_elev and moving_up])
-            option2: data (excludes lst), instrument (optional), module (optional); lat, (start_ra or start_datetime or start_lst)
-            option3: data (includes lst), instrument (optional), module (optional); lat
+            option1: data (sky), instrument (optional), module (optional); lat, start_ra, start_dec, (start_datetime or start_hrang or start_lst or [start_elev and moving_up])
+            option2: data (telescope, excludes lst), instrument (optional), module (optional); lat, (start_ra or start_datetime or start_lst)
+            option3: data (telescope, includes lst), instrument (optional), module (optional); lat
             **kwargs can be passed as a file through obs_param
 
         Parameters
         -----------------------------
-        data : str or dict
+        data : str or dict or SkyPattern
             Path to a csv file or a dict containing columns 'time_offset, 'az_coord', and 'alt_coord'.
             If 'lst' is included as a column, certain observation parameters are not required (see options).
-        sky_pattern : str or SkyPattern
-            Path to csv file or SkyPattern object with time_offset, x_coord, y_coord.
+            Path to SkyPattern object with time_offset, x_coord, y_coord.
 
         instrument : str, Instrument or None, default None
             Path to a json file or an Instrument object to be used if any.
@@ -666,7 +665,7 @@ class TelescopePattern():
 
         **kwargs
         start_ra : angle-like, default unit deg
-            Starting right acension of data / right acension offset for sky_pattern.
+            Starting right acension of telescope / right acension offset for sky.
         start_dec : angle-like, default unit deg
             Declination offset for sky_pattern.
         lat : angle-like, default unit deg, default FYST_LOC.lat
@@ -699,41 +698,35 @@ class TelescopePattern():
 
         # --- sky_pattern or data ---
 
-        if (sky_pattern is None and telescope_data is None) or (not sky_pattern is None and not telescope_data is None):
-            raise TypeError('one (and only one) of sky_pattern or data must be passed')
-
         # sky_pattern has been passed
-        elif telescope_data is None:
+        if isinstance(data, SkyPattern):
                 
             self.param = self._clean_param_sky_pattern(**param)
 
-            if isinstance(sky_pattern, str):
-                sky_pattern = SkyPattern(sky_pattern)
-
-            self._sample_interval = sky_pattern.sample_interval.value
-            self.data = pd.DataFrame({'time_offset': sky_pattern.time_offset.value})
-            self.data['lst'] = self._get_lst(sky_pattern)
-            az1, alt1 = self._from_sky_pattern(sky_pattern)
+            self._sample_interval = data.sample_interval.value
+            self.data = pd.DataFrame({'time_offset': data.time_offset.value})
+            self.data['lst'] = self._get_lst(data)
+            az1, alt1 = self._from_sky_pattern(data)
 
             self.data['az_coord'] = az1
             self.data['alt_coord'] = alt1
 
         # data has been passed
         else:
-            if isinstance(telescope_data, str):
+            if isinstance(data, str):
                 try:
-                    self.data = pd.read_csv(telescope_data, index_col=False, usecols=['time_offset', 'lst', 'az_coord', 'alt_coord'])
+                    self.data = pd.read_csv(data, index_col=False, usecols=['time_offset', 'lst', 'az_coord', 'alt_coord'])
                     self.param = self._clean_param_telescope_data(False, **param)
                 except ValueError:
-                    self.data = pd.read_csv(telescope_data, index_col=False, usecols=['time_offset', 'az_coord', 'alt_coord'])
+                    self.data = pd.read_csv(data, index_col=False, usecols=['time_offset', 'az_coord', 'alt_coord'])
                     self.param = self._clean_param_telescope_data(True, **param)
                     self.data['lst'] = self._get_lst()
             else:
                 try:
-                    self.data = pd.DataFrame(telescope_data)[['time_offset', 'lst', 'az_coord', 'alt_coord']]
+                    self.data = pd.DataFrame(data)[['time_offset', 'lst', 'az_coord', 'alt_coord']]
                     self.param = self._clean_param_telescope_data(False, **param)
                 except KeyError:
-                    self.data = pd.DataFrame(telescope_data)[['time_offset', 'az_coord', 'alt_coord']]
+                    self.data = pd.DataFrame(data)[['time_offset', 'az_coord', 'alt_coord']]
                     self.param = self._clean_param_telescope_data(True, **param)
                     self.data['lst'] = self._get_lst()
 
@@ -1038,7 +1031,7 @@ class TelescopePattern():
 
         data = {'time_offset': self.time_offset.value, 'lst': self.lst.value, 'az_coord': az1, 'alt_coord': alt1}
 
-        return TelescopePattern(telescope_data=data, lat=self.lat)
+        return TelescopePattern(data, lat=self.lat)
 
     def get_sky_pattern(self) -> SkyPattern:
         """
