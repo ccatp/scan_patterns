@@ -11,9 +11,11 @@ setup(
     #scripts=['bin/script1','bin/script2'],
     install_requires=[
         'astropy>=4.3.1',
+        'fast-histogram>=0.10',
         'matplotlib>=3.4.3',
         'numpy>=1.21.2',
         'pandas>=1.3.2',
-        'scipy>=1.7.1'
+        'scipy>=1.7.1',
+        'notebook>=6.4.4'
     ],
 )
