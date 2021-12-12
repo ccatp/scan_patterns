@@ -8,7 +8,6 @@ import pandas as pd
 from scipy.optimize import root_scalar
 from astropy.time import Time
 import astropy.units as u
-from astropy.coordinates.earth import EarthLocation
 
 from scanning import FYST_LOC, _central_diff
 
