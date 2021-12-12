@@ -1,4 +1,4 @@
-astropy==5.0
+astropy==4.3.1
 fast-histogram==0.10
 jupyter==1.0.0
 matplotlib==3.4.3
