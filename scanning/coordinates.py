@@ -960,7 +960,7 @@ class TelescopePattern():
         guess = alt1[0]
         for i, a1 in enumerate(alt1):
             try:
-                a0 = root_scalar(func, args=(a1), x0=guess, bracket=[-pi/2, pi/2], xtol=10**(-6)).root
+                a0 = root_scalar(func, args=(a1), x0=guess, bracket=[-pi/2, pi/2], xtol=10**(-9)).root
                 guess = a0
             except ValueError:
                 print(f'nan value at {i}')
