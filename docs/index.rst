@@ -6,10 +6,12 @@
 Welcome to mapping's documentation!
 ===================================
 
+Contents:
+
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
-
+   
+   intro.rst
 
 
 Indices and tables
