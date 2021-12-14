@@ -22,7 +22,7 @@ class Module():
     consists of three wafers/detector arrays. Each wafter contains three rhombuses. 
     """
 
-    _data_unit = {'x': u.deg, 'y': u.deg, 'pol': u.deg, 'rhombus': u.dimensionless_unscaled, 'wafer': u.dimensionless_unscaled}
+    _data_unit = {'x': u.deg, 'y': u.deg, 'pol': u.deg, 'rhombus': u.dimensionless_unscaled, 'wafer': u.dimensionless_unscaled, 'pixel_num': u.dimensionless_unscaled}
 
     def __init__(self, data=None, units='deg', **kwargs) -> None:
         """
@@ -67,8 +67,11 @@ class Module():
                 if not col in self._data.columns:
                     warnings.warn(f'column {col} not in data, marking all columns values for {col} as 0')
                     self._data[col] = 0
+
+            if not 'pixel_num' in self._data.columns:
+                self._data['pixel_num'] = self._data.index
             
-            data_columns = ['x', 'y', 'pol', 'rhombus', 'wafer']
+            data_columns = ['pixel_num', 'x', 'y', 'pol', 'rhombus', 'wafer']
             self._data = self._data[data_columns]
             self._ang_res = self._find_ang_res()
 
@@ -249,11 +252,14 @@ class Module():
         pixelcoords2 = np.hstack( (pixelcoords2, [[1]]*numpixels2) )
         pixelcoords3 = np.hstack( (pixelcoords3, [[2]]*numpixels3) )
 
-        # save to data frame FIXME does not really make use of rhombus and wafer
-        return ang_res, pd.DataFrame(
+        # save to data frame 
+        data = pd.DataFrame(
             np.append(np.append(pixelcoords1, pixelcoords2, axis=0), pixelcoords3, axis=0), 
             columns=['x', 'y', 'pol', 'rhombus', 'wafer']
         ).astype({'pol': np.int16, 'rhombus': np.uint8, 'wafer': np.uint8})
+        data['pixel_num'] = data.index
+
+        return ang_res, data
 
     # HELD DATA
 
@@ -267,7 +273,7 @@ class Module():
             File path or object, if None is provided the result is returned as a dictionary.
         columns : sequence or str, default 'all'
             Columns to write. 
-            'all' is ['x', 'y', 'pol', 'rhombus', 'wafer']
+            'all' is ['pixel_num', 'x', 'y', 'pol', 'rhombus', 'wafer']
 
         Returns
         ----------------------
@@ -277,7 +283,7 @@ class Module():
 
         # checking columns
         if columns == 'all':
-            columns = ['x', 'y', 'pol', 'rhombus', 'wafer']
+            columns = ['pixel_num', 'x', 'y', 'pol', 'rhombus', 'wafer']
         
         # write to path_or_buf
         if path_or_buf is None:
@@ -501,7 +507,7 @@ class Instrument():
         {   'instr_offset': , 
             'instr_rot': , 
             'modules':  {
-                module_name: {'dist':, 'theta':, 'mod_rot':, 'x': ,'y':, 'pol':, 'rhombus', 'wafer'},
+                module_name: {'pixel_num':, 'dist':, 'theta':, 'mod_rot':, 'x': ,'y':, 'pol':, 'rhombus', 'wafer'},
             }
         }
 
@@ -524,6 +530,7 @@ class Instrument():
                 'dist': self._modules[identifier]['dist'], 
                 'theta': self._modules[identifier]['theta'],
                 'mod_rot': self._modules[identifier]['mod_rot'],
+                'pixel_num': [int(x) for x in self._modules[identifier]['module'].pixel_num],
                 'x': list(self._modules[identifier]['module'].x.value),
                 'y': list(self._modules[identifier]['module'].y.value),
                 'pol': list(self._modules[identifier]['module'].pol.value),

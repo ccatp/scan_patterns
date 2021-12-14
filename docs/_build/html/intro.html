@@ -40,6 +40,33 @@
 <dd><p>Class for a single camera module (e.g. EoRSpec, CMBPol, SFH). Each module
 consists of three wafers/detector arrays. Each wafter contains three rhombuses.</p>
 <dl class="py method">
+<dt class="sig sig-object py" id="scanning.camera.Module.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">units</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'deg'</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/scanning/camera.html#Module.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.camera.Module.__init__" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="simple">
+<dt>Create a camera module either through:</dt><dd><p>option1 : Module(data, units)
+option2 : Module(freq=, F_lambda=)
+option3 : Module(wavelength=, F_lambda=)</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>str; ndarray</em><em>, </em><em>Iterable</em><em>, </em><em>dict</em><em>, or </em><em>DataFrame</em>) – File path to csv file. Dict can contain Series, arrays, constants, dataclass or list-like objects.
+Must have columns: x, y (deg).
+Recommended to have columns: pol, rhombus, and wafer.</p></li>
+<li><p><strong>units</strong> (<em>str</em><em>, </em><em>astropy.units.Unit</em><em>, or </em><em>dict</em><em>, </em><em>default is 'deg' # TODO</em>) – Unit to apply to all columns. If dict, apply to each column separately.</p></li>
+<li><p><strong>**kwargs</strong> – </p></li>
+<li><p><strong>freq</strong> (<em>frequency-like</em><em>, </em><em>default unit is GHz</em>) – Center of frequency band.
+If each wafer is different (such as EoRSpec), pass a three-length list like [freq1, freq2, freq3].</p></li>
+<li><p><strong>wavelength</strong> (<em>distance-like</em><em>, </em><em>default unit is micron</em>) – intended wavelength of light.
+if each wafer is different (such as EoRSpec), pass a three-length list like [wavelength1, wavelength2, wavelength3].</p></li>
+<li><p><strong>F_lambda</strong> (<em>float</em><em>, </em><em>default is 1.2</em>) – Factor for spacing between individual detectors.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="scanning.camera.Module.save_data">
 <span class="sig-name descname"><span class="pre">save_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path_or_buf</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">columns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'all'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/camera.html#Module.save_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.camera.Module.save_data" title="Permalink to this definition">¶</a></dt>
 <dd><p>Write Module object to file.</p>
