@@ -877,7 +877,8 @@ class TelescopePattern():
     def _from_sky_pattern(self, sky_pattern):
 
         # get alt/az
-        hour_angle = self.lst - (sky_pattern.x_coord + self.start_ra)
+        start_dec = self.start_dec.to(u.rad).value
+        hour_angle = self.lst - (sky_pattern.x_coord/cos(start_dec) + self.start_ra) # FIXME fine for small regions, but consider checking out https://docs.astropy.org/en/stable/coordinates/matchsep.html for larger regions
 
         hour_angle_rad = hour_angle.to(u.rad).value
         dec_rad = (sky_pattern.y_coord + self.start_dec).to(u.rad).value
@@ -1041,10 +1042,13 @@ class TelescopePattern():
             A SkyPattern object tracing the path of the boresight.
         """
 
+        start_dec = self.dec_coord[0].value 
+
         data = {
             'time_offset': self.time_offset.value, 
-            'x_coord': self.ra_coord.value - self.ra_coord[0].value,
-            'y_coord': self.dec_coord.value - self.dec_coord[0].value
+            # FIXME fine for small regions, but consider checking out https://docs.astropy.org/en/stable/coordinates/matchsep.html for larger regions
+            'x_coord': self.ra_coord.value*cos(start_dec) - self.ra_coord[0].value,
+            'y_coord': self.dec_coord.value - start_dec
         }
         return SkyPattern(data=data)
 

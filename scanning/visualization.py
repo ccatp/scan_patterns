@@ -175,7 +175,7 @@ def sky_path(pattern, module=None, path=None, show_plot=True):
 
     if isinstance(pattern, SkyPattern):
         ax_coord.plot(pattern.x_coord.value, pattern.y_coord.value)
-        ax_coord.set(xlabel='x offset [deg]', ylabel='x offset [deg]', title=f'Sky Path')
+        ax_coord.set(xlabel='RA offset [deg]', ylabel='DEC offset [deg]', title=f'Sky Path')
 
     # pattern is TelescopePattern
     elif isinstance(pattern, TelescopePattern):
@@ -231,7 +231,8 @@ def telescope_path(telescope_pattern, module=None, path=None, show_plot=True):
 
         ax_coord.plot(temp.az_coord.value, temp.alt_coord.value, label=m)
 
-    ax_coord.set_aspect('equal', 'box')
+    alt0 = telescope_pattern.alt_coord[0].to(u.rad).value
+    ax_coord.set_aspect(1/cos(alt0))
     ax_coord.set(xlabel='Azimuth [deg]', ylabel='Elevation [deg]', title=f'Telescope Path')
     ax_coord.grid()
     ax_coord.legend()
