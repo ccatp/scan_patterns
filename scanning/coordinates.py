@@ -89,7 +89,7 @@ class SkyPattern():
 
         return kwargs
 
-    def _repeat_scan(self, data):
+    def _repeat_scan(self, data, x_repeat_offset=0, y_repeat_offset=0):
         one_scan_duration = data.iloc[-1]['time_offset'] + self.sample_interval.value
 
         # determine number of repeats
@@ -103,11 +103,22 @@ class SkyPattern():
             self.param['num_repeat'] = num_repeat
 
         # repeat pattern if necessary 
-        time_offset = data['time_offset']
         if num_repeat > 1:
+
+            if type(self) is SkyPattern:
+                warnings.warn('You have chosen to repeat this pattern. However, analytic patterns \
+                    (such as Pong) may not have their next location in the repeat be exactly their first original location \
+                    to ensure a constant time interval. This may cause spikes in higher derivates. Mitigate this by \
+                    initializing this obejct with its intended subclass using its original parameters.')
+
+            time_offset = data['time_offset']
+            x_coord = data['x_coord']
+            y_coord = data['y_coord']
             data_temp = data.copy()
             for i in range(1, num_repeat):
                 data_temp['time_offset'] = time_offset + one_scan_duration*i
+                data_temp['x_coord'] = x_coord + x_repeat_offset*i
+                data_temp['y_coord'] = y_coord + y_repeat_offset*i
                 data = data.append(data_temp, ignore_index=True)
 
         return data
@@ -398,7 +409,12 @@ class Pong(SkyPattern):
             'x_coord': x_coord, 'y_coord': y_coord,
         })
 
-        return self._repeat_scan(data)
+        # when we repeat this scan, the first location in the repeats will 
+        # not be exactly the first location of the original
+        x_repeat_offset = self._fourier_expansion(num_term, amp_x, t_count, peri_x)
+        y_repeat_offset = self._fourier_expansion(num_term, amp_y, t_count, peri_y)
+
+        return self._repeat_scan(data, x_repeat_offset, y_repeat_offset)
     
     def _fourier_expansion(self, num_term, amp, t_count, peri):
         N = num_term*2 - 1
@@ -876,6 +892,9 @@ class TelescopePattern():
 
     def _from_sky_pattern(self, sky_pattern):
 
+        if max(abs(sky_pattern.x_coord.value)) > 10:
+            warnings.warn('This is a larger pattern and the conversion between x and y deltas and RA/DEC may be slightly off.')
+
         # get alt/az
         start_dec = self.start_dec.to(u.rad).value
         hour_angle = self.lst - (sky_pattern.x_coord/cos(start_dec) + self.start_ra) # FIXME fine for small regions, but consider checking out https://docs.astropy.org/en/stable/coordinates/matchsep.html for larger regions
@@ -1042,14 +1061,18 @@ class TelescopePattern():
             A SkyPattern object tracing the path of the boresight.
         """
 
-        start_dec = self.dec_coord[0].value 
+        start_dec = self.dec_coord[0].to(u.rad).value 
 
         data = {
             'time_offset': self.time_offset.value, 
             # FIXME fine for small regions, but consider checking out https://docs.astropy.org/en/stable/coordinates/matchsep.html for larger regions
-            'x_coord': self.ra_coord.value*cos(start_dec) - self.ra_coord[0].value,
-            'y_coord': self.dec_coord.value - start_dec
+            'x_coord': self.ra_coord.value*cos(start_dec) - self.ra_coord[0].value*cos(start_dec),
+            'y_coord': self.dec_coord.value - self.dec_coord[0].value 
         }
+
+        if max(abs(data['x_coord'])) > 10:
+            warnings.warn('This is a larger pattern and the conversion between x and y deltas and RA/DEC may be slightly off.')
+
         return SkyPattern(data=data)
 
     # SAVING/EXTRACTING DATA

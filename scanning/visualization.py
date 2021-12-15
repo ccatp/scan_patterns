@@ -1,4 +1,5 @@
-from math import pi, sin, cos, tan, radians
+import copy
+from math import pi, sin, cos, radians
 import math
 import warnings
 
@@ -10,6 +11,7 @@ from astropy.convolution import Gaussian2DKernel, convolve_fft
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.dates as mdates
+import matplotlib.patches as patches
 
 from scanning.coordinates import SkyPattern, TelescopePattern
 
@@ -149,7 +151,7 @@ def instrument_config(instrument, path=None, show_plot=True):
         plt.scatter(x1, y1, s=0.5, label=identifier)
         
     ax.grid()
-    ax.legend()
+    ax.legend(loc='upper right')
     ax.set_aspect('equal')
     ax.set(xlabel='x offset from boresight [deg]', ylabel='y offset from boresight [deg]', title='Instrument Configuration')
 
@@ -175,7 +177,8 @@ def sky_path(pattern, module=None, path=None, show_plot=True):
 
     if isinstance(pattern, SkyPattern):
         ax_coord.plot(pattern.x_coord.value, pattern.y_coord.value)
-        ax_coord.set(xlabel='RA offset [deg]', ylabel='DEC offset [deg]', title=f'Sky Path')
+        ax_coord.set(xlabel='x offset [deg]', ylabel='y offset [deg]', title=f'Sky Path')
+        ax_coord.set_aspect('equal', 'box')
 
     # pattern is TelescopePattern
     elif isinstance(pattern, TelescopePattern):
@@ -191,13 +194,13 @@ def sky_path(pattern, module=None, path=None, show_plot=True):
             else:
                 temp = pattern.view_module(m)
 
-            ax_coord.plot(temp.ra_coord.value, temp.dec_coord.value, label=m)
+            ax_coord.plot(temp.ra_coord.value, temp.dec_coord.value, label=m, linewidth=0.5)
         
-        ax_coord.legend()
+        ax_coord.legend(loc='upper right')
+        ax_coord.set_aspect(1/cos(pattern.dec_coord[0].to(u.rad).value))
     else:
         raise TypeError('pattern is not of correct type')
     
-    ax_coord.set_aspect('equal', 'box')
     ax_coord.grid()
 
     fig_coord.tight_layout()
@@ -235,7 +238,7 @@ def telescope_path(telescope_pattern, module=None, path=None, show_plot=True):
     ax_coord.set_aspect(1/cos(alt0))
     ax_coord.set(xlabel='Azimuth [deg]', ylabel='Elevation [deg]', title=f'Telescope Path')
     ax_coord.grid()
-    ax_coord.legend()
+    ax_coord.legend(loc='upper right')
 
     fig_coord.tight_layout()
 
@@ -823,4 +826,274 @@ def pxan_detector(sim, kept_hits=True, norm_det=True, norm_time=False, path=None
     show_plot : bool, default True
         Whether to display the resulting figure.
     """
+
+def pxan_det(sim, norm_pxan=False, norm_time=False, path=None, show_plot=True):
+    """
+    Parameters
+    ---------------------------------------------
+    sim : Simulation
+        A simulation object. 
+    norm_pxan : bool, default False
+        Average the number of hits by the number of pixels during pixel analysis. 
+    norm_time : bool, default False
+        True for hits/px/sec. False for hits/px.
+    path : str or None, default None
+        If not None, saves the image to the file path. 
+    show_plot : bool, default True
+        Whether to display the resulting figure.
+    """
+
+    assert(sim.pxan)
+
+    det_hist = sim.det_hist
+    det_hist_rem = sim.det_hist_rem
+    max_hits = math.ceil(max(det_hist + det_hist_rem))
+
+    # normalize time
+    hit_per_str = 'px'
+    if norm_time:
+        total_time = sim._sky_pattern.scan_duration.value
+        det_hist = det_hist/total_time
+        det_hist_rem = det_hist_rem/total_time
+        hit_per_str = 'px/s'
+
+    #normaize pixel analysis
+    if norm_pxan:
+        det_hist = det_hist/sim.num_pxan
+        det_hist_rem = det_hist_rem/sim.num_pxan
+
+    fig_det = plt.figure(1, figsize=(15, 10))
+
+    # --- DETECTOR HITMAP ---
+
+    cm = plt.cm.get_cmap('viridis')
+
+    x_mod = sim._module['x']*sim.pixel_size
+    y_mod = sim._module['y']*sim.pixel_size
+
+    # plot detector elem (total)
+    #det1 = plt.subplot2grid((1, 3), (0, 0), fig=fig_det)
+    #sc = det1.scatter(x_mod, y_mod, c=det_hist + det_hist_rem, cmap=cm, vmin=0, vmax=max_hits, s=15)
+    #fig_det.colorbar(sc, ax=det1, orientation='horizontal')
+    #det1.set_aspect('equal', 'box')
+    #det1.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
+    #det1.set_title(f'Total hits/{hit_per_str}')
+
+    # plot detector elem (kept)
+    det2 = plt.subplot2grid((1, 2), (0, 0), fig=fig_det)
+    sc = det2.scatter(x_mod, y_mod, c=det_hist, cmap=cm, vmin=0, vmax=None, s=15)
+    #fig_det.colorbar(sc, ax=det2, orientation='horizontal')
+    det2.set_aspect('equal', 'box')
+    det2.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
+    det2.set_title('Kept hits per pixel')
+
+    divider = make_axes_locatable(det2)
+    cax1 = divider.append_axes("bottom", size="3%", pad=0.5)
+    fig_det.colorbar(sc, cax=cax1, orientation='horizontal')
+
+    # pattern it self
+    pattern = plt.subplot2grid((1, 2), (0, 1), fig=fig_det, sharex=det2, sharey=det2)
+    x_coord = sim._sky_pattern.x_coord.value
+    y_coord = sim._sky_pattern.y_coord.value
+
+    pattern.plot(x_coord, y_coord)
+    pattern.set_aspect('equal', 'box')
+    pattern.set(xlabel='x offset (deg)', ylabel='y offset (deg)', title='Path of Instrument Module')
+    divider = make_axes_locatable(pattern)
+    cax4 = divider.append_axes("bottom", size="3%", pad=0.5)
+    cax4.axis('off')
+
+
+
+
+    """# scale bar
+    if self.scan.scan_type == 'pong':
+        spacing = round(self.scan.spacing.to(u.deg).value, 3)
+        scalebar = AnchoredSizeBar(det1.transData, spacing, label=f'{spacing} deg spacing', loc=1, pad=0.5, borderpad=0.5, sep=5)
+        det1.add_artist(scalebar)
+        scalebar = AnchoredSizeBar(det1.transData, spacing, label=f'{spacing} deg spacing', loc=1, pad=0.5, borderpad=0.5, sep=5)
+        det2.add_artist(scalebar)"""
+
+    fig_det.tight_layout()
+    
+    # saving
+    if not path is None:
+        plt.savefig(path)
+        print(f'Saved to {path}.')
+    
+    # displaying
+    if show_plot:
+        plt.show()
+    else:
+        plt.close()
+
+
+
+def hm(sim, convolve=True, norm_time=False, total_max=None, kept_max=None, rem_max=None, path=None, show_plot=True):
+    """
+    Parameters
+    ---------------------------------------------
+    sim : Simulation
+        A simulation object. 
+    convolve : bool, default True
+        Whether to convolve the hitmap. 
+    norm_time : bool, default False
+        True for hits/px/sec. False for hits/px.
+    total_max, kept_max, rem_max : float, default None
+        Set maximums for the color bars. 
+    path : str or None, default None
+        If not None, saves the image to the file path. 
+    show_plot : bool, default True
+        Whether to display the resulting figure.
+    """
+
+    sky_hist = sim.sky_hist
+    sky_hist_rem = sim.sky_hist_rem
+
+    pixel_size = sim.pixel_size
+    max_pixel = sim.max_pixel
+    max_pixel_deg = max_pixel*pixel_size
+
+    # convolution
+    if convolve:
+        beam_size = sim.module.ang_res.to(u.deg).value
+        print(beam_size, pixel_size)
+        stddev = (beam_size/pixel_size)/np.sqrt(8*np.log(2))
+        kernel = Gaussian2DKernel(stddev)
+        sky_hist = convolve_fft(sky_hist, kernel, boundary='fill', fill_value=0)
+        sky_hist_rem = convolve_fft(sky_hist_rem, kernel, boundary='fill', fill_value=0)
+
+    # normalize time
+    hit_per_str = 'px'
+    if norm_time:
+        total_time = sim._sky_pattern.scan_duration.value
+        sky_hist = sky_hist/total_time
+        sky_hist_rem = sky_hist_rem/total_time
+        hit_per_str = 'px/s'
+
+    fig = plt.figure('hitmap', figsize=(15, 10))
+
+    # --- HISTOGRAMS ---
+
+    # reference FoV
+    field = patches.Rectangle((-1, -1), width=2, height=2, linewidth=1, edgecolor='r', facecolor='none') 
+
+    # Combined Histogram
+    ax1 = plt.subplot2grid((4, 4), (0, 0), rowspan=3, fig=fig)
+    hist_comb = sky_hist + sky_hist_rem
+    pcm = ax1.imshow(hist_comb.T, extent=[-max_pixel_deg, max_pixel_deg, -max_pixel_deg, max_pixel_deg], vmin=0, vmax=total_max, interpolation='nearest', origin='lower')
+    ax1.set_aspect('equal', 'box')
+    ax1.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
+    ax1.set_title(f'Total hits/{hit_per_str}')
+
+    ax1.add_patch(copy.copy(field))
+    ax1.axvline(x=0, c='black')
+    ax1.axhline(y=0, c='black')
+
+    divider = make_axes_locatable(ax1)
+    cax1 = divider.append_axes("bottom", size="3%", pad=0.5)
+    fig.colorbar(pcm, cax=cax1, orientation='horizontal')
+
+    # Kept Histogram
+    ax2 = plt.subplot2grid((4, 4), (0, 1), rowspan=3, fig=fig, sharex=ax1, sharey=ax1)
+    pcm = ax2.imshow(sky_hist.T, extent=[-max_pixel_deg, max_pixel_deg, -max_pixel_deg, max_pixel_deg], vmin=0, vmax=kept_max, interpolation='nearest', origin='lower')
+    ax2.set_aspect('equal', 'box')
+    ax2.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
+    ax2.set_title(f'Kept hits/{hit_per_str}')
+
+    ax2.add_patch(copy.copy(field))
+    ax2.axvline(x=0, c='black')
+    ax2.axhline(y=0, c='black')
+
+    divider = make_axes_locatable(ax2)
+    cax2 = divider.append_axes("bottom", size="3%", pad=0.5)
+    fig.colorbar(pcm, cax=cax2, orientation='horizontal')
+
+    # Removed Histogram
+    ax3 = plt.subplot2grid((4, 4), (0, 2), rowspan=3, fig=fig, sharex=ax1, sharey=ax1)
+    pcm = ax3.imshow(sky_hist_rem.T, extent=[-max_pixel_deg, max_pixel_deg, -max_pixel_deg, max_pixel_deg], vmin=0, vmax=rem_max, interpolation='nearest', origin='lower')
+    ax3.set_aspect('equal', 'box')
+    ax3.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
+    ax3.set_title(f'Removed hits/{hit_per_str}')
+
+    ax3.add_patch(copy.copy(field))
+    ax3.axvline(x=0, c='black')
+    ax3.axhline(y=0, c='black')
+
+    divider = make_axes_locatable(ax3)
+    cax3 = divider.append_axes("bottom", size="3%", pad=0.5)
+    fig.colorbar(pcm, cax=cax3, orientation='horizontal')
+
+    # --- DETECTOR ELEMENTS AND PATH ----
+
+    x_mod = sim._module['x']*pixel_size
+    y_mod = sim._module['y']*pixel_size
+    rot0 = sim._telescope_pattern.rot_angle[0].to(u.rad).value
+
+    ax4 = plt.subplot2grid((4, 4), (0, 3), rowspan=3, sharex=ax1, sharey=ax1, fig=fig)
+    ax4.scatter(sim._sky_pattern.x_coord.value, sim._sky_pattern.y_coord.value, color='red', s=0.01, alpha=0.1)
+    ax4.scatter(x_mod*cos(rot0) - y_mod*sin(rot0), x_mod*sin(rot0) + y_mod*cos(rot0), s=0.05)
+
+    ax4.set_aspect('equal', 'box')
+    ax4.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
+    ax4.set_title('Initial Pixel Positions')
+    divider = make_axes_locatable(ax4)
+    cax4 = divider.append_axes("bottom", size="3%", pad=0.5)
+    cax4.axis('off')
+
+    # --- BIN PLOTS ---
+
+    x_edges = np.linspace(-max_pixel, max_pixel, 2*max_pixel, endpoint=False)*pixel_size
+    y_edges = np.linspace(-max_pixel, max_pixel, 2*max_pixel, endpoint=False)*pixel_size
+
+    # bin line plot (#1)
+    ax5 = plt.subplot2grid((4, 4), (3, 0), colspan=2, fig=fig)
+    bin_index = max_pixel
+    bin_edge = x_edges[bin_index]
+    y_values = sky_hist[bin_index]
+    y_values_rem = sky_hist_rem[bin_index]
+
+    ax5.plot(y_edges, y_values, label='Kept hits', drawstyle='steps')
+    ax5.plot(y_edges, y_values_rem, label='Removed hits', drawstyle='steps')
+    ax5.plot(y_edges, y_values + y_values_rem, label='Total hits', drawstyle='steps', color='black')
+
+    #if self.scan.scan_type == 'pong':
+    ax5.axvline(x=-1, c='r')
+    ax5.axvline(x=1, c='r') 
+
+    ax5.set(ylabel=f'Hits/{hit_per_str}', xlabel='y offset (deg)', ylim=(0, total_max))
+    ax5.set_title(f'Hit count in x={round(bin_edge, 3)}', fontsize=12)
+    ax5.legend(loc='upper right')
+
+    # bin line plot (#2)
+    ax6 = plt.subplot2grid((4, 4), (3, 2), colspan=2, fig=fig, sharex=ax5, sharey=ax5)
+    bin_index = round(max_pixel/2)
+    bin_edge = x_edges[bin_index]
+    y_values = sky_hist[bin_index]
+    y_values_rem = sky_hist_rem[bin_index]
+
+    ax6.plot(y_edges, y_values, label='Kept hits', drawstyle='steps')
+    ax6.plot(y_edges, y_values_rem, label='Removed hits', drawstyle='steps')
+    ax6.plot(y_edges, y_values + y_values_rem, label='Total hits', drawstyle='steps', color='black')
+
+    ax6.set(ylabel=f'Hits/{hit_per_str}', xlabel='y offset (deg)', ylim=(0, total_max))
+    ax6.set_title(f'Hit count in x={round(bin_edge, 3)}) bin', fontsize=12)
+    ax6.legend(loc='upper right')
+
+    ax6.axvline(x=-1, c='r')
+    ax6.axvline(x=1, c='r') 
+
+    fig.tight_layout()
+
+    # saving
+    if not path is None:
+        plt.savefig(path)
+        print(f'Saved to {path}.')
+
+    # displaying
+    if show_plot:
+        plt.show()
+    else:
+        plt.close()
+
 
