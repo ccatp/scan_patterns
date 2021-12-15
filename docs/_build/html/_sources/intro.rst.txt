@@ -2,5 +2,5 @@ Introduction
 =================================
 
 .. autoclass:: scanning.camera.Module
-    :special-members: __init__
     :members:
+    :special-members: __init__

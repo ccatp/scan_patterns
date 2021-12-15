@@ -20,34 +20,40 @@ class Module():
     """
     Class for a single camera module (e.g. EoRSpec, CMBPol, SFH). Each module 
     consists of three wafers/detector arrays. Each wafter contains three rhombuses. 
+
+    Attributes
+    ------------------
+    x : ndarray in astropy.units.Quantity (deg)
+        x offsets of detector pixel positions.
+    y : ndarray in astropy.units.Quantity (deg)
+        y offsets of detector pixel positions.
+
     """
 
     _data_unit = {'x': u.deg, 'y': u.deg, 'pol': u.deg, 'rhombus': u.dimensionless_unscaled, 'wafer': u.dimensionless_unscaled, 'pixel_num': u.dimensionless_unscaled}
 
-    def __init__(self, data=None, units='deg', **kwargs) -> None:
+    def __init__(self, data=None, **kwargs) -> None:
         """
         Create a camera module either through:
-            option1 : Module(data, units)
-            option2 : Module(freq=, F_lambda=)
-            option3 : Module(wavelength=, F_lambda=)
+            | option1 : Module(data)
+            | option2 : Module(freq=, F_lambda=)
+            | option3 : Module(wavelength=, F_lambda=)
 
         Parameters
         --------------------
-        data : str; ndarray, Iterable, dict, or DataFrame
-            File path to csv file. Dict can contain Series, arrays, constants, dataclass or list-like objects. 
-            Must have columns: x, y (deg). 
-            Recommended to have columns: pol, rhombus, and wafer. 
-        units : str, astropy.units.Unit, or dict, default is 'deg' # TODO
-            Unit to apply to all columns. If dict, apply to each column separately. 
+        data : str; dict or pandas.DataFrame
+            If str, a file path to a csv file. 
+            Must have columns: x, y (deg). Recommended to have columns: pol (deg), rhombus, and wafer. 
         
-        **kwargs
-        freq : frequency-like, default unit is GHz
+        Keyword Arguments
+        -------------------
+        freq : float or sequence; default unit GHz
             Center of frequency band.
             If each wafer is different (such as EoRSpec), pass a three-length list like [freq1, freq2, freq3].
-        wavelength : distance-like, default unit is micron
-            intended wavelength of light.
-            if each wafer is different (such as EoRSpec), pass a three-length list like [wavelength1, wavelength2, wavelength3].
-        F_lambda : float, default is 1.2
+        wavelength : float or sequence; default unit micron
+            Intended wavelength of light.
+            If each wafer is different (such as EoRSpec), pass a three-length list like [wavelength1, wavelength2, wavelength3].
+        F_lambda : float; default 1.2
             Factor for spacing between individual detectors.
         """
 
@@ -265,11 +271,11 @@ class Module():
 
     def save_data(self, path_or_buf=None, columns='all'):
         """
-        Write Module object to file.
+        Write Module object to csv file.
 
         Parameters
         ----------------------
-        path_or_buf : str or file handle, default None
+        path_or_buf : str, file handle or None; default None
             File path or object, if None is provided the result is returned as a dictionary.
         columns : sequence or str, default 'all'
             Columns to write. 
@@ -305,6 +311,9 @@ class Module():
 
     @property
     def ang_res(self):
+        """
+        (astropy.units.Quantity (deg) or list): Angular resolution, if multiple frequencies or wavelengths were provided, this will be a three-length sequence.  
+        """
         return self._ang_res*u.deg
     
 

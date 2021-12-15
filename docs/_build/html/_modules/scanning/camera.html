@@ -53,34 +53,40 @@
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Class for a single camera module (e.g. EoRSpec, CMBPol, SFH). Each module </span>
 <span class="sd">    consists of three wafers/detector arrays. Each wafter contains three rhombuses. </span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ------------------</span>
+<span class="sd">    x : ndarray in astropy.units.Quantity (deg)</span>
+<span class="sd">        x offsets of detector pixel positions.</span>
+<span class="sd">    y : ndarray in astropy.units.Quantity (deg)</span>
+<span class="sd">        y offsets of detector pixel positions.</span>
+
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">_data_unit</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;pol&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;rhombus&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">dimensionless_unscaled</span><span class="p">,</span> <span class="s1">&#39;wafer&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">dimensionless_unscaled</span><span class="p">,</span> <span class="s1">&#39;pixel_num&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">dimensionless_unscaled</span><span class="p">}</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="s1">&#39;deg&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<div class="viewcode-block" id="Module.__init__"><a class="viewcode-back" href="../../intro.html#scanning.camera.Module.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Create a camera module either through:</span>
-<span class="sd">            option1 : Module(data, units)</span>
-<span class="sd">            option2 : Module(freq=, F_lambda=)</span>
-<span class="sd">            option3 : Module(wavelength=, F_lambda=)</span>
+<span class="sd">            | option1 : Module(data)</span>
+<span class="sd">            | option2 : Module(freq=, F_lambda=)</span>
+<span class="sd">            | option3 : Module(wavelength=, F_lambda=)</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        --------------------</span>
-<span class="sd">        data : str; ndarray, Iterable, dict, or DataFrame</span>
-<span class="sd">            File path to csv file. Dict can contain Series, arrays, constants, dataclass or list-like objects. </span>
-<span class="sd">            Must have columns: x, y (deg). </span>
-<span class="sd">            Recommended to have columns: pol, rhombus, and wafer. </span>
-<span class="sd">        units : str, astropy.units.Unit, or dict, default is &#39;deg&#39; # TODO</span>
-<span class="sd">            Unit to apply to all columns. If dict, apply to each column separately. </span>
+<span class="sd">        data : str; dict or pandas.DataFrame</span>
+<span class="sd">            If str, a file path to a csv file. </span>
+<span class="sd">            Must have columns: x, y (deg). Recommended to have columns: pol (deg), rhombus, and wafer. </span>
 <span class="sd">        </span>
-<span class="sd">        **kwargs</span>
-<span class="sd">        freq : frequency-like, default unit is GHz</span>
+<span class="sd">        Keyword Arguments</span>
+<span class="sd">        -------------------</span>
+<span class="sd">        freq : float or sequence; default unit GHz</span>
 <span class="sd">            Center of frequency band.</span>
 <span class="sd">            If each wafer is different (such as EoRSpec), pass a three-length list like [freq1, freq2, freq3].</span>
-<span class="sd">        wavelength : distance-like, default unit is micron</span>
-<span class="sd">            intended wavelength of light.</span>
-<span class="sd">            if each wafer is different (such as EoRSpec), pass a three-length list like [wavelength1, wavelength2, wavelength3].</span>
-<span class="sd">        F_lambda : float, default is 1.2</span>
+<span class="sd">        wavelength : float or sequence; default unit micron</span>
+<span class="sd">            Intended wavelength of light.</span>
+<span class="sd">            If each wafer is different (such as EoRSpec), pass a three-length list like [wavelength1, wavelength2, wavelength3].</span>
+<span class="sd">        F_lambda : float; default 1.2</span>
 <span class="sd">            Factor for spacing between individual detectors.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
@@ -128,7 +134,7 @@
             <span class="k">if</span> <span class="n">kwargs</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;unneccary keywords passed: </span><span class="si">{</span><span class="n">kwargs</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
 
-            <span class="bp">self</span><span class="o">.</span><span class="n">_ang_res</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_module</span><span class="p">(</span><span class="n">freq</span><span class="p">,</span> <span class="n">F_lambda</span><span class="p">)</span>        
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ang_res</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_module</span><span class="p">(</span><span class="n">freq</span><span class="p">,</span> <span class="n">F_lambda</span><span class="p">)</span>        </div>
 
     <span class="c1"># INITIALIZATION    </span>
 
@@ -298,11 +304,11 @@
 
 <div class="viewcode-block" id="Module.save_data"><a class="viewcode-back" href="../../intro.html#scanning.camera.Module.save_data">[docs]</a>    <span class="k">def</span> <span class="nf">save_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path_or_buf</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="s1">&#39;all&#39;</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Write Module object to file.</span>
+<span class="sd">        Write Module object to csv file.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------------------</span>
-<span class="sd">        path_or_buf : str or file handle, default None</span>
+<span class="sd">        path_or_buf : str, file handle or None; default None</span>
 <span class="sd">            File path or object, if None is provided the result is returned as a dictionary.</span>
 <span class="sd">        columns : sequence or str, default &#39;all&#39;</span>
 <span class="sd">            Columns to write. </span>
@@ -338,6 +344,9 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">ang_res</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        (astropy.units.Quantity (deg) or list): Angular resolution, if multiple frequencies or wavelengths were provided, this will be a three-length sequence.  </span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ang_res</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span></div>
     
 
