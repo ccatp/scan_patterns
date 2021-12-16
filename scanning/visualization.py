@@ -862,7 +862,7 @@ def pxan_det(sim, norm_pxan=False, norm_time=False, path=None, show_plot=True):
         det_hist = det_hist/sim.num_pxan
         det_hist_rem = det_hist_rem/sim.num_pxan
 
-    fig_det = plt.figure(1, figsize=(15, 10))
+    fig_det = plt.figure(1)#, figsize=(15, 10))
 
     # --- DETECTOR HITMAP ---
 
@@ -881,7 +881,7 @@ def pxan_det(sim, norm_pxan=False, norm_time=False, path=None, show_plot=True):
 
     # plot detector elem (kept)
     det2 = plt.subplot2grid((1, 2), (0, 0), fig=fig_det)
-    sc = det2.scatter(x_mod, y_mod, c=det_hist, cmap=cm, vmin=0, vmax=None, s=15)
+    sc = det2.scatter(x_mod, y_mod, c=det_hist, cmap=cm, vmin=0, vmax=None, s=5)
     #fig_det.colorbar(sc, ax=det2, orientation='horizontal')
     det2.set_aspect('equal', 'box')
     det2.set(xlabel='x offset (deg)', ylabel='y offset (deg)')

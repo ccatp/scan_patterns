@@ -867,7 +867,7 @@ class TelescopePattern():
                 raise ValueError(f'Elevation = {self.start_elev} is not possible at provided ra, dec, and latitude. Min elevation is {min_el} and max elevation is {max_el} deg.')
 
             # choose hour angle
-            if not self.moving_up:
+            if self.moving_up:
                 start_hrang_rad = -start_hrang_rad
 
             # starting sidereal time
