@@ -35,281 +35,151 @@
   <section id="introduction">
 <h1>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h1>
 <dl class="py class">
-<dt class="sig sig-object py" id="scanning.camera.Instrument">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">scanning.camera.</span></span><span class="sig-name descname"><span class="pre">Instrument</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">instr_offset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0,</span> <span class="pre">0)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">instr_rot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/camera.html#Instrument"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.camera.Instrument" title="Permalink to this definition">¶</a></dt>
-<dd><p>A configurable instrument that holds modules.</p>
+<dt class="sig sig-object py" id="scanning.coordinates.Pong">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">scanning.coordinates.</span></span><span class="sig-name descname"><span class="pre">Pong</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">param_json</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/coordinates.html#Pong"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.coordinates.Pong" title="Permalink to this definition">¶</a></dt>
+<dd><p>The Curvy Pong pattern allows for an approximation of a Pong pattern while avoiding
+sharp turnarounds at the vertices. The Pong pattern is an analytic and close-pathed
+pattern that is optimized for regions a few square degrees. It makes a path that
+intends to cover each area uniformly and ends where it starts.</p>
+<p>See “The Impact of Scanning Pattern Strategies on Uniform Sky Coverage of Large Maps”
+(SCUBA Project SC2/ANA/S210/008) for details of implementation.</p>
 <dl class="py method">
-<dt class="sig sig-object py" id="scanning.camera.Instrument.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">instr_offset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0,</span> <span class="pre">0)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">instr_rot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/scanning/camera.html#Instrument.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.camera.Instrument.__init__" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="scanning.coordinates.Pong.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">param_json</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/scanning/coordinates.html#Pong.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.coordinates.Pong.__init__" title="Permalink to this definition">¶</a></dt>
 <dd><dl class="simple">
-<dt>Initialize a filled Instrument:</dt><dd><p>option 1: Instrument(data)</p>
+<dt>Initialize a Pong pattern by passing a parameter file and overwriting any parameters with <a href="#id1"><span class="problematic" id="id2">**</span></a>kwargs:</dt><dd><p>option1 : Pong(param_json, <a href="#id3"><span class="problematic" id="id4">**</span></a>kwargs)</p>
 </dd>
-<dt>or an empty Intrument:</dt><dd><p>option 2: Instrument(instr_offset, instr_rot)</p>
+<dt>or building from scratch:</dt><dd><p>option2 : Pong(<a href="#id5"><span class="problematic" id="id6">**</span></a>kwargs)</p>
 </dd>
 </dl>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>data</strong> (<em>str</em><em> or </em><em>dict</em>) – File path to json file or dict object. Overwrites <cite>instr_offset</cite> and <cite>instr_rot</cite>. Applicable values are in degrees unit.</p></li>
-<li><p><strong>instr_offset</strong> (<em>(</em><em>float/Quantity/str</em><em>, </em><em>float/Quantity/str</em><em>)</em><em>; default</em><em> (</em><em>0</em><em>, </em><em>0</em><em>)</em><em>, </em><em>default unit deg</em>) – Offset of the instrument from the boresight.</p></li>
-<li><p><strong>instr_rot</strong> (<em>float</em><em>, </em><em>Quantity</em><em> or </em><em>str; default 0</em><em>, </em><em>default unit deg</em>) – CCW rotation of the instrument.</p></li>
-</ul>
+<dd class="field-odd"><p><strong>param_json</strong> (<em>str</em><em> or </em><em>None</em>) – If <cite>str</cite> path to JSON file containing parameters.</p>
 </dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><p><strong>ValueError</strong> – could not parse “data”</p>
+<dt class="field-even">Keyword Arguments</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>num_term</strong> (<em>int</em>) – Number of terms in the triangle wave expansion. Must be positive.</p></li>
+<li><p><strong>height</strong> (<em>width</em><em>,</em>) – Width and height of field of view. Must be positive.</p></li>
+<li><p><strong>spacing</strong> (<em>float</em><em> or </em><em>Quantity</em><em> or </em><em>str; default unit deg</em>) – Space between adjacent (parallel) scan lines in the Pong pattern. Must be positive.</p></li>
+<li><p><strong>velocity</strong> (<em>float</em><em> or </em><em>Quantity</em><em> or </em><em>str; default unit deg/s</em>) – Target magnitude of the total scan velocity excluding turn-arounds.
+NOTE this is now the total velocity, not just the velocity of one direction.</p></li>
+<li><p><strong>angle</strong> (<em>float</em><em> or </em><em>Quantity</em><em> or </em><em>str; default 0; default unit deg</em>) – Position angle of the box in the native coordinate system.</p></li>
+<li><p><strong>sample_interval</strong> (<em>float</em><em> or </em><em>Quantity</em><em> or </em><em>str; default 1/400</em><em>, </em><em>default unit s</em>) – Time between read-outs. Must be positive.</p></li>
+<li><p><strong>num_repeat</strong> (<em>int; default 1</em>) – Number of repeats of the pattern. Must be a positive integer.
+Cannot be used with <cite>max_scan_duration</cite>.</p></li>
+<li><p><strong>max_scan_duration</strong> (<em>float</em><em> or </em><em>Quantity</em><em> or </em><em>str; default unit sec</em>) – Maximum total scan time to determine number of repeats. Must be positive.
+Cannot be used with <cite>num_repeat</cite>.</p></li>
+</ul>
 </dd>
 </dl>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">astropy.units</span> <span class="k">as</span> <span class="nn">u</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">Instrument</span><span class="p">(</span><span class="n">inst_offset</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;100 arcsec&#39;</span><span class="p">),</span> <span class="n">instr_rot</span><span class="o">=</span><span class="mf">3.14</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">Instrument</span><span class="p">(</span><span class="s1">&#39;file.json&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">Pong</span><span class="p">(</span><span class="n">num_term</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">7200</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">,</span> <span class="n">spacing</span><span class="o">=</span><span class="s1">&#39;500 arcsec&#39;</span><span class="p">,</span> <span class="n">velocity</span><span class="o">=</span><span class="mi">1</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
 </pre></div>
 </div>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="scanning.camera.Instrument.add_module">
-<span class="sig-name descname"><span class="pre">add_module</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">module</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">location</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mod_rot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">identifier</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/scanning/camera.html#Instrument.add_module"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.camera.Instrument.add_module" title="Permalink to this definition">¶</a></dt>
-<dd><p>Add a module to the instrument.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>module</strong> (<em>Module</em><em> or </em><em>str</em>) – A <cite>Module</cite> object or one of the default options [‘CMBPol’, ‘SFH’, ‘EoRSpec’, ‘Mod280’]</p></li>
-<li><p><strong>location</strong> (<em>(</em><em>float/Quantity/str</em><em>, </em><em>float/Quantity/str</em><em>) or </em><em>str; default unit deg</em>) – A <cite>tuple</cite> containing the (distance, theta) from the center of the instrument in polar coordinates.
-Or a <cite>str</cite> of one of the default slot options.</p></li>
-<li><p><strong>idenitifier</strong> (<em>str</em><em> or </em><em>None</em>) – Name of the module. If user chose a default <cite>module</cite> option and this is <cite>None</cite>, then <cite>identifier</cite> will be its corresponging name.</p></li>
-<li><p><strong>mod_rot</strong> (<em>float/Quantity/str; default 0</em><em>, </em><em>default unit deg</em>) – CCW rotation of the module.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="scanning.camera.Instrument.change_module">
-<span class="sig-name descname"><span class="pre">change_module</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">identifier</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_location</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_mod_rot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_identifier</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/scanning/camera.html#Instrument.change_module"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.camera.Instrument.change_module" title="Permalink to this definition">¶</a></dt>
-<dd><p>Change a module in the instrument.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>idenitifier</strong> (<em>str</em>) – Name of the module to change.</p></li>
-<li><p><strong>new_location</strong> (<em>(</em><em>float/Quantity/str</em><em>, </em><em>float/Quantity/str</em><em>) or </em><em>str; default unit deg</em><em>, </em><em>optional</em>) – A <cite>tuple</cite> containing the (distance, theta) from the center of the instrument in polar coordinates.
-Or a <cite>str</cite> of one of the default slot options.</p></li>
-<li><p><strong>new_mod_rot</strong> (<em>float/Quantity/str; default 0</em><em>, </em><em>default unit deg</em><em>, </em><em>optional</em>) – CCW rotation of the module.</p></li>
-<li><p><strong>new_identifier</strong> (<em>str</em><em>, </em><em>optional</em><em>, </em><em>optional</em>) – New name of the module.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><p><strong>ValueError</strong> – “identifier” is not valid</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="scanning.camera.Instrument.delete_module">
-<span class="sig-name descname"><span class="pre">delete_module</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">identifier</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/scanning/camera.html#Instrument.delete_module"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.camera.Instrument.delete_module" title="Permalink to this definition">¶</a></dt>
-<dd><p>Delete a module in the instrument.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>idenitifier</strong> (<em>str</em>) – Name of the module.</p>
-</dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><p><strong>ValueError</strong> – “identifier” is not valid</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="scanning.camera.Instrument.get_dist">
-<span class="sig-name descname"><span class="pre">get_dist</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">identifier</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">from_boresight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/camera.html#Instrument.get_dist"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.camera.Instrument.get_dist" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="scanning.coordinates.Pong.save_data">
+<span class="sig-name descname"><span class="pre">save_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path_or_buf</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">columns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'default'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">include_repeats</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#scanning.coordinates.Pong.save_data" title="Permalink to this definition">¶</a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>idenitifier</strong> (<em>str</em>) – Name of the module.</p></li>
-<li><p><strong>from_boresight</strong> (<em>bool; default False</em>) – From the boresight (<cite>True</cite>) or from the center of the instrument (<cite>False</cite>).</p></li>
+<li><p><strong>path_or_buf</strong> (<em>str</em><em>, </em><em>file handle</em><em> or </em><em>None; default None</em>) – File path or object, if <cite>None</cite> is provided the result is returned as a dictionary.</p></li>
+<li><p><strong>columns</strong> (<em>sequence</em><em>, </em><em>str</em><em> or </em><em>[</em><em>dict of str -&gt; str/Unit/None</em><em>]</em><em>; default 'default'</em>) – Columns to write. If <cite>dict</cite>, map column names to their desired unit and use <cite>None</cite> if you would like to use the standard (deg for angle-like units, sec for time-like units).
+‘default’ for [‘time_offset’, ‘x_coord’, ‘y_coord’]
+‘all’ for [‘time_offset’, ‘x_coord’, ‘y_coord’, ‘distance’, ‘x_vel’, ‘y_vel’, ‘vel’, ‘x_acc’, ‘y_acc’, ‘acc’, ‘x_jerk’, ‘y_jerk’, ‘jerk’]</p></li>
+<li><p><strong>include_repeats</strong> (<em>bool</em><em>, </em><em>default 'True'</em>) – Whether to include repeats of the SkyPattern.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>Distance away of the module in polar coordinates.</p>
+<dd class="field-even"><p>If <cite>path_or_buf</cite> is <cite>None</cite>, returns the data as a dictionary mapping column name to values. Otherwise returns <cite>None</cite>.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>Quantity</p>
-</dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><p><strong>ValueError</strong> – “identifier” is not valid</p>
+<dd class="field-odd"><p>None or [dict of str -&gt; array]</p>
 </dd>
 </dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">skypattern</span><span class="o">.</span><span class="n">save_data</span><span class="p">(</span><span class="s1">&#39;file.csv&#39;</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;time_offset&#39;</span><span class="p">:</span> <span class="s1">&#39;sec&#39;</span><span class="p">,</span> <span class="s1">&#39;x_coord&#39;</span><span class="p">:</span> <span class="s1">&#39;arcsec&#39;</span><span class="p">,</span> <span class="s1">&#39;y_coord&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">})</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="scanning.camera.Instrument.get_location">
-<span class="sig-name descname"><span class="pre">get_location</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">identifier</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">from_boresight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/camera.html#Instrument.get_location"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.camera.Instrument.get_location" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="scanning.coordinates.Pong.save_param">
+<span class="sig-name descname"><span class="pre">save_param</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path_or_buf</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#scanning.coordinates.Pong.save_param" title="Permalink to this definition">¶</a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>idenitifier</strong> (<em>str</em>) – Name of the module.</p></li>
-<li><p><strong>from_boresight</strong> (<em>bool; default False</em>) – From the boresight (<cite>True</cite>) or from the center of the instrument (<cite>False</cite>).</p></li>
-<li><p><strong>polar</strong> (<em>bool; default False</em>) – In polar coordinates (<cite>True</cite>) or in cartesian coordinates (<cite>False</cite>)</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>(distance, theta) location of module.</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>Quantity two-tuple</p>
-</dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><p><strong>ValueError</strong> – “identifier” is not valid</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="scanning.camera.Instrument.get_mod_rot">
-<span class="sig-name descname"><span class="pre">get_mod_rot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">identifier</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_instr_rot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/camera.html#Instrument.get_mod_rot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.camera.Instrument.get_mod_rot" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get rotation of module from the center of the instrument.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>idenitifier</strong> (<em>str</em>) – Name of the module.</p></li>
-<li><p><strong>with_instr_rot</strong> (<em>bool; default False</em>) – Whether to include instrument rotation.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>Rotation of the module</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>Quantity</p>
-</dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><p><strong>ValueError</strong> – “identifier” is not valid</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="scanning.camera.Instrument.get_module">
-<span class="sig-name descname"><span class="pre">get_module</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">identifier</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_mod_rot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_instr_rot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_instr_offset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_mod_offset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">scanning.camera.Module</span></span></span><a class="reference internal" href="_modules/scanning/camera.html#Instrument.get_module"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.camera.Instrument.get_module" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>idenitifier</strong> (<em>str</em>) – Name of the module.</p></li>
-<li><p><strong>with_mod_rot</strong> (<em>bool; default False</em>) – Whether to apply instrument and module rotation and offset to the returned <cite>Module</cite>.</p></li>
-<li><p><strong>with_instr_rot</strong> (<em>bool; default False</em>) – Whether to apply instrument and module rotation and offset to the returned <cite>Module</cite>.</p></li>
-<li><p><strong>with_instr_offset</strong> (<em>bool; default False</em>) – Whether to apply instrument and module rotation and offset to the returned <cite>Module</cite>.</p></li>
-<li><p><strong>with_mod_offset</strong> (<em>bool; default False</em>) – Whether to apply instrument and module rotation and offset to the returned <cite>Module</cite>.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p><cite>Module</cite> object.</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>Module</p>
-</dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><p><strong>ValueError</strong> – “identifier” is not valid</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="scanning.camera.Instrument.get_slot">
-<span class="sig-name descname"><span class="pre">get_slot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">slot_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">from_boresight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/camera.html#Instrument.get_slot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.camera.Instrument.get_slot" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>slot_name</strong> (<em>str</em>) – Name of slot.</p></li>
-<li><p><strong>from_boresight</strong> (<em>bool; default False</em>) – From the boresight (<cite>True</cite>) or from the center of the instrument (<cite>False</cite>).</p></li>
-<li><p><strong>polar</strong> (<em>bool; default False</em>) – In polar coordinates (<cite>True</cite>) or in cartesian coordinates (<cite>False</cite>)</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>(distance, theta) location of slot.</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>Quantity two-tuple</p>
-</dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><p><strong>ValueError</strong> – “slot_name” is not valid</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="scanning.camera.Instrument.get_theta">
-<span class="sig-name descname"><span class="pre">get_theta</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">identifier</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">from_boresight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/camera.html#Instrument.get_theta"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.camera.Instrument.get_theta" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>idenitifier</strong> (<em>str</em>) – Name of the module.</p></li>
-<li><p><strong>from_boresight</strong> (<em>bool; default False</em>) – From the boresight (<cite>True</cite>) or from the center of the instrument (<cite>False</cite>).</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>Angle of the module in polar coordinates.</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>Quantity</p>
-</dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><p><strong>ValueError</strong> – “identifier” is not valid</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="scanning.camera.Instrument.location_from_boresight">
-<span class="sig-name descname"><span class="pre">location_from_boresight</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dist</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">theta</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/camera.html#Instrument.location_from_boresight"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.camera.Instrument.location_from_boresight" title="Permalink to this definition">¶</a></dt>
-<dd><p>Given a location relative to the center of the instrument, find the
-location relative to the boresight.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>dist</strong> (<em>float</em><em>, </em><em>Quantity</em><em>, or </em><em>str; default unit deg</em>) – Distance away from the center of the instrument.</p></li>
-<li><p><strong>theta</strong> (<em>float</em><em>, </em><em>Quantity</em><em>, or </em><em>str; default unit deg</em>) – Angle away from the center of the instrument in polar coordinates.</p></li>
-<li><p><strong>polar</strong> (<em>bool; default False</em>) – In polar coordinates (<cite>True</cite>) or in cartesian coordinates (<cite>False</cite>)</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>(distance, theta) location of slot.</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>Quantity two-tuple</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="scanning.camera.Instrument.save_data">
-<span class="sig-name descname"><span class="pre">save_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path_or_buf</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/camera.html#Instrument.save_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.camera.Instrument.save_data" title="Permalink to this definition">¶</a></dt>
-<dd><p>Saves as a dictionary like in a json format.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>path_or_buf</strong> (<em>str</em><em> or </em><em>file handle</em><em>, </em><em>default None</em>) – File path or object, if <cite>None</cite> is provided the result is returned as a <cite>dict</cite>.</p>
+<dd class="field-odd"><p><strong>path_or_buf</strong> (<em>str</em><em>, </em><em>file handle</em><em>, or </em><em>None; default None</em>) – File path or object, if <cite>None</cite> is provided the result is returned as a dictionary.</p>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p>If <cite>path_or_buf</cite> is <cite>None</cite>, returns the resulting json format as a dictionary. Otherwise returns <cite>None</cite>.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>None or dict</p>
+<dd class="field-odd"><p>None or [dict of str -&gt; numeric]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py property">
-<dt class="sig sig-object py" id="scanning.camera.Instrument.instr_offset">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">instr_offset</span></span><a class="headerlink" href="#scanning.camera.Instrument.instr_offset" title="Permalink to this definition">¶</a></dt>
-<dd><p>The x and y offsets of the center of the instrument from the boresight.</p>
+<dt class="sig sig-object py" id="scanning.coordinates.Pong.acc">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">acc</span></span><a class="headerlink" href="#scanning.coordinates.Pong.acc" title="Permalink to this definition">¶</a></dt>
+<dd><p>Total acceleration.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type</dt>
-<dd class="field-odd"><p>Quantity two-tuple</p>
+<dd class="field-odd"><p>Quantity array</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py property">
-<dt class="sig sig-object py" id="scanning.camera.Instrument.instr_rot">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">instr_rot</span></span><a class="headerlink" href="#scanning.camera.Instrument.instr_rot" title="Permalink to this definition">¶</a></dt>
-<dd><p>The CCW rotation of the instrument.</p>
+<dt class="sig sig-object py" id="scanning.coordinates.Pong.distance">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">distance</span></span><a class="headerlink" href="#scanning.coordinates.Pong.distance" title="Permalink to this definition">¶</a></dt>
+<dd><p>Distance of points from the center.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Quantity array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="scanning.coordinates.Pong.jerk">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">jerk</span></span><a class="headerlink" href="#scanning.coordinates.Pong.jerk" title="Permalink to this definition">¶</a></dt>
+<dd><p>Total jerk.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Quantity array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="scanning.coordinates.Pong.param">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">param</span></span><a class="headerlink" href="#scanning.coordinates.Pong.param" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parameters inputted by user.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>dict of str -&gt; (float or Quantity)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="scanning.coordinates.Pong.repeatable">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">repeatable</span></span><a class="headerlink" href="#scanning.coordinates.Pong.repeatable" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether this pattern is repeatable or not.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="scanning.coordinates.Pong.sample_interval">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">sample_interval</span></span><a class="headerlink" href="#scanning.coordinates.Pong.sample_interval" title="Permalink to this definition">¶</a></dt>
+<dd><p>Time interval between samples.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type</dt>
 <dd class="field-odd"><p>Quantity</p>
@@ -318,23 +188,122 @@ location relative to the boresight.</p>
 </dd></dl>
 
 <dl class="py property">
-<dt class="sig sig-object py" id="scanning.camera.Instrument.modules">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">modules</span></span><a class="headerlink" href="#scanning.camera.Instrument.modules" title="Permalink to this definition">¶</a></dt>
-<dd><p>list of module identifiers inside the instrument.</p>
+<dt class="sig sig-object py" id="scanning.coordinates.Pong.scan_duration">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">scan_duration</span></span><a class="headerlink" href="#scanning.coordinates.Pong.scan_duration" title="Permalink to this definition">¶</a></dt>
+<dd><p>Total scan duration.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type</dt>
-<dd class="field-odd"><p>list of str</p>
+<dd class="field-odd"><p>Quantity</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py property">
-<dt class="sig sig-object py" id="scanning.camera.Instrument.slots">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">slots</span></span><a class="headerlink" href="#scanning.camera.Instrument.slots" title="Permalink to this definition">¶</a></dt>
-<dd><p>Map of slot name to their (distance, theta) from the center of the instrument.</p>
+<dt class="sig sig-object py" id="scanning.coordinates.Pong.time_offset">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">time_offset</span></span><a class="headerlink" href="#scanning.coordinates.Pong.time_offset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Time offsets.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type</dt>
-<dd class="field-odd"><p>dict of str -&gt; Quantity two-tuple</p>
+<dd class="field-odd"><p>Quantity array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="scanning.coordinates.Pong.vel">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">vel</span></span><a class="headerlink" href="#scanning.coordinates.Pong.vel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Total velocity.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Quantity array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="scanning.coordinates.Pong.x_acc">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">x_acc</span></span><a class="headerlink" href="#scanning.coordinates.Pong.x_acc" title="Permalink to this definition">¶</a></dt>
+<dd><p>x acceleration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Quantity array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="scanning.coordinates.Pong.x_coord">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">x_coord</span></span><a class="headerlink" href="#scanning.coordinates.Pong.x_coord" title="Permalink to this definition">¶</a></dt>
+<dd><p>x positions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Quantity array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="scanning.coordinates.Pong.x_jerk">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">x_jerk</span></span><a class="headerlink" href="#scanning.coordinates.Pong.x_jerk" title="Permalink to this definition">¶</a></dt>
+<dd><p>x jerk.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Quantity array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="scanning.coordinates.Pong.x_vel">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">x_vel</span></span><a class="headerlink" href="#scanning.coordinates.Pong.x_vel" title="Permalink to this definition">¶</a></dt>
+<dd><p>x velocity.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Quantity array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="scanning.coordinates.Pong.y_acc">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">y_acc</span></span><a class="headerlink" href="#scanning.coordinates.Pong.y_acc" title="Permalink to this definition">¶</a></dt>
+<dd><p>y acceleration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Quantity array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="scanning.coordinates.Pong.y_coord">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">y_coord</span></span><a class="headerlink" href="#scanning.coordinates.Pong.y_coord" title="Permalink to this definition">¶</a></dt>
+<dd><p>y positions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Quantity array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="scanning.coordinates.Pong.y_jerk">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">y_jerk</span></span><a class="headerlink" href="#scanning.coordinates.Pong.y_jerk" title="Permalink to this definition">¶</a></dt>
+<dd><p>y jerk.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Quantity array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="scanning.coordinates.Pong.y_vel">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">y_vel</span></span><a class="headerlink" href="#scanning.coordinates.Pong.y_vel" title="Permalink to this definition">¶</a></dt>
+<dd><p>y velocity.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Quantity array</p>
 </dd>
 </dl>
 </dd></dl>

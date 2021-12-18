@@ -1,5 +1,5 @@
 import math
-from math import pi, sin, cos, tan, sqrt
+from math import pi, sin, cos, tan, sqrt, radians
 import json
 import warnings
 
@@ -21,95 +21,120 @@ azimuth in terms of east from north
 ##################
 
 class SkyPattern():
-    """
-    Representing the path of the center of a detector array in terms of an RA/DEC offset. 
-    """
+    """ Representing the path of the center of a detector array in terms of offsets. """
 
-    _param_unit = {'num_repeat': u.dimensionless_unscaled, 'sample_interval': u.s}
-    _data_unit = {'time_offset': u.s, 'x_coord': u.deg, 'y_coord': u.deg}
+    # other attributes (for development)
+    # _stored_units
+    # _data: time_offset, x_coord, y_coord
+    # _param, _param_units
+    # _sample_interval
+    # _repeatable
 
-    def __init__(self, data, repeatable=False, **kwargs) -> None:
+    _param_units = {'num_repeat': u.dimensionless_unscaled}
+    _stored_units = {'time_offset': u.s, 'x_coord': u.deg, 'y_coord': u.deg}
+
+    def __init__(self, data, units=None, repeatable=False, **kwargs) -> None:
         """
-        Initialize an arbitrary scan. 
-
         Parameters
         --------------------------------
-        data : str; ndarray, Iterable, dict, or DataFrame
-            File path to csv file. Dict can contain Series, arrays, constants, dataclass or list-like objects. 
-            Has columns 'time_offset', 'x_coord', 'y_coord'
-        repeatable : bool, default False
-            Whether this pattern can repeat itself (end where it starts).
+        data : str, DataFrame, or [dict of str -> sequence]
+            If `str`, a file path to a csv file. If `dict` or `DataFrame`, column names map to their values. 
+            Must have columns 'time_offset', 'x_coord', 'y_coord'.
+        repeatable : bool; default False
+            Whether this pattern can repeat itself (ends where it starts).
+        units : [dict of str -> str or Unit] or None; default None
+            Mapping columns in `data` with their units. All columns do not need to be mapped.
+            If not provided, all angle-like units are assumed to be in degrees and all time-like units are assumed to be in seconds.
         
-        **kwargs
-        max_scan_duration : time-like, default unit sec
+        Keyword Args
+        ---------------------------------
+        num_repeat : int; default 1 
+            Number of repeats of the pattern. Must be a positive integer.
+            Cannot be used with `max_scan_duration` and `repeatable` must be `True`.
+        max_scan_duration : float/Quantity/str; default unit sec
             Maximum total scan time to determine number of repeats. Must be positive. 
-            Cannot be used with num_repeat. 'repeatable' must be True.
-        num_repeat : int, default 1 
-            Number of repeats of the pattern. Must be >= 1
-            Cannot be used with max_scan_duration. 'repeatable' must be True.
-        """
-        self.repeatable = repeatable 
+            Cannot be used with `num_repeat` and `repeatable` must be `True`.
 
-        if isinstance(data, str):
-            data = pd.read_csv(data, index_col=False, usecols=['time_offset', 'x_coord', 'y_coord'])
-        else:
-            data = pd.DataFrame(data)[['time_offset', 'x_coord', 'y_coord']]
+        Raises
+        -----------------------------------
+        ValueError
+            "data" could not be parsed
+        ValueError
+            sample interval must be constant
+
+        Examples
+        -----------------------------
+        >>> # if x_coord is specifically in arcseconds
+        >>> SkyPattern('file.csv', units={'x_coord': 'arcsec'})
+        """
+
+        self._repeatable = repeatable 
+
+        try:
+            if isinstance(data, str):
+                data = pd.read_csv(data, index_col=False, usecols=['time_offset', 'x_coord', 'y_coord'])
+            else:
+                data = pd.DataFrame(data)[['time_offset', 'x_coord', 'y_coord']]
+        except (ValueError, KeyError) as e:
+            raise ValueError(f"'data' could not be parsed: {e}")
+
+        # convert to specified units
+        if not units is None:
+            for col, unit in units.items():
+                data[col] = data[col]*u.Unit(unit).to(self._stored_units[col])
 
         # determine sample_interval 
         sample_interval_list = np.diff(data['time_offset'].to_numpy())
         if np.std(sample_interval_list)/np.mean(sample_interval_list) <= 0.01:
-            sample_interval = np.mean(sample_interval_list)
+            self._sample_interval = np.mean(sample_interval_list)
         else:
-            raise ValueError('sample_interval must be constant')
-        kwargs['sample_interval'] = sample_interval
+            raise ValueError('sample interval must be constant')
 
-        self.param = self._clean_param(**kwargs)
-        self.data = self._repeat_scan(data)
+        # repeating the scan
+        self._param = self._clean_param(**kwargs)
+        self._data = self._repeat_scan(data)
 
     # INITIALIZATION
 
     def _clean_param(self, **kwargs):
         kwarg_keys = kwargs.keys()
 
-        # determining number of repeats 
-        if self.repeatable:
-            if 'max_scan_duration' in kwarg_keys and 'num_repeat' in kwarg_keys:
-                raise ValueError('max_scan_duration and num_repeat cannot be inputted together')
-            elif 'max_scan_duration' in kwarg_keys:
-                kwargs['num_repeat'] = math.nan
-                kwargs['max_scan_duration'] = u.Quantity(kwargs['max_scan_duration'], u.s).value
-            else:
-                kwargs['num_repeat'] = int(kwargs.get('num_repeat', 1))  
+        # determine number of repeats
+        if 'max_scan_duration' in kwarg_keys or 'num_repeat' in kwarg_keys:
 
-        # checking if repeats aren't passed if a non-repeatable pattern
-        else:
-            if 'max_scan_duration' in kwarg_keys or 'num_repeat' in kwarg_keys:
-                raise ValueError('this is not a repeatable SkyPattern, so max_scan_duration and num_repeat cannot be initialized')
-            kwargs['num_repeat'] = 1
+            if not self.repeatable:
+                warnings.warn('This is not a repeatable pattern, but you have indicated to repeat it. This may or may not repeat.')
+            
+            if 'max_scan_duration' in kwarg_keys and 'num_repeat' in kwarg_keys:
+                raise ValueError('"max_scan_duration" and "num_repeat" cannot be inputted together')
+
+            if 'max_scan_duration' in kwarg_keys:
+                kwargs['num_repeat'] = math.nan # set as null for now, will determine once first pattern is generated
+                kwargs['max_scan_duration'] = u.Quantity(kwargs['max_scan_duration'], self._stored_units['time_offset']).value
+            else:
+                kwargs['num_repeat'] = int(kwargs.get('num_repeat', 1))
 
         return kwargs
 
-    def _repeat_scan(self, data, x_repeat_offset=0, y_repeat_offset=0):
+    def _repeat_scan(self, data):
         one_scan_duration = data.iloc[-1]['time_offset'] + self.sample_interval.value
 
-        # determine number of repeats
-        num_repeat = self.num_repeat
-        if math.isnan(num_repeat):
-            max_scan_duration = self.param.pop('max_scan_duration') # only store number of repeats, not maximum scan duration
-            num_repeat = math.floor(max_scan_duration/one_scan_duration)
-            if num_repeat < 1:
-                raise ValueError(f'max_scan_duration = {max_scan_duration} s is too short, one scan duration is {one_scan_duration} second')
+        num_repeat = self._param.get('num_repeat', 1)
 
-            self.param['num_repeat'] = num_repeat
+        # determine number of repeats
+        if math.isnan(num_repeat):
+            max_scan_duration = self._param.pop('max_scan_duration') # only store number of repeats, not maximum scan duration
+            num_repeat = math.floor(max_scan_duration/one_scan_duration)
+            self._param['num_repeat'] = num_repeat
 
         # repeat pattern if necessary 
-        if num_repeat > 1:
-
-            if type(self) is SkyPattern:
-                warnings.warn('You have chosen to repeat this pattern. However, analytic patterns \
-                    (such as Pong) may not have their next location in the repeat be exactly their first original location \
-                    to ensure a constant time interval. This may cause spikes in higher derivates. Mitigate this by \
-                    initializing this obejct with its intended subclass using its original parameters.')
+        if num_repeat < 1:
+            raise ValueError(f'number of repeats = {num_repeat} is less than 1')
+        elif num_repeat > 1:
+            warnings.warn('You have chosen to repeat this pattern. However, analytic patterns \
+            (such as Pong) may not have their next location in the repeat be exactly their first original location \
+            to ensure a constant time interval. This may cause spikes in higher derivates. Mitigate this by \
+            initializing this object with its intended subclass using its original parameters.')
 
             time_offset = data['time_offset']
             x_coord = data['x_coord']
@@ -117,8 +142,8 @@ class SkyPattern():
             data_temp = data.copy()
             for i in range(1, num_repeat):
                 data_temp['time_offset'] = time_offset + one_scan_duration*i
-                data_temp['x_coord'] = x_coord + x_repeat_offset*i
-                data_temp['y_coord'] = y_coord + y_repeat_offset*i
+                data_temp['x_coord'] = x_coord
+                data_temp['y_coord'] = y_coord
                 data = data.append(data_temp, ignore_index=True)
 
         return data
@@ -127,61 +152,73 @@ class SkyPattern():
 
     def save_data(self, path_or_buf=None, columns='default', include_repeats=True):
         """
+
         Parameters
-        ----------------------------
-        path_or_buf : str or file handle, default None
-            File path or object, if None is provided the result is returned as a dictionary.
-        columns : sequence or str, default 'default'
-            Columns to write. 
+        ----------------------
+        path_or_buf : str, file handle or None; default None
+            File path or object, if `None` is provided the result is returned as a dictionary.
+        columns : sequence, str or [dict of str -> str/Unit/None]; default 'default'
+            Columns to write. If `dict`, map column names to their desired unit and use `None` if you would like to use the standard (deg for angle-like units, sec for time-like units).
             'default' for ['time_offset', 'x_coord', 'y_coord']
-            'all' for ['time_offset', 'x_coord', 'y_coord', 'x_vel', 'y_vel', 'vel', 'x_acc', 'y_acc', 'acc', 'x_jerk', 'y_jerk', 'jerk']
+            'all' for ['time_offset', 'x_coord', 'y_coord', 'distance', 'x_vel', 'y_vel', 'vel', 'x_acc', 'y_acc', 'acc', 'x_jerk', 'y_jerk', 'jerk']
         include_repeats : bool, default 'True'
-            include repeats of the SkyPattern
+            Whether to include repeats of the SkyPattern.
 
         Returns
         ----------------------
-        None or dict
-            If path_or_buf is None, returns the resulting json format as a dictionary. Otherwise returns None.
+        None or [dict of str -> array]
+            If `path_or_buf` is `None`, returns the data as a dictionary mapping column name to values. Otherwise returns `None`.
+
+        Examples
+        ---------------------
+        >>> skypattern.save_data('file.csv', columns={'time_offset': 'sec', 'x_coord': 'arcsec', 'y_coord': None})
         """
 
         # replace str options
         if columns == 'default':
             columns = ['time_offset', 'x_coord', 'y_coord']
         elif columns == 'all':
-            columns = ['time_offset', 'x_coord', 'y_coord', 'x_vel', 'y_vel', 'vel', 'x_acc', 'y_acc', 'acc', 'x_jerk', 'y_jerk', 'jerk']
+            columns = ['time_offset', 'x_coord', 'y_coord', 'distance', 'x_vel', 'y_vel', 'vel', 'x_acc', 'y_acc', 'acc', 'x_jerk', 'y_jerk', 'jerk']
         
-        data = self.data.copy()
-
-        # whether to include repetitions 
-        if not include_repeats and self.num_repeat > 1:
-            before_index = int(len(data.index)/self.num_repeat)
-            data = data.iloc[:before_index]
+        data = pd.DataFrame()
 
         # generate required data
-        for col in columns:
-            if not col in ['time_offset', 'x_coord', 'y_coord']:
-                data[col] = getattr(self, col).value
-        
-        # save data file 
-        if path_or_buf is None:
-            return data[columns].to_dict('list')
+        if isinstance(columns, dict):
+            for col, unit in columns.items():
+                if not unit is None:
+                    data[col] = getattr(self, col).to(unit).value
+                else:
+                    data[col] = getattr(self, col).value
         else:
-            data.to_csv(path_or_buf, columns=columns, index=False)
+            for col in columns:
+                data[col] = getattr(self, col).value
+
+        # whether to include repetitions 
+        num_repeat = self._param.get('num_repeat', 1)
+        if not include_repeats and num_repeat > 1:
+            before_index = int(len(data.index)/num_repeat)
+            data = data.iloc[:before_index]
+        
+        # returning
+        if path_or_buf is None:
+            return data.to_dict('list')
+        else:
+            data.to_csv(path_or_buf, index=False)
 
     def save_param(self, path_or_buf=None):
         """
         Parameters
         ----------------------------
-        path_or_buf : str or file handle, default None
-            File path or object, if None is provided the result is returned as a dictionary.
+        path_or_buf : str, file handle, or None; default None
+            File path or object, if `None` is provided the result is returned as a dictionary.
         
         Returns
         ----------------------
-        None or dict
-            If path_or_buf is None, returns the resulting json format as a dictionary. Otherwise returns None.
+        None or [dict of str -> numeric]
+            If `path_or_buf` is `None`, returns the resulting json format as a dictionary. Otherwise returns `None`.
         """
         
-        param_temp = self.param.copy()
+        param_temp = self._param.copy()
 
         # save param_json
         if path_or_buf is None:
@@ -190,160 +227,210 @@ class SkyPattern():
             with open(path_or_buf, 'w') as f:
                 json.dump(param_temp, f)
 
-    # GETTERS
-
-    # param : num_repeat, sample_interval
-    # data : time_offset, x_coord, y_coord
+    # PROPERTIES
+    
     def __getattr__(self, attr):
-
-        if attr in self.param.keys():
-            if self._param_unit[attr] is u.dimensionless_unscaled:
-                return self.param[attr]
+        # for easy access of properties without unit conversions
+        if attr.startswith('_'):
+            prop = getattr(self, attr[1:])
+            if type(prop) is u.Quantity:
+                return prop.value
             else:
-                return self.param[attr]*self._param_unit[attr]
-        elif attr in self.data.columns:
-            return self.data[attr].to_numpy()*self._data_unit[attr]
+                return prop
         else:
-            raise AttributeError(f'attribtue {attr} not found')
+            raise AttributeError(f'type object "{type(self)}" has no attribute "{attr}"')
+
+    @property
+    def repeatable(self):
+        """bool: Whether this pattern is repeatable or not."""
+        return self._repeatable
+
+    @property
+    def param(self):
+        """dict of str -> (float or Quantity): Parameters inputted by user."""
+        return_param = dict()
+        for p, val in self._param.items():
+            return_param[p] = val if self._param_units[p] is u.dimensionless_unscaled else val*self._param_units[p]
+        return return_param
+
+    @property
+    def sample_interval(self):
+        """Quantity: Time interval between samples."""
+        return self._sample_interval*self._stored_units['time_offset']
 
     @property
     def scan_duration(self):
+        """Quantity: Total scan duration."""
         return self.time_offset[-1] + self.sample_interval
 
     @property
+    def time_offset(self):
+        """Quantity array: Time offsets."""
+        return self._data['time_offset'].to_numpy()*self._stored_units['time_offset']
+    
+    @property
+    def x_coord(self):
+        """Quantity array: x positions."""
+        return self._data['x_coord'].to_numpy()*self._stored_units['x_coord']
+    
+    @property
+    def y_coord(self):
+        """Quantity array: y positions."""
+        return self._data['y_coord'].to_numpy()*self._stored_units['y_coord']
+
+    @property
+    def distance(self):
+        """Quantity array: Distance of points from the center."""
+        return np.sqrt(self.x_coord**2 + self.y_coord**2)
+
+    @property
     def x_vel(self):
-        return _central_diff(self.x_coord.value, self.sample_interval.value)*u.deg/u.s
+        """Quantity array: x velocity."""
+        return _central_diff(self.x_coord.value, self.sample_interval.value)*(self._stored_units['x_coord']/self._stored_units['time_offset'])
 
     @property
     def y_vel(self):
-        return _central_diff(self.y_coord.value, self.sample_interval.value)*u.deg/u.s
+        """Quantity array: y velocity."""
+        return _central_diff(self.y_coord.value, self.sample_interval.value)*(self._stored_units['y_coord']/self._stored_units['time_offset'])
 
     @property
     def vel(self):
+        """Quantity array: Total velocity."""
         return np.sqrt(self.x_vel**2 + self.y_vel**2)
 
     @property
     def x_acc(self):
-        return _central_diff(self.x_vel.value, self.sample_interval.value)*u.deg/u.s/u.s
+        """Quantity array: x acceleration."""
+        return _central_diff(self.x_vel.value, self.sample_interval.value)*(self._stored_units['x_coord']/self._stored_units['time_offset']**2)
 
     @property
     def y_acc(self):
-        return _central_diff(self.y_vel, self.sample_interval.value)*u.deg/u.s/u.s
+        """Quantity array: y acceleration."""
+        return _central_diff(self.y_vel, self.sample_interval.value)*(self._stored_units['y_coord']/self._stored_units['time_offset']**2)
     
     @property
     def acc(self):
+        """Quantity array: Total acceleration."""
         return np.sqrt(self.x_acc**2 + self.y_acc**2)
 
     @property
     def x_jerk(self):
-        return _central_diff(self.x_acc.value, self.sample_interval.value)*u.deg/(u.s)**3
+        """Quantity array: x jerk."""
+        return _central_diff(self.x_acc.value, self.sample_interval.value)*(self._stored_units['x_coord']/self._stored_units['time_offset']**3)
     
     @property
     def y_jerk(self):
-        return _central_diff(self.y_acc.value, self.sample_interval.value)*u.deg/(u.s)**3
+        """Quantity array: y jerk."""
+        return _central_diff(self.y_acc.value, self.sample_interval.value)*(self._stored_units['y_coord']/self._stored_units['time_offset']**3)
     
     @property
     def jerk(self):
+        """Quantity array: Total jerk."""
         return np.sqrt(self.x_jerk**2 + self.y_jerk**2)
 
 class Pong(SkyPattern):
     """
     The Curvy Pong pattern allows for an approximation of a Pong pattern while avoiding 
-    sharp turnarounds at the vertices. 
+    sharp turnarounds at the vertices. The Pong pattern is an analytic and close-pathed 
+    pattern that is optimized for regions a few square degrees. It makes a path that 
+    intends to cover each area uniformly and ends where it starts.
     
     See "The Impact of Scanning Pattern Strategies on Uniform Sky Coverage of Large Maps" 
     (SCUBA Project SC2/ANA/S210/008) for details of implementation. 
     """
 
-    _param_unit = {
+    _repeatable = True
+    _param_units = {
         'num_term': u.dimensionless_unscaled,
         'width': u.deg, 'height': u.deg, 'spacing': u.deg,
-        'velocity': u.deg/u.s, 'angle': u.deg, 'sample_interval': u.s, 
+        'velocity': u.deg/u.s, 'angle': u.deg, 'sample_interval': SkyPattern._stored_units['time_offset'], 
         'num_repeat': u.dimensionless_unscaled
     }
-    repeatable = True
 
     def __init__(self, param_json=None, **kwargs) -> None:
         """
-        Initialize a Pong pattern by passing a parameter file or dictionary and optionally 
-        adding keywords to overwrite existing ones:
+        Initialize a Pong pattern by passing a parameter file and overwriting any parameters with **kwargs:
             option1 : Pong(param_json, **kwargs) 
         or building from scratch: 
             option2 : Pong(**kwargs)
 
         Parameters
         ---------------------------
-        param_json : str or dict
-            Contains parameters used to generate pattern. 
+        param_json : str or None
+            If `str` path to JSON file containing parameters. 
         
-        **kwargs
+        Keyword Args
+        ----------------------------
         num_term : int
             Number of terms in the triangle wave expansion. Must be positive. 
-        width, height : angle-like, default unit deg
-            Width and height of field of view. Must be positive. 
-        spacing : angle-like, default unit deg
+        width : float or Quantity or str; default unit deg
+            Width of the field. Must be positive. 
+        height : float or Quantity or str; default unit deg
+            Height of the field. Must be positive. 
+        spacing : float or Quantity or str; default unit deg
             Space between adjacent (parallel) scan lines in the Pong pattern. Must be positive.
-        velocity : angle/time-like, default unit deg/s
-            Target magnitude of the scan velocity excluding turn-arounds. 
-        angle : angle-like, default 0, default unit deg
+        velocity : float or Quantity or str; default unit deg/s
+            Target magnitude of the total scan velocity excluding turn-arounds.
+            NOTE this is now the total velocity, not just the velocity of one direction.
+
+        angle : float or Quantity or str; default 0; default unit deg
             Position angle of the box in the native coordinate system. 
-        sample_interval : time, default 1/400, default unit s
+        sample_interval : float or Quantity or str; default 1/400, default unit s
             Time between read-outs. Must be positive.
-        max_scan_duration : time-like, default unit sec
+        num_repeat : int; default 1 
+            Number of repeats of the pattern. Must be a positive integer.
+            Cannot be used with `max_scan_duration`.
+        max_scan_duration : float or Quantity or str; default unit sec
             Maximum total scan time to determine number of repeats. Must be positive. 
-            Cannot be used with num_repeat.
-        num_repeat : int, default 1 
-            Number of repeats of the pattern. Must be >= 1
-            Cannot be used with max_scan_duration.
+            Cannot be used with `num_repeat`.
+        
+        Examples
+        ---------------------------
+        >>> import astropy.units as u
+        >>> Pong(num_term=4, width=2, height=7200*u.arcsec, spacing='500 arcsec', velocity=1/2)
         """
 
         # pass kwargs
         if param_json is None:
-            self.param = self._clean_param(**kwargs)
-            self.data = self._generate_scan()
+            self._param = self._clean_param(**kwargs)
 
         # pass parameters by json
         else:
-
-            if isinstance(param_json, str):
-                with open(param_json, 'r') as f:
-                    param = json.load(f)
-            elif isinstance(param_json, dict):
-                param = param_json
-            else:
-                raise TypeError('param_json')
-
+            with open(param_json, 'r') as f:
+                param = json.load(f)
+           
             # overwrite any parameters
             if 'max_scan_duration' in kwargs.keys():
                 param.pop('num_repeat')
-
             param.update(kwargs)
-            self.param = self._clean_param(**param)
 
-            self.data = self._generate_scan()
+            self._param = self._clean_param(**param)
+        
+        self._sample_interval = self._param['sample_interval']
+        self._data = self._generate_scan()
 
     def _clean_param(self, **kwargs):
         kwargs = super()._clean_param(**kwargs)
         kwargs['num_term'] = int(kwargs['num_term'])
-        kwargs['width'] = u.Quantity(kwargs['width'], u.deg).value
-        kwargs['height'] = u.Quantity(kwargs['height'], u.deg).value
-        kwargs['spacing'] = u.Quantity(kwargs['spacing'], u.deg).value
-        kwargs['velocity'] = u.Quantity(kwargs['velocity'], u.deg/u.s).value
-        kwargs['angle'] = u.Quantity(kwargs.get('angle', 0), u.deg).value
-        kwargs['sample_interval'] = u.Quantity(kwargs.get('sample_interval', 1/400), u.s).value
+        kwargs['width'] = u.Quantity(kwargs['width'], self._param_units['width']).value
+        kwargs['height'] = u.Quantity(kwargs['height'], self._param_units['height']).value
+        kwargs['spacing'] = u.Quantity(kwargs['spacing'], self._param_units['spacing']).value
+        kwargs['velocity'] = u.Quantity(kwargs['velocity'], self._param_units['velocity']).value
+        kwargs['angle'] = u.Quantity(kwargs.get('angle', 0), self._param_units['angle']).value
+        kwargs['sample_interval'] = u.Quantity(kwargs.get('sample_interval', 1/400), self._param_units['sample_interval']).value
         return kwargs
 
     def _generate_scan(self):
         
         # unpack parameters
-        num_term = self.num_term
-        width = self.width.value
-        height = self.height.value
-        spacing = self.spacing.value
-        velocity = self.velocity.value
-        sample_interval = self.sample_interval.value
+        num_term = self._param['num_term']
+        width = self._param['width']
+        height = self._param['height']
+        spacing = self._param['spacing']
+        velocity = self._param['velocity']
+        sample_interval = self._param['sample_interval']
 
-        angle = self.angle.to(u.rad).value
+        angle_rad = radians(self._param['angle'])
 
         # --- START OF ALGORITHM ---
 
@@ -382,9 +469,18 @@ class Pong(SkyPattern):
         peri_y = y_numvert * vert_spacing * 2 / vavg
         period = x_numvert * y_numvert * vert_spacing * 2 / vavg
 
-        pongcount = math.ceil(period/sample_interval)
         amp_x = x_numvert * vert_spacing / 2
         amp_y = y_numvert * vert_spacing / 2
+
+        # Determine number of repeats
+        num_repeat = self._param.get('num_repeat', 1)
+
+        if math.isnan(num_repeat):
+            max_scan_duration = self._param.pop('max_scan_duration') # only store number of repeats, not maximum scan duration
+            num_repeat = math.floor(max_scan_duration/period)
+            self._param['num_repeat'] = num_repeat
+
+        pongcount = math.ceil(period*num_repeat/sample_interval)
         
         # Calculate the grid positions and apply rotation angle. Load
         # data into a dataframe.    
@@ -398,23 +494,16 @@ class Pong(SkyPattern):
             x_coord1 = self._fourier_expansion(num_term, amp_x, t_count, peri_x)
             y_coord1 = self._fourier_expansion(num_term, amp_y, t_count, peri_y)
 
-            x_coord.append(x_coord1*cos(angle) - y_coord1*sin(angle))
-            y_coord.append(x_coord1*sin(angle) + y_coord1*cos(angle))
+            x_coord.append(x_coord1*cos(angle_rad) - y_coord1*sin(angle_rad))
+            y_coord.append(x_coord1*sin(angle_rad) + y_coord1*cos(angle_rad))
             time_offset.append(t_count)
             t_count += sample_interval
         
         # repeat pattern if necessary 
-        data = pd.DataFrame({
+        return pd.DataFrame({
             'time_offset': time_offset, 
             'x_coord': x_coord, 'y_coord': y_coord,
         })
-
-        # when we repeat this scan, the first location in the repeats will 
-        # not be exactly the first location of the original
-        x_repeat_offset = self._fourier_expansion(num_term, amp_x, t_count, peri_x)
-        y_repeat_offset = self._fourier_expansion(num_term, amp_y, t_count, peri_y)
-
-        return self._repeat_scan(data, x_repeat_offset, y_repeat_offset)
     
     def _fourier_expansion(self, num_term, amp, t_count, peri):
         N = num_term*2 - 1
@@ -430,112 +519,108 @@ class Pong(SkyPattern):
         return pos
 
 class Daisy(SkyPattern):
-    """See "CV Daisy - JCMT small area scanning patter" (JCMT TCS/UN/005) for details of implementation."""
+    """
+    The Daisy pattern is optimized for point sources and works by having the path of the camera module 
+    move at constant velocity and cross the center of the map at various angles.
 
-    _param_unit = {
+    See "CV Daisy - JCMT small area scanning pattern" (JCMT TCS/UN/005) for details of implementation.
+    """
+
+    _param_units = {
         'velocity': u.deg/u.s, 'start_acc': u.deg/u.s/u.s, 
         'R0': u.deg, 'Rt': u.deg, 'Ra': u.deg,
-        'T': u.s, 'sample_interval': u.s, 'y_offset': u.deg
+        'T': u.s, 'sample_interval': SkyPattern._stored_units['time_offset'], 'y_offset': u.deg
     }
-    repeatable=False
+    _repeatable = False
 
     def __init__(self, param_json=None, **kwargs) -> None:
         """
-        Initialize a daisy pattern by passing a parameter file or dictionary and optionally 
-        adding keywords to overwrite existing ones:
+        Initialize a Daisy pattern by passing a parameter file and overwriting any parameters with **kwargs:
             option1 : Daisy(param_json, **kwargs) 
         or building from scratch: 
             option2 : Daisy(**kwargs)
 
         Parameters
         ---------------------------
-        param_json : str or dict
-            Contains parameters used to generate pattern. 
-
-        **kwargs
-        velocity : angle-like/time-like, default unit deg/s
+        param_json : str or None
+            If `str` path to JSON file containing parameters. 
+        
+        Keyword Args
+        ----------------------------
+        velocity : float or Quanity or str; default unit deg/s
             Constant velocity (CV) for scan to go at. 
-        start_acc : acceleration-like, default unit deg/s^2
+        start_acc : float or Quanity or str; default unit deg/s^2
             Acceleration at start of pattern. Cannot be 0. 
-        R0 : angle-like, default unit deg
+        R0 : float or Quanity or str; default unit deg
             Radius R0. Must be positive.
-        Rt : angle-like, default unit deg
+        Rt : float or Quanity or str; default unit deg
             Turn radius. Must be positive.
-        Ra : angle-like, default unit deg
+        Ra : float or Quanity or str; default unit deg
             Avoidance radius. Must be non-negative. 
-        T : time-like, default unit sec
+        T : float or Quanity or str; default unit sec
             Total time of the simulation. Must be postivie. 
-        sample_interval : time-like, default 1/400, default unit sec
+        sample_interval : float or Quanity or str; default 1/400, default unit sec
             Time step. 
-        y_offset : angle-like, default 0, default unit deg
+        y_offset : float or Quanity or str; default 0, default unit deg
             Start offset in y. 
+
+        Examples
+        ----------------------------
+        >>> import astropy.units as u
+        >>> Daisy(velocity=1/3*u.deg/u.s, start_acc='0.2 deg/s/s', R0=0.47, Rt=800*u.arcsec, Ra='600 arcsec', T=300)
         """
 
         # pass kwargs
         if param_json is None:
-            self.param = self._clean_param(**kwargs)
-            self.data = self._generate_scan()
+            self._param = self._clean_param(**kwargs)
 
         # pass parameters by json
         else:
-
-            if isinstance(param_json, str):
-                with open(param_json, 'r') as f:
-                    param = json.load(f)
-            elif isinstance(param_json, dict):
-                param = param_json
-            else:
-                raise TypeError('param_json')
-
+            with open(param_json, 'r') as f:
+                param = json.load(f)
+           
+            # overwrite any parameters
             param.update(kwargs)
-            self.param = self._clean_param(**param)
-
-            self.data = self._generate_scan()
+            self._param = self._clean_param(**param)
+        
+        self._sample_interval = self._param['sample_interval']
+        self._data = self._generate_scan()
 
     def _clean_param(self, **kwargs):
-        kwargs['velocity'] = u.Quantity(kwargs['velocity'], u.deg/u.s).value
-        kwargs['start_acc'] = u.Quantity(kwargs['start_acc'], u.deg/u.s/u.s).value
-        kwargs['R0'] = u.Quantity(kwargs['R0'], u.deg).value
-        kwargs['Rt'] = u.Quantity(kwargs['Rt'], u.deg).value
-        kwargs['Ra'] = u.Quantity(kwargs['Ra'], u.deg).value
-        kwargs['T'] = u.Quantity(kwargs['T'], u.s).value
-        kwargs['sample_interval'] = u.Quantity(kwargs.get('sample_interval', 1/400), u.s).value
-        kwargs['y_offset'] = u.Quantity(kwargs.get('y_offset', 0), u.deg).value
+        kwargs['velocity'] = u.Quantity(kwargs['velocity'], self._param_units['velocity']).value
+        kwargs['start_acc'] = u.Quantity(kwargs['start_acc'], self._param_units['start_acc']).value
+        kwargs['R0'] = u.Quantity(kwargs['R0'], self._param_units['R0']).value
+        kwargs['Rt'] = u.Quantity(kwargs['Rt'], self._param_units['Rt']).value
+        kwargs['Ra'] = u.Quantity(kwargs['Ra'], self._param_units['Ra']).value
+        kwargs['T'] = u.Quantity(kwargs['T'], self._param_units['T']).value
+        kwargs['sample_interval'] = u.Quantity(kwargs.get('sample_interval', 1/400), self._param_units['sample_interval']).value
+        kwargs['y_offset'] = u.Quantity(kwargs.get('y_offset', 0), self._param_units['y_offset']).value
         return kwargs
         
     def _generate_scan(self):
 
         # unpack parameters
-        speed = self.velocity.to(u.arcsec/u.s).value
-        start_acc = self.start_acc.to(u.arcsec/u.s/u.s).value
-        R0 = self.R0.to(u.arcsec).value
-        Rt = self.Rt.to(u.arcsec).value
-        Ra = self.Ra.to(u.arcsec).value
-        T = self.T.to(u.s).value
-        dt = self.sample_interval.to(u.s).value
-        y_offset = self.y_offset.to(u.arcsec).value
+        param = self.param
 
-        # Determine whether the pattern will spiral and change dt accordingly.
-        # Spirals happen when the algorithm gets stuck turning as vx and vy, which are
-        # supposed to be a unit vector, get larger. Even if it doesn't spiral, 
-        # a large v_diff does not follow Ra well. The vx and vy vector will always
-        # increase, but poorer configurations will have a larger increase. 
+        speed = param['velocity'].to(u.arcsec/u.s).value
+        start_acc = param['start_acc'].to(u.arcsec/u.s/u.s).value
+        R0 = param['R0'].to(u.arcsec).value
+        Rt = param['Rt'].to(u.arcsec).value
+        Ra = param['Ra'].to(u.arcsec).value
+        T = param['T'].to(u.s).value
+        dt = param['sample_interval'].to(u.s).value
+        y_offset = param['y_offset'].to(u.arcsec).value
 
-        def v_diff(time_step):
-            vx1 = 1 - (speed*time_step)**2/(2*Rt**2) 
-            vy1 = speed*time_step/Rt + (speed*time_step)**3/(6*Rt**3)
-            return abs(sqrt(vx1**2 + vy1**2) - 1)
+        # If the sample rate is too low, sample at a higher frequency 
+        # and then only take a subset. 
 
-        sample_every = 1
-        if not math.isclose(v_diff(dt), 0, abs_tol=10**(-5)):
-            warnings.warn(f'dt = {dt} is a small sampling rate, turns may not look smooth')
+        good_dt = 1/150
+        if (dt > good_dt):
+            sample_every = math.ceil(dt/good_dt)
+            dt = dt/sample_every
+        else:
+            sample_every = 1
 
-            new_dt = dt
-            while not math.isclose(v_diff(new_dt), 0, abs_tol=10**(-5)):
-                sample_every += 1
-                new_dt = dt/sample_every
-            
-            dt = new_dt
             
         # --- START OF ALGORITHM ---
 
@@ -600,6 +685,12 @@ class Daisy(SkyPattern):
                     y += (s - s*s*s/Rt/Rt/6)*vy + s*s/Rt/2*Ny 
                     vx += -s*s/Rt/Rt/2*vx + (s/Rt + s*s*s/Rt/Rt/Rt/6)*Nx 
                     vy += -s*s/Rt/Rt/2*vy + (s/Rt + s*s*s/Rt/Rt/Rt/6)*Ny 
+
+                    # NOTE converting back into a unit vector, for long interations, the Daisy pattern starts spiraling out otherwise
+                    total_v = sqrt(vx**2 + vy**2)
+                    vx = vx/total_v
+                    vy = vy/total_v
+
                     test.append(sqrt(vx**2 + vy**2))
 
             # Store result for plotting and statistics
@@ -641,7 +732,7 @@ class Daisy(SkyPattern):
 
 class TelescopePattern():
     """
-    Representing the path in AZ/EL coordinates of the telescope's boresight.  
+    Representing the path in AZ/EL coordinates of the telescope's boresight.
     """
 
     _param_unit = {
