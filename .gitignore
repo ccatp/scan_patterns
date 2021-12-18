@@ -5,6 +5,5 @@ script.py
 **/.ipynb_checkpoints
 tutorials/*
 !tutorials/basics.ipynb
-!tutorials/simulations.ipynb
 !tutorials/plotting.ipynb
 .vscode

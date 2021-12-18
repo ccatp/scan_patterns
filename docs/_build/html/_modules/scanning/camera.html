@@ -41,10 +41,6 @@
 <span class="kn">from</span> <span class="nn">scipy.constants</span> <span class="kn">import</span> <span class="n">speed_of_light</span>
 <span class="kn">import</span> <span class="nn">astropy.units</span> <span class="k">as</span> <span class="nn">u</span>
 
-<span class="sd">&quot;&quot;&quot; </span>
-<span class="sd">- what if polarization is in alternate direction?</span>
-<span class="sd">&quot;&quot;&quot;</span>
-
 <span class="c1">#####################</span>
 <span class="c1">#   CAMERA MODULE</span>
 <span class="c1">#####################</span>
@@ -53,74 +49,84 @@
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Class for a single camera module (e.g. EoRSpec, CMBPol, SFH). Each module </span>
 <span class="sd">    consists of three wafers/detector arrays. Each wafter contains three rhombuses. </span>
-
-<span class="sd">    Attributes</span>
-<span class="sd">    ------------------</span>
-<span class="sd">    x : ndarray in astropy.units.Quantity (deg)</span>
-<span class="sd">        x offsets of detector pixel positions.</span>
-<span class="sd">    y : ndarray in astropy.units.Quantity (deg)</span>
-<span class="sd">        y offsets of detector pixel positions.</span>
-
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">_data_unit</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;pol&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;rhombus&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">dimensionless_unscaled</span><span class="p">,</span> <span class="s1">&#39;wafer&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">dimensionless_unscaled</span><span class="p">,</span> <span class="s1">&#39;pixel_num&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">dimensionless_unscaled</span><span class="p">}</span>
+    <span class="n">_stored_units</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;ang_res&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;pol&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">}</span>
 
-<div class="viewcode-block" id="Module.__init__"><a class="viewcode-back" href="../../intro.html#scanning.camera.Module.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="c1"># other attributes (for development):</span>
+    <span class="c1"># _stored_units</span>
+    <span class="c1"># _data</span>
+
+<div class="viewcode-block" id="Module.__init__"><a class="viewcode-back" href="../../intro.html#scanning.camera.Module.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Create a camera module either through:</span>
-<span class="sd">            | option1 : Module(data)</span>
+<span class="sd">            | option1 : Module(data, units)</span>
 <span class="sd">            | option2 : Module(freq=, F_lambda=)</span>
 <span class="sd">            | option3 : Module(wavelength=, F_lambda=)</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        --------------------</span>
-<span class="sd">        data : str; dict or pandas.DataFrame</span>
-<span class="sd">            If str, a file path to a csv file. </span>
-<span class="sd">            Must have columns: x, y (deg). Recommended to have columns: pol (deg), rhombus, and wafer. </span>
+<span class="sd">        data : str, dict or DataFrame</span>
+<span class="sd">            If `str`, a file path to a csv file. </span>
+<span class="sd">            Must have columns: x, y. Recommended to have columns: pol, rhombus, and wafer. </span>
+<span class="sd">        units : dict or None, default None</span>
+<span class="sd">            Mapping columns in `data` with their units. All columns do not need to be mapped.</span>
+<span class="sd">            If not provided, all applicable units are assumed to be in degrees. </span>
 <span class="sd">        </span>
 <span class="sd">        Keyword Arguments</span>
 <span class="sd">        -------------------</span>
-<span class="sd">        freq : float or sequence; default unit GHz</span>
-<span class="sd">            Center of frequency band.</span>
+<span class="sd">        freq : float or Quantity; default unit GHz</span>
+<span class="sd">            Center of frequency band. Must be positive. </span>
 <span class="sd">            If each wafer is different (such as EoRSpec), pass a three-length list like [freq1, freq2, freq3].</span>
-<span class="sd">        wavelength : float or sequence; default unit micron</span>
-<span class="sd">            Intended wavelength of light.</span>
+<span class="sd">        wavelength : float or Quantity; default unit micron</span>
+<span class="sd">            Intended wavelength of light. Must be positive. </span>
 <span class="sd">            If each wafer is different (such as EoRSpec), pass a three-length list like [wavelength1, wavelength2, wavelength3].</span>
 <span class="sd">        F_lambda : float; default 1.2</span>
 <span class="sd">            Factor for spacing between individual detectors.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------------------------</span>
+<span class="sd">        &gt;&gt;&gt; Module(&#39;file.csv&#39;, units={&#39;x&#39;: &#39;arcsec&#39;})</span>
+<span class="sd">        &gt;&gt;&gt; Module(freq=280, F_lambda=1.2)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
-        <span class="c1"># -- OPTION 1 --</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># PASS IN DATA</span>
 
-            <span class="c1"># using an existing Module object </span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-            <span class="c1"># passing a dictionary (likely from Instrument class)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;&quot;data&quot; could not be properly interpreted&#39;</span><span class="p">)</span>
 
             <span class="c1"># check for certain columns inside</span>
-
             <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;pol&#39;</span><span class="p">,</span> <span class="s1">&#39;rhombus&#39;</span><span class="p">,</span> <span class="s1">&#39;wafer&#39;</span><span class="p">]:</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">col</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
-                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;column </span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s1"> not in data, marking all columns values for </span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s1"> as 0&#39;</span><span class="p">)</span>
+                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;column </span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s1"> not in data, marking all column values for </span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s1"> as 0&#39;</span><span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
 
             <span class="k">if</span> <span class="ow">not</span> <span class="s1">&#39;pixel_num&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;pixel_num&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">index</span>
             
-            <span class="n">data_columns</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;pixel_num&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;pol&#39;</span><span class="p">,</span> <span class="s1">&#39;rhombus&#39;</span><span class="p">,</span> <span class="s1">&#39;wafer&#39;</span><span class="p">]</span>
+            <span class="n">data_columns</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;pixel_num&#39;</span><span class="p">,</span> <span class="s1">&#39;pol&#39;</span><span class="p">,</span> <span class="s1">&#39;rhombus&#39;</span><span class="p">,</span> <span class="s1">&#39;wafer&#39;</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="n">data_columns</span><span class="p">]</span>
+
+            <span class="c1"># find angular resolution</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_ang_res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_ang_res</span><span class="p">()</span>
 
-        <span class="c1"># -- OPTION 2 --</span>
+            <span class="c1"># convert to specified units</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">units</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">col</span><span class="p">,</span> <span class="n">unit</span> <span class="ow">in</span> <span class="n">units</span><span class="o">.</span><span class="n">itterrows</span><span class="p">():</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">Unit</span><span class="p">(</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="n">col</span><span class="p">])</span>
+
+        <span class="c1"># GENERATE MODULE</span>
+
         <span class="k">else</span><span class="p">:</span>
 
             <span class="c1"># check F_lambda</span>
             <span class="n">F_lambda</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;F_lambda&#39;</span><span class="p">,</span> <span class="mf">1.2</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">F_lambda</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;F_lambda = </span><span class="si">{</span><span class="n">F_lambda</span><span class="si">}</span><span class="s1"> must be positive&#39;</span><span class="p">)</span>
 
             <span class="c1"># get freq</span>
             <span class="k">if</span> <span class="s1">&#39;freq&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
@@ -140,8 +146,8 @@
 
     <span class="k">def</span> <span class="nf">_find_ang_res</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">ang_res</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">wafer</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;wafer&#39;</span><span class="p">]):</span>
-            <span class="n">temp_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;wafer&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">wafer</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(</span><span class="s1">&#39;list&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">wafer</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wafer</span><span class="p">):</span>
+            <span class="n">temp_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">wafer</span> <span class="o">==</span> <span class="n">wafer</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(</span><span class="s1">&#39;list&#39;</span><span class="p">)</span>
             <span class="n">ang_res</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span> <span class="p">(</span><span class="n">temp_dict</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">temp_dict</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">temp_dict</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">temp_dict</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span> <span class="p">)</span> <span class="p">)</span>
         
         <span class="k">if</span> <span class="n">math</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">ang_res</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ang_res</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="ow">and</span> <span class="n">math</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">ang_res</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ang_res</span><span class="p">[</span><span class="mi">2</span><span class="p">]):</span>
@@ -300,7 +306,7 @@
 
         <span class="k">return</span> <span class="n">ang_res</span><span class="p">,</span> <span class="n">data</span>
 
-    <span class="c1"># HELD DATA</span>
+    <span class="c1"># DATA</span>
 
 <div class="viewcode-block" id="Module.save_data"><a class="viewcode-back" href="../../intro.html#scanning.camera.Module.save_data">[docs]</a>    <span class="k">def</span> <span class="nf">save_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path_or_buf</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="s1">&#39;all&#39;</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -309,45 +315,104 @@
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------------------</span>
 <span class="sd">        path_or_buf : str, file handle or None; default None</span>
-<span class="sd">            File path or object, if None is provided the result is returned as a dictionary.</span>
-<span class="sd">        columns : sequence or str, default &#39;all&#39;</span>
-<span class="sd">            Columns to write. </span>
-<span class="sd">            &#39;all&#39; is [&#39;pixel_num&#39;, &#39;x&#39;, &#39;y&#39;, &#39;pol&#39;, &#39;rhombus&#39;, &#39;wafer&#39;]</span>
+<span class="sd">            File path or object, if `None` is provided the result is returned as a dictionary.</span>
+<span class="sd">        columns : sequence, str or (dict of str or Unit or None), default &#39;all&#39;</span>
+<span class="sd">            Columns to write. If `dict`, columns are keys and units are values and use `None` if column is unit-less.</span>
+<span class="sd">            &#39;all&#39; is [&#39;x&#39;, &#39;y&#39;, &#39;pol&#39;, &#39;pixel_num&#39;, &#39;rhombus&#39;, &#39;wafer&#39;]</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        ----------------------</span>
 <span class="sd">        None or dict</span>
-<span class="sd">            If path_or_buf is None, returns the resulting csv format as a dictionary. Otherwise returns None.</span>
+<span class="sd">            If `path_or_buf` is `None`, returns the resulting csv format as a dictionary. Otherwise returns `None`.</span>
+
+<span class="sd">        </span>
+<span class="sd">        Examples</span>
+<span class="sd">        ---------------------</span>
+<span class="sd">        &gt;&gt;&gt; # saves x, y, and rhombus</span>
+<span class="sd">        &gt;&gt;&gt; module.save_data(path_or_buf=&#39;file.csv&#39;, columns={&#39;x&#39;: &#39;arcsec&#39;, &#39;y&#39;: &#39;rad&#39;, &#39;rhombus&#39;: None})</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
 
-        <span class="c1"># checking columns</span>
         <span class="k">if</span> <span class="n">columns</span> <span class="o">==</span> <span class="s1">&#39;all&#39;</span><span class="p">:</span>
-            <span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;pixel_num&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;pol&#39;</span><span class="p">,</span> <span class="s1">&#39;rhombus&#39;</span><span class="p">,</span> <span class="s1">&#39;wafer&#39;</span><span class="p">]</span>
-        
-        <span class="c1"># write to path_or_buf</span>
+            <span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;pol&#39;</span><span class="p">,</span> <span class="s1">&#39;pixel_num&#39;</span><span class="p">,</span> <span class="s1">&#39;rhombus&#39;</span><span class="p">,</span> <span class="s1">&#39;wafer&#39;</span><span class="p">]</span>
+
+        <span class="c1"># unit conversions</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">columns</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">col</span><span class="p">,</span> <span class="n">unit</span> <span class="ow">in</span> <span class="n">columns</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">unit</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">data</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">col</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">data</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">col</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="n">columns</span><span class="p">]</span>
+
+        <span class="c1"># returning</span>
         <span class="k">if</span> <span class="n">path_or_buf</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="n">columns</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(</span><span class="s1">&#39;list&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">data</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(</span><span class="s1">&#39;list&#39;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">path_or_buf</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
+            <span class="n">data</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">path_or_buf</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
 
-    <span class="c1"># ATTRIBUTES</span>
-
-    <span class="c1"># data : x, y, pol, rhombus, wafer</span>
     <span class="k">def</span> <span class="fm">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">attr</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_unit</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span> <span class="ow">is</span> <span class="n">u</span><span class="o">.</span><span class="n">dimensionless_unscaled</span><span class="p">:</span>
-                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="c1"># for easy access of properties without unit conversions</span>
+        <span class="k">if</span> <span class="n">attr</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">):</span>
+            <span class="n">prop</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">prop</span><span class="p">)</span> <span class="ow">is</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">prop</span><span class="o">.</span><span class="n">value</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_data_unit</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span>
+                <span class="k">return</span> <span class="n">prop</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;invalid attribute </span><span class="si">{</span><span class="n">attr</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;type object &quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s1">&quot; has no attribute &quot;</span><span class="si">{</span><span class="n">attr</span><span class="si">}</span><span class="s1">&quot;&#39;</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">ang_res</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        (astropy.units.Quantity (deg) or list): Angular resolution, if multiple frequencies or wavelengths were provided, this will be a three-length sequence.  </span>
+<span class="sd">        (Quantity or Quantity array): Angular resolution, if multiple frequencies or wavelengths were provided, this will be a three-length sequence.  </span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ang_res</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ang_res</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;ang_res&#39;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">x</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        (astropy.units.Quantity (deg)): x offset of detector pixels.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">y</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        (Quantity array): y offset of detector pixels</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">pol</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        (Quantity array): Polarization geometry. </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;pol&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;pol&#39;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">pixel_num</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        (int array): Pixel mumber.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;pixel_num&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">rhombus</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        (int array): Rhombus number.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;rhombus&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">wafer</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        (int array): Wafer number.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;wafer&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span></div>
     
 
 <span class="c1"># some standard modules </span>

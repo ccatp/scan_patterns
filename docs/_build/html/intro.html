@@ -36,37 +36,15 @@
 <h1>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="scanning.camera.Module">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">scanning.camera.</span></span><span class="sig-name descname"><span class="pre">Module</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/camera.html#Module"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.camera.Module" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">scanning.camera.</span></span><span class="sig-name descname"><span class="pre">Module</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">units</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/camera.html#Module"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.camera.Module" title="Permalink to this definition">¶</a></dt>
 <dd><p>Class for a single camera module (e.g. EoRSpec, CMBPol, SFH). Each module
 consists of three wafers/detector arrays. Each wafter contains three rhombuses.</p>
-<dl class="py attribute">
-<dt class="sig sig-object py" id="scanning.camera.Module.x">
-<span class="sig-name descname"><span class="pre">x</span></span><a class="headerlink" href="#scanning.camera.Module.x" title="Permalink to this definition">¶</a></dt>
-<dd><p>x offsets of detector pixel positions.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p>ndarray in astropy.units.Quantity (deg)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="scanning.camera.Module.y">
-<span class="sig-name descname"><span class="pre">y</span></span><a class="headerlink" href="#scanning.camera.Module.y" title="Permalink to this definition">¶</a></dt>
-<dd><p>y offsets of detector pixel positions.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p>ndarray in astropy.units.Quantity (deg)</p>
-</dd>
-</dl>
-</dd></dl>
-
 <dl class="py method">
 <dt class="sig sig-object py" id="scanning.camera.Module.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/scanning/camera.html#Module.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.camera.Module.__init__" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">units</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/scanning/camera.html#Module.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.camera.Module.__init__" title="Permalink to this definition">¶</a></dt>
 <dd><dl>
 <dt>Create a camera module either through:</dt><dd><div class="line-block">
-<div class="line">option1 : Module(data)</div>
+<div class="line">option1 : Module(data, units)</div>
 <div class="line">option2 : Module(freq=, F_lambda=)</div>
 <div class="line">option3 : Module(wavelength=, F_lambda=)</div>
 </div>
@@ -74,30 +52,28 @@ consists of three wafers/detector arrays. Each wafter contains three rhombuses.<
 </dl>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>data</strong> (<em>str; dict</em><em> or </em><em>pandas.DataFrame</em>) – If str, a file path to a csv file.
-Must have columns: x, y (deg). Recommended to have columns: pol (deg), rhombus, and wafer.</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>str</em><em>, </em><em>dict</em><em> or </em><em>DataFrame</em>) – If <cite>str</cite>, a file path to a csv file.
+Must have columns: x, y. Recommended to have columns: pol, rhombus, and wafer.</p></li>
+<li><p><strong>units</strong> (<em>dict</em><em> or </em><em>None</em><em>, </em><em>default None</em>) – Mapping columns in <cite>data</cite> with their units. All columns do not need to be mapped.
+If not provided, all applicable units are assumed to be in degrees.</p></li>
+</ul>
 </dd>
 <dt class="field-even">Keyword Arguments</dt>
 <dd class="field-even"><ul class="simple">
-<li><p><strong>freq</strong> (<em>float</em><em> or </em><em>sequence; default unit GHz</em>) – Center of frequency band.
+<li><p><strong>freq</strong> (<em>float</em><em> or </em><em>Quantity; default unit GHz</em>) – Center of frequency band. Must be positive.
 If each wafer is different (such as EoRSpec), pass a three-length list like [freq1, freq2, freq3].</p></li>
-<li><p><strong>wavelength</strong> (<em>float</em><em> or </em><em>sequence; default unit micron</em>) – Intended wavelength of light.
+<li><p><strong>wavelength</strong> (<em>float</em><em> or </em><em>Quantity; default unit micron</em>) – Intended wavelength of light. Must be positive.
 If each wafer is different (such as EoRSpec), pass a three-length list like [wavelength1, wavelength2, wavelength3].</p></li>
 <li><p><strong>F_lambda</strong> (<em>float; default 1.2</em>) – Factor for spacing between individual detectors.</p></li>
 </ul>
 </dd>
 </dl>
-</dd></dl>
-
-<dl class="py property">
-<dt class="sig sig-object py" id="scanning.camera.Module.ang_res">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ang_res</span></span><a class="headerlink" href="#scanning.camera.Module.ang_res" title="Permalink to this definition">¶</a></dt>
-<dd><p>Angular resolution, if multiple frequencies or wavelengths were provided, this will be a three-length sequence.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p>(astropy.units.Quantity (deg) or list)</p>
-</dd>
-</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">Module</span><span class="p">(</span><span class="s1">&#39;file.csv&#39;</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="s1">&#39;arcsec&#39;</span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">Module</span><span class="p">(</span><span class="n">freq</span><span class="o">=</span><span class="mi">280</span><span class="p">,</span> <span class="n">F_lambda</span><span class="o">=</span><span class="mf">1.2</span><span class="p">)</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
@@ -107,16 +83,98 @@ If each wafer is different (such as EoRSpec), pass a three-length list like [wav
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>path_or_buf</strong> (<em>str</em><em>, </em><em>file handle</em><em> or </em><em>None; default None</em>) – File path or object, if None is provided the result is returned as a dictionary.</p></li>
-<li><p><strong>columns</strong> (<em>sequence</em><em> or </em><em>str</em><em>, </em><em>default 'all'</em>) – Columns to write.
-‘all’ is [‘pixel_num’, ‘x’, ‘y’, ‘pol’, ‘rhombus’, ‘wafer’]</p></li>
+<li><p><strong>path_or_buf</strong> (<em>str</em><em>, </em><em>file handle</em><em> or </em><em>None; default None</em>) – File path or object, if <cite>None</cite> is provided the result is returned as a dictionary.</p></li>
+<li><p><strong>columns</strong> (<em>sequence</em><em>, </em><em>str</em><em> or </em><em>(</em><em>dict of str</em><em> or </em><em>Unit</em><em> or </em><em>None</em><em>)</em><em>, </em><em>default 'all'</em>) – Columns to write. If <cite>dict</cite>, columns are keys and units are values and use <cite>None</cite> if column is unit-less.
+‘all’ is [‘x’, ‘y’, ‘pol’, ‘pixel_num’, ‘rhombus’, ‘wafer’]</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>If path_or_buf is None, returns the resulting csv format as a dictionary. Otherwise returns None.</p>
+<dd class="field-even"><p>If <cite>path_or_buf</cite> is <cite>None</cite>, returns the resulting csv format as a dictionary. Otherwise returns <cite>None</cite>.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>None or dict</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># saves x, y, and rhombus</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">module</span><span class="o">.</span><span class="n">save_data</span><span class="p">(</span><span class="n">path_or_buf</span><span class="o">=</span><span class="s1">&#39;file.csv&#39;</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="s1">&#39;arcsec&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="s1">&#39;rad&#39;</span><span class="p">,</span> <span class="s1">&#39;rhombus&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">})</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="scanning.camera.Module.ang_res">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ang_res</span></span><a class="headerlink" href="#scanning.camera.Module.ang_res" title="Permalink to this definition">¶</a></dt>
+<dd><p>Angular resolution, if multiple frequencies or wavelengths were provided, this will be a three-length sequence.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>(Quantity or Quantity array)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="scanning.camera.Module.pixel_num">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">pixel_num</span></span><a class="headerlink" href="#scanning.camera.Module.pixel_num" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pixel mumber.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>(int array)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="scanning.camera.Module.pol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">pol</span></span><a class="headerlink" href="#scanning.camera.Module.pol" title="Permalink to this definition">¶</a></dt>
+<dd><p>Polarization geometry.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>(Quantity array)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="scanning.camera.Module.rhombus">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">rhombus</span></span><a class="headerlink" href="#scanning.camera.Module.rhombus" title="Permalink to this definition">¶</a></dt>
+<dd><p>Rhombus number.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>(int array)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="scanning.camera.Module.wafer">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">wafer</span></span><a class="headerlink" href="#scanning.camera.Module.wafer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wafer number.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>(int array)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="scanning.camera.Module.x">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">x</span></span><a class="headerlink" href="#scanning.camera.Module.x" title="Permalink to this definition">¶</a></dt>
+<dd><p>x offset of detector pixels.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>(astropy.units.Quantity (deg))</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="scanning.camera.Module.y">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">y</span></span><a class="headerlink" href="#scanning.camera.Module.y" title="Permalink to this definition">¶</a></dt>
+<dd><p>y offset of detector pixels</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>(Quantity array)</p>
 </dd>
 </dl>
 </dd></dl>
