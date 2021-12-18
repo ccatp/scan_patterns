@@ -935,34 +935,14 @@ class TelescopePattern():
         # passed by module identifier or instrument slot name
         if isinstance(module, str):
             try:
-                module = self.instrument.get_location(module)
+                return self.instrument.get_location(module, from_boresight=True).value
             except ValueError:
                 try:
-                    module = self.instrument.slots[module]*u.deg
+                    return self.instrument.get_slot(module, from_boresight=True).value
                 except KeyError:
                     raise ValueError(f'{module} is not an existing module name or instrument slot')
         else:
-            module = [u.Quantity(module[0], u.deg), u.Quantity(module[1], u.deg)]
-
-        dist = module[0].value
-        theta = module[1].to(u.rad).value
-
-        # instrument rotation and offset
-        instr_x = self.instrument.instr_offset[0].value
-        instr_y = self.instrument.instr_offset[1].value
-        instr_rot = self.instrument.instr_rot.to(u.rad).value
-
-        # get true module location in terms of x and y
-        mod_x = dist*cos(theta)
-        mod_y = dist*sin(theta)
-
-        x_offset = mod_x*cos(instr_rot) - mod_y*sin(instr_rot) + instr_x
-        y_offset = mod_x*sin(instr_rot) + mod_y*cos(instr_rot) + instr_y
-
-        new_dist = sqrt(x_offset**2 + y_offset**2)
-        new_theta = math.degrees(math.atan2(y_offset, x_offset))
-
-        return new_dist, new_theta
+            return self.instrument.location_from_boresight(module[0], module[1]).value
 
     def _transform_to_boresight(self, az1, alt1, dist, theta):
 
@@ -1031,7 +1011,7 @@ class TelescopePattern():
 
         return self._norm_angle(np.degrees(az1)), np.degrees(alt1)
 
-    def view_module(self, module):
+    def view_module(self, module, includes_instr_offset=False):
         """
         Parameters
         ------------------------
@@ -1039,14 +1019,21 @@ class TelescopePattern():
             string indicating a module name in the instrument e.g. 'SFH'
             string indicating one of the default slots in the instrument e.g. 'c', 'i1'
             tuple of (distance, theta) indicating module's offset from the center of the instrument
+        includes_instr_offset : bool, default False
+            if "module" parameter is a tuple of (distance, theta), this includes the instrument offset
 
         Returns
         -------------------------
         TelescopePattern 
             a TelescopePattern object where the "boresight" is the path of the provided module
         """
-
-        dist, theta = self._true_module_loc(module)
+        
+        if includes_instr_offset:
+            assert(len(module) == 2)
+            dist, theta = u.Quantity(module[0], u.deg).value, u.Quantity(module[1], u.deg).value
+        else:
+            dist, theta = self._true_module_loc(module)
+            
         az1, alt1 = self._transform_from_boresight(self.az_coord.value, self.alt_coord.value, dist, theta)
 
         data = {'time_offset': self.time_offset.value, 'lst': self.lst.value, 'az_coord': az1, 'alt_coord': alt1}
@@ -1155,6 +1142,10 @@ class TelescopePattern():
         else:
             raise AttributeError(f'attribtue {attr} not found')
     
+    @property
+    def scan_duration(self):
+        return self.time_offset[-1] + self.sample_interval
+
     @property
     def sample_interval(self):
         return self._sample_interval*u.s

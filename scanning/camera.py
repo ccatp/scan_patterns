@@ -1,4 +1,5 @@
 import math
+from math import cos, sin, radians, degrees, sqrt
 import json
 import warnings
 from functools import wraps
@@ -23,6 +24,8 @@ class Module():
     # other attributes (for development):
     # _stored_units
     # _data: x, y, pol, pixel_num, rhombus, wafer
+    # _ang_res
+    # _freq
 
     # INITIALIZATION  
 
@@ -94,6 +97,8 @@ class Module():
             if not units is None:
                 for col, unit in units.items():
                     self._data[col] = self._data[col]*u.Unit(unit).to(self._stored_units[col])
+
+            self._data.astype({'pixel_num': int, 'pol': np.int16, 'rhombus': np.uint8, 'wafer': np.uint8})
 
             # find angular resolution and freq
             self._ang_res = self._find_ang_res()
@@ -427,10 +432,12 @@ class Instrument():
     """ A configurable instrument that holds modules. """
 
     # other attributes (for development)
-    # _modules
+    # _modules: mod_rot, distance, theta, module
+    # _slots
+    # _instr_rot
+    # _instr_offset
 
-    slots = dict()
-    _stored_units = {'distance': u.deg, 'theta': u.deg, 'mod_rot': u.deg}
+    _slots = dict()
 
     def __init__(self, data=None, instr_offset=(0, 0), instr_rot=0) -> None:
         """
@@ -447,6 +454,11 @@ class Instrument():
             Offset of the instrument from the boresight.
         instr_rot : float, Quantity or str; default 0, default unit deg
             CCW rotation of the instrument.
+
+        Raises 
+        -------------------------------
+        ValueError
+            could not parse "data"
 
         Examples
         ------------------------------
@@ -517,8 +529,8 @@ class Instrument():
         location : (float/Quantity/str, float/Quantity/str) or str; default unit deg
             A `tuple` containing the (distance, theta) from the center of the instrument in polar coordinates.
             Or a `str` of one of the default slot options. 
-        idenitifier : str or None
-            Name of the module. If user chose a default `module` option and this is `None`, then `identifier` will be its corresponging name. 
+        identifier : str or None
+            Name of the module. If user chose a default `module` option and this is `None`, then `identifier` will be its corresponding name. 
         mod_rot : float/Quantity/str; default 0, default unit deg
             CCW rotation of the module.
         """
@@ -544,7 +556,7 @@ class Instrument():
 
         # if a default option for location was chosen
         if isinstance(location, str):
-            location = self.slots[location]
+            location = self.slots[location].value
         else:
             location = u.Quantity(location, u.deg).value
 
@@ -564,7 +576,7 @@ class Instrument():
 
         Parameters
         -------------------------
-        idenitifier : str
+        identifier : str
             Name of the module to change. 
         new_location : (float/Quantity/str, float/Quantity/str) or str; default unit deg, optional
             A `tuple` containing the (distance, theta) from the center of the instrument in polar coordinates.
@@ -573,6 +585,11 @@ class Instrument():
             CCW rotation of the module.
         new_identifier : str, optional, optional
             New name of the module. 
+        
+        Raises
+        ---------------------------
+        ValueError
+            "identifier" is not valid
         """
     
         if new_identifier is None and new_location is None and new_mod_rot is None:
@@ -587,7 +604,7 @@ class Instrument():
         # change location
         if not new_location is None:
             if isinstance(new_location, str):
-                new_location = self.slots[new_location]
+                new_location = self.slots[new_location].value
             else:
                 if new_location[0] is None:
                     new_location[0] = self._modules[identifier]['dist']
@@ -609,8 +626,13 @@ class Instrument():
 
         Parameters
         -------------------------
-        idenitifier : str
+        identifier : str
             Name of the module. 
+
+        Raises
+        ---------------------------
+        ValueError
+            "identifier" is not valid
         """
         self._modules.pop(identifier)
 
@@ -639,12 +661,12 @@ class Instrument():
                 'dist': self._modules[identifier]['dist'], 
                 'theta': self._modules[identifier]['theta'],
                 'mod_rot': self._modules[identifier]['mod_rot'],
-                'pixel_num': [int(x) for x in self._modules[identifier]['module'].pixel_num],
-                'x': list(self._modules[identifier]['module'].x.value),
-                'y': list(self._modules[identifier]['module'].y.value),
-                'pol': list(self._modules[identifier]['module'].pol.value),
-                'rhombus': [int(x) for x in self._modules[identifier]['module'].rhombus],
-                'wafer': [int(x) for x in self._modules[identifier]['module'].wafer]
+                'x': self._modules[identifier]['module'].x.value.tolist(),
+                'y': self._modules[identifier]['module'].y.value.tolist(),
+                'pol': self._modules[identifier]['module'].pol.value.tolist(),
+                'pixel_num': self._modules[identifier]['module'].pixel_num.tolist(),
+                'rhombus': self._modules[identifier]['module'].rhombus.tolist(),
+                'wafer': self._modules[identifier]['module'].wafer.tolist()
             }
         
         # push configuration 
@@ -655,98 +677,251 @@ class Instrument():
                 json.dump(config, f)
     
     @_check_identifier
-    def get_module(self, identifier, with_rot=False) -> Module:
-        """
-        Return a Module object. 
-        
+    def get_module(self, identifier, with_mod_rot=False, with_instr_rot=False, with_instr_offset=False, with_mod_offset=False) -> Module:
+        """        
         Parameters
         -------------------------
-        idenitifier : str
+        identifier : str
             Name of the module. 
-        with_rot : bool; default False
-            Whether to apply instrument and module rotation to the returned `Module`. 
+        with_mod_rot, with_instr_rot, with_instr_offset, with_mod_offset : bool; default False
+            Whether to apply instrument and module rotation and offset to the returned `Module`. 
         
         Returns
         --------------------------
         Module 
+            `Module` object. 
+        
+        Raises
+        ---------------------------
+        ValueError
+            "identifier" is not valid
         """
 
-        if with_rot:
+        if not np.any([with_mod_rot, with_instr_rot, with_instr_offset, with_mod_offset]):
+            return self._modules[identifier]['module']
+        else:
+            mod_rot_rad = self.get_mod_rot(identifier).to(u.rad).value if with_mod_rot else 0
+            instr_rot_rad = self.instr_rot.to(u.rad).value if with_instr_rot else 0
+
+            mod_dist = self.get_dist(identifier).value if with_mod_offset else 0
+            mod_theta_rad = self.get_theta(identifier).to(u.rad).value if with_mod_offset else 0
+            mod_x = mod_dist*cos(mod_theta_rad)
+            mod_y = mod_dist*sin(mod_theta_rad)
+
+            instr_offset = self.instr_offset.value if with_instr_offset else (0, 0)
+
             data = self._modules[identifier]['module'].save_data()
             x = np.array(data['x'])
             y = np.array(data['y'])
-            mod_rot = self.get_mod_rot(identifier).to(u.rad).value
-            instr_rot = self.instr_rot.to(u.rad).value
 
-            data['x'] = x*math.cos(mod_rot + instr_rot) - y*math.sin(mod_rot + instr_rot)
-            data['y'] = x*math.sin(mod_rot + instr_rot) + y*math.cos(mod_rot + instr_rot)
+            data['x'] = x*cos(mod_rot_rad + instr_rot_rad) - y*sin(mod_rot_rad + instr_rot_rad) + mod_x + instr_offset[0]
+            data['y'] = x*sin(mod_rot_rad + instr_rot_rad) + y*cos(mod_rot_rad + instr_rot_rad) + mod_y + instr_offset[1]
+
             return Module(data)
-        else:
-            return self._modules[identifier]['module']
 
     @_check_identifier
-    def get_dist(self, identifier) -> u.Quantity:
+    def get_dist(self, identifier, from_boresight=False):
         """
-        Get distance of module from the center of the instrument.
-
         Parameters
         -------------------------
-        idenitifier : str
+        identifier : str
             Name of the module. 
+        from_boresight : bool; default False
+            From the boresight (`True`) or from the center of the instrument (`False`). 
 
         Returns
         -------------------------
         Quantity
-        """
-        return self._modules[identifier]['dist']*u.deg
-    
-    @_check_identifier
-    def get_theta(self, identifier) -> u.Quantity:
-        """
-        Get angle of module from the center of the instrument.
+            Distance away of the module in polar coordinates. 
 
+        Raises
+        ---------------------------
+        ValueError
+            "identifier" is not valid
+        """
+        return self.get_location(identifier, from_boresight)[0]
+
+    @_check_identifier
+    def get_theta(self, identifier, from_boresight=False):
+        """
         Parameters
         -------------------------
-        idenitifier : str
+        identifier : str
             Name of the module. 
+        from_boresight : bool; default False
+            From the boresight (`True`) or from the center of the instrument (`False`). 
 
         Returns
         -------------------------
         Quantity 
+            Angle of the module in polar coordinates. 
+        
+        Raises
+        ---------------------------
+        ValueError
+            "identifier" is not valid
         """
-        return self._modules[identifier]['theta']*u.deg
+        return self.get_location(identifier, from_boresight)[1]
     
     @_check_identifier
-    def get_mod_rot(self, identifier) -> u.Quantity:
+    def get_mod_rot(self, identifier, with_instr_rot=False):
         """
         Get rotation of module from the center of the instrument.
 
         Parameters
         -------------------------
-        idenitifier : str
+        identifier : str
             Name of the module. 
+        with_instr_rot : bool; default False
+            Whether to include instrument rotation. 
 
         Returns
         --------------------------
         Quantity
+            Rotation of the module 
+
+        Raises
+        ---------------------------
+        ValueError
+            "identifier" is not valid
         """
-        return self._modules[identifier]['mod_rot']*u.deg
+        if with_instr_rot:
+            return self._modules[identifier]['mod_rot']*u.deg + self.instr_rot
+        else:
+            return self._modules[identifier]['mod_rot']*u.deg
 
     @_check_identifier
-    def get_location(self, identifier) -> u.Quantity:
+    def get_location(self, identifier, from_boresight=False, polar=True):
         """
-        Get location of module from the center of the instrument
-
         Parameters
         -------------------------
-        idenitifier : str
+        identifier : str
             Name of the module. 
+        from_boresight : bool; default False
+            From the boresight (`True`) or from the center of the instrument (`False`). 
+        polar : bool; default True
+            In polar coordinates (`True`) or in cartesian coordinates (`False`)
 
         Returns
         ---------------------------
         Quantity two-tuple
+            (distance, theta) location of module.
+
+        Raises
+        ---------------------------
+        ValueError
+            "identifier" is not valid
         """
-        return [self._modules[identifier]['dist'], self._modules[identifier]['theta']]*u.deg
+
+        # get module location from center of instrument in x and y
+        dist = self._modules[identifier]['dist']
+        theta = self._modules[identifier]['theta']
+
+        if from_boresight:
+            theta_rad = radians(theta)
+            mod_x = dist*cos(theta_rad)
+            mod_y = dist*sin(theta_rad)
+
+            # get rotation and offset
+            instr_x = self.instr_offset[0].value
+            instr_y = self.instr_offset[1].value
+            instr_rot_rad = self.instr_rot.to(u.rad).value
+            mod_rot_rad = radians(self._modules[identifier]['mod_rot'])
+
+            # get module location from boresight in x and y
+            new_mod_x = mod_x*cos(instr_rot_rad + mod_rot_rad) - mod_y*sin(instr_rot_rad + mod_rot_rad) + instr_x
+            new_mod_y = mod_x*sin(instr_rot_rad + mod_rot_rad) + mod_y*cos(instr_rot_rad + mod_rot_rad) + instr_y
+
+            new_dist = sqrt(new_mod_x**2 + new_mod_y**2)
+            new_theta = degrees(math.atan2(new_mod_y, new_mod_x))
+
+            dist = new_dist 
+            theta = new_theta
+
+        if polar:
+            return (dist, theta)*u.deg
+        else:
+            return (dist*cos(radians(theta)), dist*sin(radians(theta)))*u.deg
+
+    def get_slot(self, slot_name, from_boresight=False, polar=True):
+        """
+        Parameters
+        -------------------------
+        slot_name : str
+            Name of slot. 
+        from_boresight : bool; default False
+            From the boresight (`True`) or from the center of the instrument (`False`). 
+        polar : bool; default True
+            In polar coordinates (`True`) or in cartesian coordinates (`False`)
+
+        Returns
+        ---------------------------
+        Quantity two-tuple
+            (distance, theta) location of slot.
+
+        Raises
+        ---------------------------
+        ValueError
+            "slot_name" is not valid
+        """
+
+        # get slot location from center of instrument in x and y
+        try:
+            dist = self.slots[slot_name][0].value
+            theta = self.slots[slot_name][1].value
+        except KeyError:
+            raise ValueError(f'"slot_name" {slot_name} is not valid')
+
+        if from_boresight:
+            return self.location_from_boresight(dist, theta, polar)
+
+        if polar:
+            return (dist, theta)*u.deg
+        else:
+            return (dist*cos(radians(theta)), dist*sin(radians(theta)))*u.deg
+
+    def location_from_boresight(self, dist, theta, polar=True):
+        """
+        Given a location relative to the center of the instrument, find the 
+        location relative to the boresight. 
+
+        Parameters
+        -------------------
+        dist : float, Quantity, or str; default unit deg
+            Distance away from the center of the instrument.
+        theta : float, Quantity, or str; default unit deg
+            Angle away from the center of the instrument in polar coordinates. 
+        polar : bool; default True
+            In polar coordinates (`True`) or in cartesian coordinates (`False`)
+
+        Returns
+        ---------------------------
+        Quantity two-tuple
+            (distance, theta) location of slot. 
+        
+        """
+
+        dist = u.Quantity(dist, u.deg).value
+        theta_rad = u.Quantity(theta, u.deg).to(u.rad).value
+
+        instr_x = self.instr_offset[0].value
+        instr_y = self.instr_offset[1].value
+        instr_rot_rad = self.instr_rot.to(u.rad).value
+
+        # get true module location in terms of x and y
+        orignal_x = dist*cos(theta_rad)
+        original_y = dist*sin(theta_rad)
+
+        x_offset = orignal_x*cos(instr_rot_rad) - original_y*sin(instr_rot_rad) + instr_x
+        y_offset = orignal_x*sin(instr_rot_rad) + original_y*cos(instr_rot_rad) + instr_y
+
+        new_dist = sqrt(x_offset**2 + y_offset**2)
+        new_theta = math.degrees(math.atan2(y_offset, x_offset))  
+
+        if polar:
+            return (new_dist, new_theta)*u.deg
+        else:
+            return (new_dist*cos(radians(new_theta)), new_dist*sin(radians(new_theta)))*u.deg
 
     # ATTRIBUTES 
 
@@ -763,11 +938,12 @@ class Instrument():
     @property
     def slots(self):
         """dict of str -> Quantity two-tuple: Map of slot name to their (distance, theta) from the center of the instrument."""
-        return self.slots.copy()
+        return {slot_name: slot_loc*u.deg for slot_name, slot_loc in self._slots.items()}
 
     @property
     def modules(self):
-        return self.modules.copy()
+        """list of str: list of module identifiers inside the instrument."""
+        return [module_name for module_name in self._modules.keys()]
 
     # SETTERS
 
@@ -781,14 +957,14 @@ class Instrument():
 
 
 class ModCam(Instrument): 
-    slots = {'c': (0, 0)}
+    _slots = {'c': (0, 0)}
 
 class PrimeCam(Instrument):
 
     # default configuration of optics tubes at 0 deg elevation 
     # in terms of (radius from center [deg], angle [deg])
     _default_ir = 1.78
-    slots = {
+    _slots = {
         'c': (0, 0), 
         'i1': (_default_ir, -90), 'i2': (_default_ir, -30), 'i3': (_default_ir, 30), 'i4': (_default_ir, 90), 'i5': (_default_ir, 150), 'i6': (_default_ir, -150),
     }

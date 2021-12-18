@@ -1,6 +1,6 @@
 Introduction
 =================================
 
-.. autoclass:: scanning.camera.Module
+.. autoclass:: scanning.camera.Instrument
     :members:
     :special-members: __init__

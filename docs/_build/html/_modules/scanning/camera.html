@@ -31,10 +31,11 @@
           <div class="body" role="main">
             
   <h1>Source code for scanning.camera</h1><div class="highlight"><pre>
-<span></span><span class="c1"># imports</span>
-<span class="kn">import</span> <span class="nn">math</span>
+<span></span><span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">cos</span><span class="p">,</span> <span class="n">sin</span><span class="p">,</span> <span class="n">radians</span><span class="p">,</span> <span class="n">degrees</span><span class="p">,</span> <span class="n">sqrt</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">wraps</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
@@ -45,19 +46,21 @@
 <span class="c1">#   CAMERA MODULE</span>
 <span class="c1">#####################</span>
 
-<div class="viewcode-block" id="Module"><a class="viewcode-back" href="../../intro.html#scanning.camera.Module">[docs]</a><span class="k">class</span> <span class="nc">Module</span><span class="p">():</span>
+<span class="k">class</span> <span class="nc">Module</span><span class="p">():</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Class for a single camera module (e.g. EoRSpec, CMBPol, SFH). Each module </span>
 <span class="sd">    consists of three wafers/detector arrays. Each wafter contains three rhombuses. </span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">_stored_units</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;ang_res&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;pol&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">}</span>
+    <span class="n">_stored_units</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;ang_res&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;pol&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;freq&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">Hz</span><span class="o">*</span><span class="mi">10</span><span class="o">**</span><span class="mi">9</span><span class="p">}</span>
 
     <span class="c1"># other attributes (for development):</span>
     <span class="c1"># _stored_units</span>
-    <span class="c1"># _data</span>
+    <span class="c1"># _data: x, y, pol, pixel_num, rhombus, wafer</span>
 
-<div class="viewcode-block" id="Module.__init__"><a class="viewcode-back" href="../../intro.html#scanning.camera.Module.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="c1"># INITIALIZATION  </span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Create a camera module either through:</span>
 <span class="sd">            | option1 : Module(data, units)</span>
@@ -66,28 +69,36 @@
 
 <span class="sd">        Parameters</span>
 <span class="sd">        --------------------</span>
-<span class="sd">        data : str, dict or DataFrame</span>
-<span class="sd">            If `str`, a file path to a csv file. </span>
+<span class="sd">        data : str, DataFrame or [dict of str -&gt; sequence]</span>
+<span class="sd">            If `str`, a file path to a csv file. If `dict` or `DataFrame`, column names map to their values. </span>
 <span class="sd">            Must have columns: x, y. Recommended to have columns: pol, rhombus, and wafer. </span>
-<span class="sd">        units : dict or None, default None</span>
+<span class="sd">        units : [dict of str -&gt; str or Unit] or None; default None</span>
 <span class="sd">            Mapping columns in `data` with their units. All columns do not need to be mapped.</span>
 <span class="sd">            If not provided, all applicable units are assumed to be in degrees. </span>
 <span class="sd">        </span>
 <span class="sd">        Keyword Arguments</span>
 <span class="sd">        -------------------</span>
-<span class="sd">        freq : float or Quantity; default unit GHz</span>
+<span class="sd">        freq : float, Quantity or str; default unit GHz</span>
 <span class="sd">            Center of frequency band. Must be positive. </span>
 <span class="sd">            If each wafer is different (such as EoRSpec), pass a three-length list like [freq1, freq2, freq3].</span>
-<span class="sd">        wavelength : float or Quantity; default unit micron</span>
+<span class="sd">        wavelength : float, Quantity or str; default unit micron</span>
 <span class="sd">            Intended wavelength of light. Must be positive. </span>
 <span class="sd">            If each wafer is different (such as EoRSpec), pass a three-length list like [wavelength1, wavelength2, wavelength3].</span>
 <span class="sd">        F_lambda : float; default 1.2</span>
 <span class="sd">            Factor for spacing between individual detectors.</span>
 
+<span class="sd">        Raises</span>
+<span class="sd">        -------------------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            `data` could not be properly interpreted.</span>
+<span class="sd">        TypeError</span>
+<span class="sd">            Missing parameters or unneccesary keywords.</span>
+
 <span class="sd">        Examples</span>
 <span class="sd">        --------------------------</span>
-<span class="sd">        &gt;&gt;&gt; Module(&#39;file.csv&#39;, units={&#39;x&#39;: &#39;arcsec&#39;})</span>
+<span class="sd">        &gt;&gt;&gt; Module(&#39;file.csv&#39;, units={&#39;x&#39;: &#39;arcsec&#39;}) # specify x is in arcsec</span>
 <span class="sd">        &gt;&gt;&gt; Module(freq=280, F_lambda=1.2)</span>
+<span class="sd">        &gt;&gt;&gt; Module(wavelength=&#39;350 micron&#39;)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="c1"># PASS IN DATA</span>
@@ -113,13 +124,16 @@
             <span class="n">data_columns</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;pixel_num&#39;</span><span class="p">,</span> <span class="s1">&#39;pol&#39;</span><span class="p">,</span> <span class="s1">&#39;rhombus&#39;</span><span class="p">,</span> <span class="s1">&#39;wafer&#39;</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="n">data_columns</span><span class="p">]</span>
 
-            <span class="c1"># find angular resolution</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_ang_res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_ang_res</span><span class="p">()</span>
-
             <span class="c1"># convert to specified units</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">units</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">for</span> <span class="n">col</span><span class="p">,</span> <span class="n">unit</span> <span class="ow">in</span> <span class="n">units</span><span class="o">.</span><span class="n">itterrows</span><span class="p">():</span>
+                <span class="k">for</span> <span class="n">col</span><span class="p">,</span> <span class="n">unit</span> <span class="ow">in</span> <span class="n">units</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">Unit</span><span class="p">(</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="n">col</span><span class="p">])</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">astype</span><span class="p">({</span><span class="s1">&#39;pixel_num&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="s1">&#39;pol&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">,</span> <span class="s1">&#39;rhombus&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">,</span> <span class="s1">&#39;wafer&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">})</span>
+
+            <span class="c1"># find angular resolution and freq</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ang_res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_ang_res</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_freq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_freq</span><span class="p">()</span>
 
         <span class="c1"># GENERATE MODULE</span>
 
@@ -130,30 +144,41 @@
 
             <span class="c1"># get freq</span>
             <span class="k">if</span> <span class="s1">&#39;freq&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-                <span class="n">freq</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;freq&#39;</span><span class="p">),</span> <span class="n">u</span><span class="o">.</span><span class="n">Hz</span><span class="o">*</span><span class="mi">10</span><span class="o">**</span><span class="mi">9</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+                <span class="n">freq</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;freq&#39;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;freq&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">value</span>
             <span class="k">elif</span> <span class="s1">&#39;wavelength&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
                 <span class="n">wavelength</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;wavelength&#39;</span><span class="p">),</span> <span class="n">u</span><span class="o">.</span><span class="n">micron</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">m</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
                 <span class="n">freq</span> <span class="o">=</span> <span class="n">speed_of_light</span><span class="o">/</span><span class="n">wavelength</span><span class="o">/</span><span class="mi">10</span><span class="o">**</span><span class="mi">9</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;cannot create Module without one of file, freq, or wavelength&#39;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;cannot create Module without one of file, freq, or wavelength&#39;</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="n">kwargs</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;unneccary keywords passed: </span><span class="si">{</span><span class="n">kwargs</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;unneccary keywords passed: </span><span class="si">{</span><span class="n">kwargs</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
 
-            <span class="bp">self</span><span class="o">.</span><span class="n">_ang_res</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_module</span><span class="p">(</span><span class="n">freq</span><span class="p">,</span> <span class="n">F_lambda</span><span class="p">)</span>        </div>
-
-    <span class="c1"># INITIALIZATION    </span>
-
+            <span class="bp">self</span><span class="o">.</span><span class="n">_freq</span> <span class="o">=</span> <span class="n">freq</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ang_res</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_module</span><span class="p">(</span><span class="n">freq</span><span class="p">,</span> <span class="n">F_lambda</span><span class="p">)</span>        
+  
     <span class="k">def</span> <span class="nf">_find_ang_res</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">ang_res</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">wafer</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wafer</span><span class="p">):</span>
             <span class="n">temp_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">wafer</span> <span class="o">==</span> <span class="n">wafer</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(</span><span class="s1">&#39;list&#39;</span><span class="p">)</span>
             <span class="n">ang_res</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span> <span class="p">(</span><span class="n">temp_dict</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">temp_dict</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">temp_dict</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">temp_dict</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span> <span class="p">)</span> <span class="p">)</span>
         
-        <span class="k">if</span> <span class="n">math</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">ang_res</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ang_res</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="ow">and</span> <span class="n">math</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">ang_res</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ang_res</span><span class="p">[</span><span class="mi">2</span><span class="p">]):</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">([</span><span class="n">ang_res</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="o">*</span><span class="nb">len</span><span class="p">(</span><span class="n">ang_res</span><span class="p">),</span> <span class="n">ang_res</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">ang_res</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">ang_res</span>
+
+    <span class="k">def</span> <span class="nf">_find_freq</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">freq</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">wafer</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wafer</span><span class="p">):</span>
+            <span class="n">num_wafer_pixels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wafer</span> <span class="o">==</span> <span class="n">wafer</span><span class="p">)</span>
+            <span class="n">freq0</span> <span class="o">=</span> <span class="mi">280</span><span class="o">*</span><span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">num_wafer_pixels</span><span class="o">/</span><span class="mi">3</span><span class="p">)</span><span class="o">/</span><span class="mi">24</span>
+            <span class="n">freq</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">freq0</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">([</span><span class="n">freq</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="o">*</span><span class="nb">len</span><span class="p">(</span><span class="n">freq</span><span class="p">),</span> <span class="n">freq</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">freq</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">freq</span>
 
     <span class="k">def</span> <span class="nf">_waferpixelpos</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">numrows</span><span class="p">,</span> <span class="n">numcols</span><span class="p">,</span> <span class="n">numrhombus</span><span class="p">,</span> <span class="n">centeroffset</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Obtains pixel positions in a wafer, origin centered at wafer center&quot;&quot;&quot;</span>
@@ -306,9 +331,9 @@
 
         <span class="k">return</span> <span class="n">ang_res</span><span class="p">,</span> <span class="n">data</span>
 
-    <span class="c1"># DATA</span>
+    <span class="c1"># METHODS</span>
 
-<div class="viewcode-block" id="Module.save_data"><a class="viewcode-back" href="../../intro.html#scanning.camera.Module.save_data">[docs]</a>    <span class="k">def</span> <span class="nf">save_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path_or_buf</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="s1">&#39;all&#39;</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">save_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path_or_buf</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="s1">&#39;all&#39;</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Write Module object to csv file.</span>
 
@@ -316,14 +341,14 @@
 <span class="sd">        ----------------------</span>
 <span class="sd">        path_or_buf : str, file handle or None; default None</span>
 <span class="sd">            File path or object, if `None` is provided the result is returned as a dictionary.</span>
-<span class="sd">        columns : sequence, str or (dict of str or Unit or None), default &#39;all&#39;</span>
-<span class="sd">            Columns to write. If `dict`, columns are keys and units are values and use `None` if column is unit-less.</span>
+<span class="sd">        columns : sequence, str or [dict of str -&gt; str/Unit/None]; default &#39;all&#39;</span>
+<span class="sd">            Columns to write. If `dict`, map column names to their desired unit and use `None` if column is unit-less.</span>
 <span class="sd">            &#39;all&#39; is [&#39;x&#39;, &#39;y&#39;, &#39;pol&#39;, &#39;pixel_num&#39;, &#39;rhombus&#39;, &#39;wafer&#39;]</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        ----------------------</span>
-<span class="sd">        None or dict</span>
-<span class="sd">            If `path_or_buf` is `None`, returns the resulting csv format as a dictionary. Otherwise returns `None`.</span>
+<span class="sd">        None or [dict of str -&gt; array]</span>
+<span class="sd">            If `path_or_buf` is `None`, returns the data as a dictionary mapping column name to values. Otherwise returns `None`.</span>
 
 <span class="sd">        </span>
 <span class="sd">        Examples</span>
@@ -340,11 +365,11 @@
 
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">columns</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
             <span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
-            <span class="k">for</span> <span class="n">col</span><span class="p">,</span> <span class="n">unit</span> <span class="ow">in</span> <span class="n">columns</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">col</span><span class="p">,</span> <span class="n">unit</span> <span class="ow">in</span> <span class="n">columns</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">unit</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">data</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">col</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+                    <span class="n">data</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">col</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="n">data</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">col</span>
+                    <span class="n">data</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">col</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="n">columns</span><span class="p">]</span>
 
@@ -352,7 +377,9 @@
         <span class="k">if</span> <span class="n">path_or_buf</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">data</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(</span><span class="s1">&#39;list&#39;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">data</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">path_or_buf</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
+            <span class="n">data</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">path_or_buf</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># ATTRIBUTES </span>
 
     <span class="k">def</span> <span class="fm">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr</span><span class="p">):</span>
         <span class="c1"># for easy access of properties without unit conversions</span>
@@ -368,51 +395,58 @@
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">ang_res</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        (Quantity or Quantity array): Angular resolution, if multiple frequencies or wavelengths were provided, this will be a three-length sequence.  </span>
+<span class="sd">        Quantity or Quantity array: Angular resolution. If multiple frequencies or wavelengths were provided, this will be a three-length sequence.  </span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ang_res</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;ang_res&#39;</span><span class="p">]</span>
 
     <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">freq</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Quantity or Quantity array: Center of frequency band. If multiple frequencies or wavelengths were provided, this will be a three-length sequence.  </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_freq</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;freq&#39;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">x</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        (astropy.units.Quantity (deg)): x offset of detector pixels.</span>
+<span class="sd">        Quantity array: x offset of detector pixels.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>
     
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">y</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        (Quantity array): y offset of detector pixels</span>
+<span class="sd">        Quantity array: y offset of detector pixels</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]</span>
     
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">pol</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        (Quantity array): Polarization geometry. </span>
+<span class="sd">        Quantity array: Polarization geometry. </span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;pol&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;pol&#39;</span><span class="p">]</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">pixel_num</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        (int array): Pixel mumber.</span>
+<span class="sd">        int array: Pixel mumber.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;pixel_num&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
     
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">rhombus</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        (int array): Rhombus number.</span>
+<span class="sd">        int array: Rhombus number.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;rhombus&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">wafer</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        (int array): Wafer number.</span>
+<span class="sd">        int array: Wafer number.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;wafer&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;wafer&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
     
 
 <span class="c1"># some standard modules </span>
@@ -425,14 +459,15 @@
 <span class="c1">#     INSTRUMENT</span>
 <span class="c1">#######################</span>
 
-<span class="k">class</span> <span class="nc">Instrument</span><span class="p">():</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    A configurable instrument that holds modules. </span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="Instrument"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument">[docs]</a><span class="k">class</span> <span class="nc">Instrument</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot; A configurable instrument that holds modules. &quot;&quot;&quot;</span>
 
-    <span class="n">slots</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="c1"># other attributes (for development)</span>
+    <span class="c1"># _modules: mod_rot, distance, theta, module</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">instr_offset</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">instr_rot</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">_slots</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Instrument.__init__"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">instr_offset</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">instr_rot</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initialize a filled Instrument:</span>
 <span class="sd">            option 1: Instrument(data) </span>
@@ -442,11 +477,22 @@
 <span class="sd">        Parameters</span>
 <span class="sd">        -----------------------------</span>
 <span class="sd">        data : str or dict</span>
-<span class="sd">            File path to json file or dict object. Overwrites instr_offset and instr_rot. In degrees unit. </span>
-<span class="sd">        instr_offset : (angle-like, angle-like), default (0, 0), default unit deg</span>
-<span class="sd">            offset of the instrument from the boresight</span>
-<span class="sd">        instr_rot : angle-like, default 0, default unit deg</span>
-<span class="sd">            CCW rotation of the instrument</span>
+<span class="sd">            File path to json file or dict object. Overwrites `instr_offset` and `instr_rot`. Applicable values are in degrees unit. </span>
+<span class="sd">        instr_offset : (float/Quantity/str, float/Quantity/str); default (0, 0), default unit deg</span>
+<span class="sd">            Offset of the instrument from the boresight.</span>
+<span class="sd">        instr_rot : float, Quantity or str; default 0, default unit deg</span>
+<span class="sd">            CCW rotation of the instrument.</span>
+
+<span class="sd">        Raises </span>
+<span class="sd">        -------------------------------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            could not parse &quot;data&quot;</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        ------------------------------</span>
+<span class="sd">        &gt;&gt;&gt; import astropy.units as u</span>
+<span class="sd">        &gt;&gt;&gt; Instrument(inst_offset=(0, &#39;100 arcsec&#39;), instr_rot=3.14*u.rad)</span>
+<span class="sd">        &gt;&gt;&gt; Instrument(&#39;file.json&#39;)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="c1"># config file is passed</span>
@@ -458,24 +504,26 @@
             <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
                 <span class="n">config</span> <span class="o">=</span> <span class="n">data</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;data&#39;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;cannot parse &quot;data&quot;&#39;</span><span class="p">)</span>
 
-            <span class="bp">self</span><span class="o">.</span><span class="n">_instr_offset</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;instr_offset&#39;</span><span class="p">]</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_instr_rot</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;instr_rot&#39;</span><span class="p">]</span>
-
-            <span class="c1"># populate modules</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
-            <span class="k">for</span> <span class="n">identifier</span> <span class="ow">in</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;modules&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">prop</span><span class="p">:</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;modules&#39;</span><span class="p">][</span><span class="n">identifier</span><span class="p">]</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">prop</span><span class="p">)</span> <span class="k">for</span> <span class="n">prop</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;dist&#39;</span><span class="p">,</span> <span class="s1">&#39;theta&#39;</span><span class="p">,</span> <span class="s1">&#39;mod_rot&#39;</span><span class="p">)}</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;module&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Module</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;modules&#39;</span><span class="p">][</span><span class="n">identifier</span><span class="p">])</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># populate modules</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">identifier</span> <span class="ow">in</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;modules&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">prop</span><span class="p">:</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;modules&#39;</span><span class="p">][</span><span class="n">identifier</span><span class="p">]</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">prop</span><span class="p">)</span> <span class="k">for</span> <span class="n">prop</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;dist&#39;</span><span class="p">,</span> <span class="s1">&#39;theta&#39;</span><span class="p">,</span> <span class="s1">&#39;mod_rot&#39;</span><span class="p">)}</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;module&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Module</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;modules&#39;</span><span class="p">][</span><span class="n">identifier</span><span class="p">])</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">KeyError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;could not parse &quot;data&quot;&#39;</span><span class="p">)</span>
+            
+            <span class="bp">self</span><span class="o">.</span><span class="n">instr_offset</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;instr_offset&#39;</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">instr_rot</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;instr_rot&#39;</span><span class="p">]</span>
 
         <span class="c1"># empty instrument</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_instr_offset</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">instr_offset</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_instr_rot</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">instr_rot</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">instr_rot</span> <span class="o">=</span> <span class="n">instr_rot</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">instr_offset</span> <span class="o">=</span> <span class="n">instr_offset</span>
             
-            <span class="c1"># initialize empty dictionary of module objects </span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span></div>
     
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">instr_repr</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;instrument: offset </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">instr_offset</span><span class="si">}</span><span class="s1">, rotation </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">instr_rot</span><span class="si">}</span><span class="se">\n</span><span class="s1">------------------------------------&#39;</span>
@@ -489,6 +537,7 @@
         <span class="k">return</span> <span class="n">instr_repr</span>
 
     <span class="k">def</span> <span class="nf">_check_identifier</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
+        <span class="nd">@wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
         <span class="k">def</span> <span class="nf">wrapper</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">identifier</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;identifier </span><span class="si">{</span><span class="n">identifier</span><span class="si">}</span><span class="s1"> is not valid&#39;</span><span class="p">)</span>
@@ -497,22 +546,21 @@
 
     <span class="c1"># CHANGING INSTRUMENT CONFIGURATION</span>
 
-    <span class="k">def</span> <span class="nf">add_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">,</span> <span class="n">location</span><span class="p">,</span> <span class="n">mod_rot</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<div class="viewcode-block" id="Instrument.add_module"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument.add_module">[docs]</a>    <span class="k">def</span> <span class="nf">add_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">,</span> <span class="n">location</span><span class="p">,</span> <span class="n">mod_rot</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Add a module.</span>
+<span class="sd">        Add a module to the instrument.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        -------------------------</span>
 <span class="sd">        module : Module or str</span>
-<span class="sd">            A Module object or one of the default options [&#39;CMBPol&#39;, &#39;SFH&#39;, &#39;EoRSpec&#39;, &#39;Mod280&#39;]</span>
-<span class="sd">        location : (distance, theta) or str, default unit deg</span>
-<span class="sd">            A tuple containing the module location from the center in polar coordinates (deg)</span>
-<span class="sd">            or one of the default options [&#39;c&#39;, &#39;i1&#39;, &#39;i2&#39;, &#39;o1&#39;, &#39;o2&#39;, etc] (see Ebina 2021 for picture)</span>
-<span class="sd">        mod_rot : deg, default 0, default unit deg</span>
-<span class="sd">            CCW rotation of the module</span>
+<span class="sd">            A `Module` object or one of the default options [&#39;CMBPol&#39;, &#39;SFH&#39;, &#39;EoRSpec&#39;, &#39;Mod280&#39;]</span>
+<span class="sd">        location : (float/Quantity/str, float/Quantity/str) or str; default unit deg</span>
+<span class="sd">            A `tuple` containing the (distance, theta) from the center of the instrument in polar coordinates.</span>
+<span class="sd">            Or a `str` of one of the default slot options. </span>
 <span class="sd">        idenitifier : str or None</span>
-<span class="sd">            Name of the module. </span>
-<span class="sd">            If user chose a default module option, then this identifier will be its corresponging name unless otherwise specified. </span>
+<span class="sd">            Name of the module. If user chose a default `module` option and this is `None`, then `identifier` will be its corresponging name. </span>
+<span class="sd">        mod_rot : float/Quantity/str; default 0, default unit deg</span>
+<span class="sd">            CCW rotation of the module.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="c1"># if a default option of module was chosen</span>
@@ -536,7 +584,7 @@
 
         <span class="c1"># if a default option for location was chosen</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">location</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-            <span class="n">location</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">slots</span><span class="p">[</span><span class="n">location</span><span class="p">]</span>
+            <span class="n">location</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">slots</span><span class="p">[</span><span class="n">location</span><span class="p">]</span><span class="o">.</span><span class="n">value</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">location</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">location</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
 
@@ -547,24 +595,29 @@
         <span class="k">if</span> <span class="n">identifier</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Module </span><span class="si">{</span><span class="n">identifier</span><span class="si">}</span><span class="s1"> already exists. Overwriting it...&#39;</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;module&#39;</span><span class="p">:</span> <span class="n">module</span><span class="p">,</span> <span class="s1">&#39;dist&#39;</span><span class="p">:</span> <span class="n">location</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;theta&#39;</span><span class="p">:</span> <span class="n">location</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s1">&#39;mod_rot&#39;</span><span class="p">:</span> <span class="n">mod_rot</span><span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;module&#39;</span><span class="p">:</span> <span class="n">module</span><span class="p">,</span> <span class="s1">&#39;dist&#39;</span><span class="p">:</span> <span class="n">location</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;theta&#39;</span><span class="p">:</span> <span class="n">location</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s1">&#39;mod_rot&#39;</span><span class="p">:</span> <span class="n">mod_rot</span><span class="p">}</span></div>
 
-    <span class="nd">@_check_identifier</span>
+<div class="viewcode-block" id="Instrument.change_module"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument.change_module">[docs]</a>    <span class="nd">@_check_identifier</span>
     <span class="k">def</span> <span class="nf">change_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">new_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">new_mod_rot</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">new_identifier</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Change a module.</span>
+<span class="sd">        Change a module in the instrument.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        -------------------------</span>
 <span class="sd">        idenitifier : str</span>
 <span class="sd">            Name of the module to change. </span>
-<span class="sd">        new_location : (distance, theta) or str, default unit deg, optional</span>
-<span class="sd">            A tuple containing the module location from the center in polar coordinates (deg)</span>
-<span class="sd">            or one of the default options [&#39;c&#39;, &#39;i1&#39;, &#39;i2&#39;, &#39;o1&#39;, &#39;o2&#39;, etc] (see Ebina 2021 for picture)</span>
-<span class="sd">        new_mod_rot : deg, default unit deg, optional</span>
-<span class="sd">            CCW rotation of the module</span>
-<span class="sd">        new_identifier : str, optional</span>
+<span class="sd">        new_location : (float/Quantity/str, float/Quantity/str) or str; default unit deg, optional</span>
+<span class="sd">            A `tuple` containing the (distance, theta) from the center of the instrument in polar coordinates.</span>
+<span class="sd">            Or a `str` of one of the default slot options. </span>
+<span class="sd">        new_mod_rot : float/Quantity/str; default 0, default unit deg, optional</span>
+<span class="sd">            CCW rotation of the module.</span>
+<span class="sd">        new_identifier : str, optional, optional</span>
 <span class="sd">            New name of the module. </span>
+<span class="sd">        </span>
+<span class="sd">        Raises</span>
+<span class="sd">        ---------------------------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            &quot;identifier&quot; is not valid</span>
 <span class="sd">        &quot;&quot;&quot;</span>
     
         <span class="k">if</span> <span class="n">new_identifier</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">new_location</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">new_mod_rot</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -579,7 +632,7 @@
         <span class="c1"># change location</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">new_location</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">new_location</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-                <span class="n">new_location</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">slots</span><span class="p">[</span><span class="n">new_location</span><span class="p">]</span>
+                <span class="n">new_location</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">slots</span><span class="p">[</span><span class="n">new_location</span><span class="p">]</span><span class="o">.</span><span class="n">value</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">new_location</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="n">new_location</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span>
@@ -592,41 +645,40 @@
 
         <span class="c1"># change module rotation</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">new_mod_rot</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;mod_rot&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">new_mod_rot</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;mod_rot&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">new_mod_rot</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span><span class="o">.</span><span class="n">value</span></div>
 
-    <span class="nd">@_check_identifier</span>
+<div class="viewcode-block" id="Instrument.delete_module"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument.delete_module">[docs]</a>    <span class="nd">@_check_identifier</span>
     <span class="k">def</span> <span class="nf">delete_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Delete a module. </span>
+<span class="sd">        Delete a module in the instrument. </span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        -------------------------</span>
 <span class="sd">        idenitifier : str</span>
 <span class="sd">            Name of the module. </span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ---------------------------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            &quot;identifier&quot; is not valid</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span></div>
 
     <span class="c1"># GETTERS </span>
 
-    <span class="k">def</span> <span class="nf">save_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path_or_buf</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="Instrument.save_data"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument.save_data">[docs]</a>    <span class="k">def</span> <span class="nf">save_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path_or_buf</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Saves as a dictionary like </span>
-<span class="sd">        {   &#39;instr_offset&#39;: , </span>
-<span class="sd">            &#39;instr_rot&#39;: , </span>
-<span class="sd">            &#39;modules&#39;:  {</span>
-<span class="sd">                module_name: {&#39;pixel_num&#39;:, &#39;dist&#39;:, &#39;theta&#39;:, &#39;mod_rot&#39;:, &#39;x&#39;: ,&#39;y&#39;:, &#39;pol&#39;:, &#39;rhombus&#39;, &#39;wafer&#39;},</span>
-<span class="sd">            }</span>
-<span class="sd">        }</span>
+<span class="sd">        Saves as a dictionary like in a json format.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        -------------</span>
 <span class="sd">        path_or_buf : str or file handle, default None</span>
-<span class="sd">            File path or object, if None is provided the result is returned as a dict.</span>
+<span class="sd">            File path or object, if `None` is provided the result is returned as a `dict`.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        ----------------------</span>
 <span class="sd">        None or dict</span>
-<span class="sd">            If path_or_buf is None, returns the resulting json format as a dictionary. Otherwise returns None.</span>
+<span class="sd">            If `path_or_buf` is `None`, returns the resulting json format as a dictionary. Otherwise returns `None`.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="c1"># organize the configuration </span>
@@ -637,12 +689,12 @@
                 <span class="s1">&#39;dist&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;dist&#39;</span><span class="p">],</span> 
                 <span class="s1">&#39;theta&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;theta&#39;</span><span class="p">],</span>
                 <span class="s1">&#39;mod_rot&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;mod_rot&#39;</span><span class="p">],</span>
-                <span class="s1">&#39;pixel_num&#39;</span><span class="p">:</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;module&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">pixel_num</span><span class="p">],</span>
-                <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;module&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">value</span><span class="p">),</span>
-                <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;module&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">value</span><span class="p">),</span>
-                <span class="s1">&#39;pol&#39;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;module&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">pol</span><span class="o">.</span><span class="n">value</span><span class="p">),</span>
-                <span class="s1">&#39;rhombus&#39;</span><span class="p">:</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;module&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">rhombus</span><span class="p">],</span>
-                <span class="s1">&#39;wafer&#39;</span><span class="p">:</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;module&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">wafer</span><span class="p">]</span>
+                <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;module&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+                <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;module&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+                <span class="s1">&#39;pol&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;module&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">pol</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+                <span class="s1">&#39;pixel_num&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;module&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">pixel_num</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+                <span class="s1">&#39;rhombus&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;module&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">rhombus</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+                <span class="s1">&#39;wafer&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;module&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">wafer</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
             <span class="p">}</span>
         
         <span class="c1"># push configuration </span>
@@ -650,130 +702,297 @@
             <span class="k">return</span> <span class="n">config</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path_or_buf</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span></div>
     
-    <span class="nd">@_check_identifier</span>
-    <span class="k">def</span> <span class="nf">get_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">with_rot</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Module</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Return a Module object. </span>
-<span class="sd">        </span>
+<div class="viewcode-block" id="Instrument.get_module"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument.get_module">[docs]</a>    <span class="nd">@_check_identifier</span>
+    <span class="k">def</span> <span class="nf">get_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">with_mod_rot</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">with_instr_rot</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">with_instr_offset</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">with_mod_offset</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Module</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;        </span>
 <span class="sd">        Parameters</span>
 <span class="sd">        -------------------------</span>
 <span class="sd">        idenitifier : str</span>
 <span class="sd">            Name of the module. </span>
-<span class="sd">        with_rot : bool, default False</span>
-<span class="sd">            Whether to apply instrument and module rotation to the returned Module. </span>
+<span class="sd">        with_mod_rot, with_instr_rot, with_instr_offset, with_mod_offset : bool; default False</span>
+<span class="sd">            Whether to apply instrument and module rotation and offset to the returned `Module`. </span>
 <span class="sd">        </span>
 <span class="sd">        Returns</span>
 <span class="sd">        --------------------------</span>
 <span class="sd">        Module </span>
-<span class="sd">            The Module object to be returned. </span>
+<span class="sd">            `Module` object. </span>
+<span class="sd">        </span>
+<span class="sd">        Raises</span>
+<span class="sd">        ---------------------------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            &quot;identifier&quot; is not valid</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
-        <span class="k">if</span> <span class="n">with_rot</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">([</span><span class="n">with_mod_rot</span><span class="p">,</span> <span class="n">with_instr_rot</span><span class="p">,</span> <span class="n">with_instr_offset</span><span class="p">,</span> <span class="n">with_mod_offset</span><span class="p">]):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;module&#39;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mod_rot_rad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_mod_rot</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="k">if</span> <span class="n">with_mod_rot</span> <span class="k">else</span> <span class="mi">0</span>
+            <span class="n">instr_rot_rad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">instr_rot</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="k">if</span> <span class="n">with_instr_rot</span> <span class="k">else</span> <span class="mi">0</span>
+
+            <span class="n">mod_dist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_dist</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="k">if</span> <span class="n">with_mod_offset</span> <span class="k">else</span> <span class="mi">0</span>
+            <span class="n">mod_theta_rad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_theta</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="k">if</span> <span class="n">with_mod_offset</span> <span class="k">else</span> <span class="mi">0</span>
+            <span class="n">mod_x</span> <span class="o">=</span> <span class="n">mod_dist</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">mod_theta_rad</span><span class="p">)</span>
+            <span class="n">mod_y</span> <span class="o">=</span> <span class="n">mod_dist</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">mod_theta_rad</span><span class="p">)</span>
+
+            <span class="n">instr_offset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">instr_offset</span><span class="o">.</span><span class="n">value</span> <span class="k">if</span> <span class="n">with_instr_offset</span> <span class="k">else</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
             <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;module&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">save_data</span><span class="p">()</span>
             <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">])</span>
             <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">])</span>
-            <span class="n">mod_rot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_mod_rot</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
-            <span class="n">instr_rot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">instr_rot</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
 
-            <span class="n">data</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span><span class="o">*</span><span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">mod_rot</span> <span class="o">+</span> <span class="n">instr_rot</span><span class="p">)</span> <span class="o">-</span> <span class="n">y</span><span class="o">*</span><span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">mod_rot</span> <span class="o">+</span> <span class="n">instr_rot</span><span class="p">)</span>
-            <span class="n">data</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span><span class="o">*</span><span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">mod_rot</span> <span class="o">+</span> <span class="n">instr_rot</span><span class="p">)</span> <span class="o">+</span> <span class="n">y</span><span class="o">*</span><span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">mod_rot</span> <span class="o">+</span> <span class="n">instr_rot</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">Module</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+            <span class="n">data</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">mod_rot_rad</span> <span class="o">+</span> <span class="n">instr_rot_rad</span><span class="p">)</span> <span class="o">-</span> <span class="n">y</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">mod_rot_rad</span> <span class="o">+</span> <span class="n">instr_rot_rad</span><span class="p">)</span> <span class="o">+</span> <span class="n">mod_x</span> <span class="o">+</span> <span class="n">instr_offset</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">data</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">mod_rot_rad</span> <span class="o">+</span> <span class="n">instr_rot_rad</span><span class="p">)</span> <span class="o">+</span> <span class="n">y</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">mod_rot_rad</span> <span class="o">+</span> <span class="n">instr_rot_rad</span><span class="p">)</span> <span class="o">+</span> <span class="n">mod_y</span> <span class="o">+</span> <span class="n">instr_offset</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+            <span class="k">return</span> <span class="n">Module</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Instrument.get_dist"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument.get_dist">[docs]</a>    <span class="nd">@_check_identifier</span>
+    <span class="k">def</span> <span class="nf">get_dist</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">from_boresight</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parameters</span>
+<span class="sd">        -------------------------</span>
+<span class="sd">        idenitifier : str</span>
+<span class="sd">            Name of the module. </span>
+<span class="sd">        from_boresight : bool; default False</span>
+<span class="sd">            From the boresight (`True`) or from the center of the instrument (`False`). </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------------------------</span>
+<span class="sd">        Quantity</span>
+<span class="sd">            Distance away of the module in polar coordinates. </span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ---------------------------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            &quot;identifier&quot; is not valid</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_location</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">from_boresight</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="Instrument.get_theta"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument.get_theta">[docs]</a>    <span class="nd">@_check_identifier</span>
+    <span class="k">def</span> <span class="nf">get_theta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">from_boresight</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parameters</span>
+<span class="sd">        -------------------------</span>
+<span class="sd">        idenitifier : str</span>
+<span class="sd">            Name of the module. </span>
+<span class="sd">        from_boresight : bool; default False</span>
+<span class="sd">            From the boresight (`True`) or from the center of the instrument (`False`). </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------------------------</span>
+<span class="sd">        Quantity </span>
+<span class="sd">            Angle of the module in polar coordinates. </span>
+<span class="sd">        </span>
+<span class="sd">        Raises</span>
+<span class="sd">        ---------------------------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            &quot;identifier&quot; is not valid</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_location</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">from_boresight</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span></div>
+    
+<div class="viewcode-block" id="Instrument.get_mod_rot"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument.get_mod_rot">[docs]</a>    <span class="nd">@_check_identifier</span>
+    <span class="k">def</span> <span class="nf">get_mod_rot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">with_instr_rot</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get rotation of module from the center of the instrument.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        -------------------------</span>
+<span class="sd">        idenitifier : str</span>
+<span class="sd">            Name of the module. </span>
+<span class="sd">        with_instr_rot : bool; default False</span>
+<span class="sd">            Whether to include instrument rotation. </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        --------------------------</span>
+<span class="sd">        Quantity</span>
+<span class="sd">            Rotation of the module </span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ---------------------------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            &quot;identifier&quot; is not valid</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">with_instr_rot</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;mod_rot&#39;</span><span class="p">]</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">instr_rot</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;module&#39;</span><span class="p">]</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;mod_rot&#39;</span><span class="p">]</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span></div>
 
-    <span class="nd">@_check_identifier</span>
-    <span class="k">def</span> <span class="nf">get_dist</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">:</span>
+<div class="viewcode-block" id="Instrument.get_location"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument.get_location">[docs]</a>    <span class="nd">@_check_identifier</span>
+    <span class="k">def</span> <span class="nf">get_location</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">from_boresight</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">polar</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Parameters</span>
 <span class="sd">        -------------------------</span>
 <span class="sd">        idenitifier : str</span>
 <span class="sd">            Name of the module. </span>
+<span class="sd">        from_boresight : bool; default False</span>
+<span class="sd">            From the boresight (`True`) or from the center of the instrument (`False`). </span>
+<span class="sd">        polar : bool; default False</span>
+<span class="sd">            In polar coordinates (`True`) or in cartesian coordinates (`False`)</span>
 
 <span class="sd">        Returns</span>
-<span class="sd">        u.Quantity</span>
-<span class="sd">            Distance of module from the center of the instrument (not boresight) in u.deg. </span>
+<span class="sd">        ---------------------------</span>
+<span class="sd">        Quantity two-tuple</span>
+<span class="sd">            (distance, theta) location of module.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ---------------------------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            &quot;identifier&quot; is not valid</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span>
-    
-    <span class="nd">@_check_identifier</span>
-    <span class="k">def</span> <span class="nf">get_theta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">:</span>
+
+        <span class="c1"># get module location from center of instrument in x and y</span>
+        <span class="n">dist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span>
+        <span class="n">theta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;theta&#39;</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">from_boresight</span><span class="p">:</span>
+            <span class="n">theta_rad</span> <span class="o">=</span> <span class="n">radians</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+            <span class="n">mod_x</span> <span class="o">=</span> <span class="n">dist</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">theta_rad</span><span class="p">)</span>
+            <span class="n">mod_y</span> <span class="o">=</span> <span class="n">dist</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">theta_rad</span><span class="p">)</span>
+
+            <span class="c1"># get rotation and offset</span>
+            <span class="n">instr_x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">instr_offset</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">instr_y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">instr_offset</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">instr_rot_rad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">instr_rot</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">mod_rot_rad</span> <span class="o">=</span> <span class="n">radians</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;mod_rot&#39;</span><span class="p">])</span>
+
+            <span class="c1"># get module location from boresight in x and y</span>
+            <span class="n">new_mod_x</span> <span class="o">=</span> <span class="n">mod_x</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">instr_rot_rad</span> <span class="o">+</span> <span class="n">mod_rot_rad</span><span class="p">)</span> <span class="o">-</span> <span class="n">mod_y</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">instr_rot_rad</span> <span class="o">+</span> <span class="n">mod_rot_rad</span><span class="p">)</span> <span class="o">+</span> <span class="n">instr_x</span>
+            <span class="n">new_mod_y</span> <span class="o">=</span> <span class="n">mod_x</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">instr_rot_rad</span> <span class="o">+</span> <span class="n">mod_rot_rad</span><span class="p">)</span> <span class="o">+</span> <span class="n">mod_y</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">instr_rot_rad</span> <span class="o">+</span> <span class="n">mod_rot_rad</span><span class="p">)</span> <span class="o">+</span> <span class="n">instr_y</span>
+
+            <span class="n">new_dist</span> <span class="o">=</span> <span class="n">sqrt</span><span class="p">(</span><span class="n">new_mod_x</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">new_mod_y</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+            <span class="n">new_theta</span> <span class="o">=</span> <span class="n">degrees</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">atan2</span><span class="p">(</span><span class="n">new_mod_y</span><span class="p">,</span> <span class="n">new_mod_x</span><span class="p">))</span>
+
+            <span class="n">dist</span> <span class="o">=</span> <span class="n">new_dist</span> 
+            <span class="n">theta</span> <span class="o">=</span> <span class="n">new_theta</span>
+
+        <span class="k">if</span> <span class="n">polar</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="n">theta</span><span class="p">)</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">dist</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">radians</span><span class="p">(</span><span class="n">theta</span><span class="p">)),</span> <span class="n">dist</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">radians</span><span class="p">(</span><span class="n">theta</span><span class="p">)))</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span></div>
+
+<div class="viewcode-block" id="Instrument.get_slot"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument.get_slot">[docs]</a>    <span class="k">def</span> <span class="nf">get_slot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot_name</span><span class="p">,</span> <span class="n">from_boresight</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">polar</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Parameters</span>
 <span class="sd">        -------------------------</span>
-<span class="sd">        idenitifier : str</span>
-<span class="sd">            Name of the module. </span>
+<span class="sd">        slot_name : str</span>
+<span class="sd">            Name of slot. </span>
+<span class="sd">        from_boresight : bool; default False</span>
+<span class="sd">            From the boresight (`True`) or from the center of the instrument (`False`). </span>
+<span class="sd">        polar : bool; default False</span>
+<span class="sd">            In polar coordinates (`True`) or in cartesian coordinates (`False`)</span>
 
 <span class="sd">        Returns</span>
-<span class="sd">        u.Quantity</span>
-<span class="sd">            Angle of module from the center of the instrument (not boresight) in u.deg. </span>
+<span class="sd">        ---------------------------</span>
+<span class="sd">        Quantity two-tuple</span>
+<span class="sd">            (distance, theta) location of slot.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ---------------------------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            &quot;slot_name&quot; is not valid</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;theta&#39;</span><span class="p">]</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span>
-    
-    <span class="nd">@_check_identifier</span>
-    <span class="k">def</span> <span class="nf">get_mod_rot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">:</span>
+
+        <span class="c1"># get slot location from center of instrument in x and y</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">dist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">slots</span><span class="p">[</span><span class="n">slot_name</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">theta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">slots</span><span class="p">[</span><span class="n">slot_name</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;&quot;slot_name&quot; </span><span class="si">{</span><span class="n">slot_name</span><span class="si">}</span><span class="s1"> is not valid&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">from_boresight</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">location_from_boresight</span><span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="n">polar</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">polar</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="n">theta</span><span class="p">)</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">dist</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">radians</span><span class="p">(</span><span class="n">theta</span><span class="p">)),</span> <span class="n">dist</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">radians</span><span class="p">(</span><span class="n">theta</span><span class="p">)))</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span></div>
+
+<div class="viewcode-block" id="Instrument.location_from_boresight"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument.location_from_boresight">[docs]</a>    <span class="k">def</span> <span class="nf">location_from_boresight</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="n">polar</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Given a location relative to the center of the instrument, find the </span>
+<span class="sd">        location relative to the boresight. </span>
+
 <span class="sd">        Parameters</span>
-<span class="sd">        -------------------------</span>
-<span class="sd">        idenitifier : str</span>
-<span class="sd">            Name of the module. </span>
+<span class="sd">        -------------------</span>
+<span class="sd">        dist : float, Quantity, or str; default unit deg</span>
+<span class="sd">            Distance away from the center of the instrument.</span>
+<span class="sd">        theta : float, Quantity, or str; default unit deg</span>
+<span class="sd">            Angle away from the center of the instrument in polar coordinates. </span>
+<span class="sd">        polar : bool; default False</span>
+<span class="sd">            In polar coordinates (`True`) or in cartesian coordinates (`False`)</span>
 
 <span class="sd">        Returns</span>
-<span class="sd">        u.Quantity</span>
-<span class="sd">            Rotation of module from the center of the instrument (not boresight) in u.deg. </span>
+<span class="sd">        ---------------------------</span>
+<span class="sd">        Quantity two-tuple</span>
+<span class="sd">            (distance, theta) location of slot. </span>
+<span class="sd">        </span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;mod_rot&#39;</span><span class="p">]</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span>
 
-    <span class="nd">@_check_identifier</span>
-    <span class="k">def</span> <span class="nf">get_location</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Parameters</span>
-<span class="sd">        -------------------------</span>
-<span class="sd">        idenitifier : str</span>
-<span class="sd">            Name of the module. </span>
+        <span class="n">dist</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">theta_rad</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
 
-<span class="sd">        Returns</span>
-<span class="sd">        (dist, theta)</span>
-<span class="sd">            Location of module from the center of the instrument (not boresight) in u.deg. </span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;dist&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;theta&#39;</span><span class="p">]]</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span>
+        <span class="n">instr_x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">instr_offset</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">instr_y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">instr_offset</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">instr_rot_rad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">instr_rot</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+
+        <span class="c1"># get true module location in terms of x and y</span>
+        <span class="n">orignal_x</span> <span class="o">=</span> <span class="n">dist</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">theta_rad</span><span class="p">)</span>
+        <span class="n">original_y</span> <span class="o">=</span> <span class="n">dist</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">theta_rad</span><span class="p">)</span>
+
+        <span class="n">x_offset</span> <span class="o">=</span> <span class="n">orignal_x</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">instr_rot_rad</span><span class="p">)</span> <span class="o">-</span> <span class="n">original_y</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">instr_rot_rad</span><span class="p">)</span> <span class="o">+</span> <span class="n">instr_x</span>
+        <span class="n">y_offset</span> <span class="o">=</span> <span class="n">orignal_x</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">instr_rot_rad</span><span class="p">)</span> <span class="o">+</span> <span class="n">original_y</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">instr_rot_rad</span><span class="p">)</span> <span class="o">+</span> <span class="n">instr_y</span>
+
+        <span class="n">new_dist</span> <span class="o">=</span> <span class="n">sqrt</span><span class="p">(</span><span class="n">x_offset</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">y_offset</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">new_theta</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">atan2</span><span class="p">(</span><span class="n">y_offset</span><span class="p">,</span> <span class="n">x_offset</span><span class="p">))</span>  
+
+        <span class="k">if</span> <span class="n">polar</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">new_dist</span><span class="p">,</span> <span class="n">new_theta</span><span class="p">)</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">new_dist</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">radians</span><span class="p">(</span><span class="n">new_theta</span><span class="p">)),</span> <span class="n">new_dist</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">radians</span><span class="p">(</span><span class="n">new_theta</span><span class="p">)))</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span></div>
+
+    <span class="c1"># ATTRIBUTES </span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">instr_offset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Quantity two-tuple: The x and y offsets of the center of the instrument from the boresight. &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_instr_offset</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span>
     
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">instr_rot</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Quantity: The CCW rotation of the instrument.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_instr_rot</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span>
     
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">slots</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">slots</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="sd">&quot;&quot;&quot;dict of str -&gt; Quantity two-tuple: Map of slot name to their (distance, theta) from the center of the instrument.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">slot_name</span><span class="p">:</span> <span class="n">slot_loc</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span> <span class="k">for</span> <span class="n">slot_name</span><span class="p">,</span> <span class="n">slot_loc</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_slots</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">modules</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">modules</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="sd">&quot;&quot;&quot;list of str: list of module identifiers inside the instrument.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">module_name</span> <span class="k">for</span> <span class="n">module_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="o">.</span><span class="n">keys</span><span class="p">()]</span>
 
     <span class="c1"># SETTERS</span>
 
     <span class="nd">@instr_offset</span><span class="o">.</span><span class="n">setter</span>
     <span class="k">def</span> <span class="nf">instr_offset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_instr_offset</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_instr_offset</span> <span class="o">=</span> <span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">value</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
 
     <span class="nd">@instr_rot</span><span class="o">.</span><span class="n">setter</span>
     <span class="k">def</span> <span class="nf">instr_rot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">instr_rot</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_instr_rot</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span><span class="o">.</span><span class="n">value</span></div>
+
 
 <span class="k">class</span> <span class="nc">ModCam</span><span class="p">(</span><span class="n">Instrument</span><span class="p">):</span> 
-    <span class="n">slots</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)}</span>
+    <span class="n">_slots</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)}</span>
 
 <span class="k">class</span> <span class="nc">PrimeCam</span><span class="p">(</span><span class="n">Instrument</span><span class="p">):</span>
 
     <span class="c1"># default configuration of optics tubes at 0 deg elevation </span>
     <span class="c1"># in terms of (radius from center [deg], angle [deg])</span>
     <span class="n">_default_ir</span> <span class="o">=</span> <span class="mf">1.78</span>
-    <span class="n">slots</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">_slots</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> 
         <span class="s1">&#39;i1&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">_default_ir</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">),</span> <span class="s1">&#39;i2&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">_default_ir</span><span class="p">,</span> <span class="o">-</span><span class="mi">30</span><span class="p">),</span> <span class="s1">&#39;i3&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">_default_ir</span><span class="p">,</span> <span class="mi">30</span><span class="p">),</span> <span class="s1">&#39;i4&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">_default_ir</span><span class="p">,</span> <span class="mi">90</span><span class="p">),</span> <span class="s1">&#39;i5&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">_default_ir</span><span class="p">,</span> <span class="mi">150</span><span class="p">),</span> <span class="s1">&#39;i6&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">_default_ir</span><span class="p">,</span> <span class="o">-</span><span class="mi">150</span><span class="p">),</span>
     <span class="p">}</span>
