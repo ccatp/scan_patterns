@@ -10,6 +10,7 @@ from astropy.time import Time
 import astropy.units as u
 
 from scanning import FYST_LOC, _central_diff
+from scanning.camera import PrimeCam
 
 """
 specify units when passing in x, y
@@ -735,59 +736,73 @@ class TelescopePattern():
     Representing the path in AZ/EL coordinates of the telescope's boresight.
     """
 
-    _param_unit = {
+    # other attributes (for development)
+    # _stored_units
+    # _instrument
+    # _data
+    # _param, _param_units
+
+    _param_units = {
         'start_ra': u.deg, 'start_dec': u.deg, 'lat': u.deg,
         'start_hrang': u.hourangle, 
         'start_datetime': u.dimensionless_unscaled, 
         'start_lst': u.hourangle,
         'start_elev': u.deg, 'moving_up': u.dimensionless_unscaled
     }
-    _data_unit = {'time_offset': u.s, 'lst': u.hourangle, 'alt_coord': u.deg, 'az_coord': u.deg}
+    _stored_units = {'time_offset': u.s, 'lst': u.hourangle, 'alt_coord': u.deg, 'az_coord': u.deg}
 
-    def __init__(self, data, instrument=None, module='boresight', obs_param=None, **kwargs) -> None:
+    # INITIALIZATION
+
+    def __init__(self, data, instrument=None, data_loc='boresight', obs_param=None, **kwargs) -> None:
         """
-        Determine the motion of the telescope.
-            option1: data (sky), instrument (optional), module (optional); lat, start_ra, start_dec, (start_datetime or start_hrang or start_lst or [start_elev and moving_up])
-            option2: data (telescope, excludes lst), instrument (optional), module (optional); lat, (start_ra or start_datetime or start_lst)
-            option3: data (telescope, includes lst), instrument (optional), module (optional); lat
-            **kwargs can be passed as a file through obs_param
+        Determine the motion of the telescope. Note that **kwargs can be passed as a file through `obs_param`.
+            | option1: data (sky), instrument (optional), data_loc (optional); lat, start_ra, start_dec, (start_datetime or start_hrang or start_lst or [start_elev and moving_up])
+            | option2: data (telescope, excludes lst), instrument (optional), data_loc (optional); lat, (start_ra or start_datetime or start_lst)
+            | option3: data (telescope, includes lst), instrument (optional), data_loc (optional); lat
 
         Parameters
         -----------------------------
-        data : str or dict or SkyPattern
-            Path to a csv file or a dict containing columns 'time_offset, 'az_coord', and 'alt_coord'.
-            If 'lst' is included as a column, certain observation parameters are not required (see options).
-            Path to SkyPattern object with time_offset, x_coord, y_coord.
+        data : str, DataFrame, [dict of str -> sequence], or SkyPattern
+            If `str`, a file path to a csv file. If `dict` or `DataFrame`, column names map to their values. 
+            Columns must contain 'time_offset, 'az_coord', and 'alt_coord'. If 'lst' is included as a column, certain observation parameters are not required (see options).
+            Otherwise, `data` is a `SkyPattern` object. 
 
-        instrument : str, Instrument or None, default None
-            Path to a json file or an Instrument object to be used if any.
-        module : str or (distance, theta), default 'boresight'
+        instrument : Instrument, default empty PrimeCam
+            An `Instrument` object. 
+        data_loc : str or two-tuple; default 'boresight'
             Location relative to the center of the instrument where observation parameters are applied:
-                'boresight' for boresight of the telescope 
-                string indicating a module name in the instrument e.g. 'SFH' or one of the default slots in the instrument e.g. 'c', 'i1'
-                tuple of (distance, theta) indicating module's offset from the center of the instrument, default unit deg
+                | 1. 'boresight' for boresight of the telescope 
+                | 2. string indicating a module name in the instrument e.g. 'SFH' or one of the default slots in the instrument e.g. 'c', 'i1'
+                | 3. tuple of (distance, theta) indicating module's offset from the center of the instrument; default unit deg
 
         obs_param : str
             File path to json containing all required obervation parameters (see **kwargs).
 
-        **kwargs
-        start_ra : angle-like, default unit deg
+        Keyword Args
+        ------------------------------
+        start_ra : float/Quantity/str; default unit deg
             Starting right acension of telescope / right acension offset for sky.
-        start_dec : angle-like, default unit deg
+        start_dec : float/Quantity/str; default unit deg
             Declination offset for sky_pattern.
-        lat : angle-like, default unit deg, default FYST_LOC.lat
+        lat : float/Quantity/str; default unit deg, default FYST_LOC.lat
             Latitude of observation. 
 
-        start_datetime : str or datetime, default timezone UTC
+        start_datetime : str or datetime; default timezone UTC
             Starting date and time of observation.
-        start_hrang : angle-like, default unit hourangle
+        start_hrang : float/Quantity/str; default unit hourangle
             Starting hour angle of source.
-        start_lst : angle-like, default unit hourangle
+        start_lst : float/Quantity/str; default unit hourangle
             Starting local sidereal time.
-        start_elev : angle-like, default unit deg
-            Starting elevation of source, must be used with moving_up
+        start_elev : float/Quantity/str; default unit deg
+            Starting elevation of source, must be used with `moving_up`.
         moving_up : bool, default True
-            whether observation is moving towards the meridian or away, must be used with start_elev. 
+            Whether observation is moving towards the meridian or away, must be used with `start_elev`. 
+
+        Example
+        -------------------------------
+        >>> sky_pattern = SkyPattern(sky_pattern.csv)
+        >>> telescope_pattern1 = TelescopePattern(sky_pattern, data_loc='i1', start_ra='5 hourangle', start_dec='-60 deg', start_elev=30)
+
         """
 
         # --- Observation Parameters ---
@@ -808,37 +823,37 @@ class TelescopePattern():
         # sky_pattern has been passed
         if isinstance(data, SkyPattern):
                 
-            self.param = self._clean_param_sky_pattern(**param)
+            self._param = self._clean_param_sky_pattern(**param)
 
             self._sample_interval = data.sample_interval.value
-            self.data = pd.DataFrame({'time_offset': data.time_offset.value})
-            self.data['lst'] = self._get_lst(data)
+            self._data = pd.DataFrame({'time_offset': data.time_offset.value})
+            self._data['lst'] = self._get_lst(data)
             az1, alt1 = self._from_sky_pattern(data)
 
-            self.data['az_coord'] = az1
-            self.data['alt_coord'] = alt1
+            self._data['az_coord'] = az1
+            self._data['alt_coord'] = alt1
 
         # data has been passed
         else:
             if isinstance(data, str):
                 try:
-                    self.data = pd.read_csv(data, index_col=False, usecols=['time_offset', 'lst', 'az_coord', 'alt_coord'])
-                    self.param = self._clean_param_telescope_data(False, **param)
+                    self._data = pd.read_csv(data, index_col=False, usecols=['time_offset', 'lst', 'az_coord', 'alt_coord'])
+                    self._param = self._clean_param_telescope_data(False, **param)
                 except ValueError:
-                    self.data = pd.read_csv(data, index_col=False, usecols=['time_offset', 'az_coord', 'alt_coord'])
-                    self.param = self._clean_param_telescope_data(True, **param)
-                    self.data['lst'] = self._get_lst()
+                    self._data = pd.read_csv(data, index_col=False, usecols=['time_offset', 'az_coord', 'alt_coord'])
+                    self._param = self._clean_param_telescope_data(True, **param)
+                    self._data['lst'] = self._get_lst()
             else:
                 try:
-                    self.data = pd.DataFrame(data)[['time_offset', 'lst', 'az_coord', 'alt_coord']]
-                    self.param = self._clean_param_telescope_data(False, **param)
+                    self._data = pd.DataFrame(data)[['time_offset', 'lst', 'az_coord', 'alt_coord']]
+                    self._param = self._clean_param_telescope_data(False, **param)
                 except KeyError:
-                    self.data = pd.DataFrame(data)[['time_offset', 'az_coord', 'alt_coord']]
-                    self.param = self._clean_param_telescope_data(True, **param)
-                    self.data['lst'] = self._get_lst()
+                    self._data = pd.DataFrame(data)[['time_offset', 'az_coord', 'alt_coord']]
+                    self._param = self._clean_param_telescope_data(True, **param)
+                    self._data['lst'] = self._get_lst()
 
             # determine sample_interval 
-            sample_interval_list = np.diff(self.data.time_offset)
+            sample_interval_list = np.diff(self.time_offset.value)
             if np.std(sample_interval_list)/np.mean(sample_interval_list) <= 0.01:
                 sample_interval = np.mean(sample_interval_list)
                 self._sample_interval = sample_interval
@@ -847,25 +862,23 @@ class TelescopePattern():
 
         # --- Instrument and module --- 
 
-        self.instrument = instrument
-        dist, theta = self._true_module_loc(module)
+        self._instrument = instrument if not instrument is None else PrimeCam()
+        dist, theta = self._true_module_loc(data_loc)
         
         # az_coord and alt_coord are for the module's location
         # we need the az/alt coordinates of the boresight
 
-        if not (module == 'boresight' or (math.isclose(dist, 0) and math.isclose(theta, 0))):
-            az0, alt0 = self._transform_to_boresight(self.data['az_coord'].to_numpy(), self.data['alt_coord'].to_numpy(), dist, theta)
-            self.data['az_coord'] = az0
-            self.data['alt_coord'] = alt0
+        if not (math.isclose(dist, 0) and math.isclose(theta, 0)):
+            az0, alt0 = self._transform_to_boresight(self.az_coord.value, self.alt_coord.value, dist, theta)
+            self._data['az_coord'] = az0
+            self._data['alt_coord'] = alt0
         else:
-            self.data['az_coord'] = self._norm_angle(self.az_coord.value)
+            self._data['az_coord'] = self._norm_angle(self.az_coord.value)
         
         if len(self.alt_coord.value[(self.alt_coord.value < 0) | (self.alt_coord.value > 90)]) > 0:
             warnings.warn('elevation has values outside of 0 to 90 range')
         elif len(self.alt_coord.value[(self.alt_coord.value < 30) | (self.alt_coord.value > 75)]) > 0:
             warnings.warn('elevation has values outside of 30 to 75 range')
-
-    # INITIALIZATION
 
     def _clean_param_sky_pattern(self, **kwargs):
         kwarg_keys = kwargs.keys()
@@ -920,79 +933,20 @@ class TelescopePattern():
 
         return new_kwargs
 
-    def _get_lst(self, sky_pattern=None):
-
-        if not sky_pattern is None:
-            extra_ra_offset = sky_pattern.x_coord[0]
-            extra_dec_offset = sky_pattern.y_coord[0]
-        else:
-            extra_ra_offset = 0*u.deg
-            extra_dec_offset = 0*u.deg
-
-        # given a starting datetime
-        if 'start_datetime' in self.param.keys():
-            start_datetime = Time(self.start_datetime, location=(self.lat, 0*u.deg))
-            start_lst = start_datetime.sidereal_time('apparent')
-
-        # given a starting hourangle
-        elif 'start_hrang' in self.param.keys() and not sky_pattern is None:
-            start_lst = self.start_hrang + extra_ra_offset + self.start_ra
-        
-        # given a starting lst
-        elif 'start_lst' in self.param.keys():
-            start_lst = self.start_lst
-
-        # given a starting elevation
-        elif 'start_elev' in self.param.keys() and not sky_pattern is None:
-
-            # determine possible hour angles
-            alt_rad = self.start_elev.to(u.rad).value
-            dec_rad = (self.start_dec + extra_dec_offset).to(u.rad).value
-            lat_rad = self.lat.to(u.rad).value
-
-            try:
-                start_hrang_rad = math.acos((sin(alt_rad) - sin(dec_rad)*sin(lat_rad)) / (cos(dec_rad)*cos(lat_rad)))
-            except ValueError:
-                max_el = math.floor(math.degrees(math.asin(cos(0)*cos(dec_rad)*cos(lat_rad) + sin(dec_rad)*sin(lat_rad))))
-                min_el = math.ceil(math.degrees(math.asin(cos(pi)*cos(dec_rad)*cos(lat_rad) + sin(dec_rad)*sin(lat_rad))))
-                raise ValueError(f'Elevation = {self.start_elev} is not possible at provided ra, dec, and latitude. Min elevation is {min_el} and max elevation is {max_el} deg.')
-
-            # choose hour angle
-            if self.moving_up:
-                start_hrang_rad = -start_hrang_rad
-
-            # starting sidereal time
-            start_lst = start_hrang_rad*u.rad + extra_ra_offset + self.start_ra
-        
-        elif 'start_ra' in self.param.keys() and sky_pattern is None:
-            lat_rad = self.lat.to(u.rad).value
-            alt_rad = self.alt_coord[0].to(u.rad).value
-            az_rad = self.az_coord[0].to(u.rad).value
-
-            dec_rad = math.asin( sin(lat_rad)*sin(alt_rad) + cos(lat_rad)*cos(alt_rad)*cos(az_rad) )
-            hrang_rad = math.acos( (sin(alt_rad) - sin(dec_rad)*sin(lat_rad)) / (cos(dec_rad)*cos(lat_rad)) )
-
-            if sin(az_rad) > 0:
-                hrang_rad = 2*pi - hrang_rad
-
-            start_lst = hrang_rad*u.rad + self.start_ra
-
-        # find sidereal time
-        SIDEREAL_TO_UT1 = 1.002737909350795
-        return (self.time_offset.value/3600*SIDEREAL_TO_UT1*u.hourangle + start_lst).to(u.hourangle).value
-
     def _from_sky_pattern(self, sky_pattern):
 
         if max(abs(sky_pattern.x_coord.value)) > 10:
             warnings.warn('This is a larger pattern and the conversion between x and y deltas and RA/DEC may be slightly off.')
 
+        param = self.param
+
         # get alt/az
-        start_dec = self.start_dec.to(u.rad).value
-        hour_angle = self.lst - (sky_pattern.x_coord/cos(start_dec) + self.start_ra) # FIXME fine for small regions, but consider checking out https://docs.astropy.org/en/stable/coordinates/matchsep.html for larger regions
+        start_dec = param['start_dec'].to(u.rad).value
+        hour_angle = self.lst - (sky_pattern.x_coord/cos(start_dec) + param['start_ra']) # FIXME fine for small regions, but consider checking out https://docs.astropy.org/en/stable/coordinates/matchsep.html for larger regions
 
         hour_angle_rad = hour_angle.to(u.rad).value
-        dec_rad = (sky_pattern.y_coord + self.start_dec).to(u.rad).value
-        lat_rad = self.lat.to(u.rad).value
+        dec_rad = (sky_pattern.y_coord + param['start_dec']).to(u.rad).value
+        lat_rad = param['lat'].to(u.rad).value
 
         alt_rad = np.arcsin( np.sin(dec_rad)*sin(lat_rad) + np.cos(dec_rad)*cos(lat_rad)*np.cos(hour_angle_rad) )
 
@@ -1005,6 +959,69 @@ class TelescopePattern():
         az_rad[mask] = 2*pi - az_rad[mask]
 
         return np.degrees(az_rad), np.degrees(alt_rad)
+
+    def _get_lst(self, sky_pattern=None):
+
+        if not sky_pattern is None:
+            extra_ra_offset = sky_pattern.x_coord[0]
+            extra_dec_offset = sky_pattern.y_coord[0]
+        else:
+            extra_ra_offset = 0*u.deg
+            extra_dec_offset = 0*u.deg
+
+        param = self.param
+
+        # given a starting datetime
+        if 'start_datetime' in param.keys():
+            start_datetime = Time(param['start_datetime'], location=(param['lat'], 0*u.deg))
+            start_lst = start_datetime.sidereal_time('apparent')
+
+        # given a starting hourangle
+        elif 'start_hrang' in param.keys() and not sky_pattern is None:
+            start_lst = param['start_hrang'] + extra_ra_offset + param['start_ra']
+        
+        # given a starting lst
+        elif 'start_lst' in param.keys():
+            start_lst = param['start_lst']
+
+        # given a starting elevation
+        elif 'start_elev' in param.keys() and not sky_pattern is None:
+
+            # determine possible hour angles
+            alt_rad = param['start_elev'].to(u.rad).value
+            dec_rad = (param['start_dec'] + extra_dec_offset).to(u.rad).value
+            lat_rad = param['lat'].to(u.rad).value
+
+            try:
+                start_hrang_rad = math.acos((sin(alt_rad) - sin(dec_rad)*sin(lat_rad)) / (cos(dec_rad)*cos(lat_rad)))
+            except ValueError:
+                max_el = math.floor(math.degrees(math.asin(cos(0)*cos(dec_rad)*cos(lat_rad) + sin(dec_rad)*sin(lat_rad))))
+                min_el = math.ceil(math.degrees(math.asin(cos(pi)*cos(dec_rad)*cos(lat_rad) + sin(dec_rad)*sin(lat_rad))))
+                raise ValueError(f'Elevation = {param["start_elev"]} is not possible at provided ra, dec, and latitude. Min elevation is {min_el} and max elevation is {max_el} deg.')
+
+            # choose hour angle
+            if param['moving_up']:
+                start_hrang_rad = -start_hrang_rad
+
+            # starting sidereal time
+            start_lst = start_hrang_rad*u.rad + extra_ra_offset + param['start_ra']
+        
+        elif 'start_ra' in param.keys() and sky_pattern is None:
+            lat_rad = param['lat'].to(u.rad).value
+            alt_rad = self.alt_coord[0].to(u.rad).value
+            az_rad = self.az_coord[0].to(u.rad).value
+
+            dec_rad = math.asin( sin(lat_rad)*sin(alt_rad) + cos(lat_rad)*cos(alt_rad)*cos(az_rad) )
+            hrang_rad = math.acos( (sin(alt_rad) - sin(dec_rad)*sin(lat_rad)) / (cos(dec_rad)*cos(lat_rad)) )
+
+            if sin(az_rad) > 0:
+                hrang_rad = 2*pi - hrang_rad
+
+            start_lst = hrang_rad*u.rad + param['start_ra']
+
+        # find sidereal time
+        SIDEREAL_TO_UT1 = 1.002737909350795
+        return (self.time_offset.value/3600*SIDEREAL_TO_UT1*u.hourangle + start_lst).to(u.hourangle).value
 
     # TRANSFORMATIONS
 
@@ -1102,21 +1119,26 @@ class TelescopePattern():
 
         return self._norm_angle(np.degrees(az1)), np.degrees(alt1)
 
+    # METHODS
+
     def view_module(self, module, includes_instr_offset=False):
         """
+        Get a TelescopePattern object representing the AZ/EL coordinates of the
+        provided module. 
+
         Parameters
         ------------------------
-        module : str or (distance, theta)
-            string indicating a module name in the instrument e.g. 'SFH'
-            string indicating one of the default slots in the instrument e.g. 'c', 'i1'
-            tuple of (distance, theta) indicating module's offset from the center of the instrument
+        module : str or two-tuple
+            | 1. string indicating a module name in the instrument e.g. 'SFH'
+            | 2. string indicating one of the default slots in the instrument e.g. 'c', 'i1'
+            | 3. tuple of (distance, theta) indicating module's offset from the center of the instrument, default unit deg
         includes_instr_offset : bool, default False
             if "module" parameter is a tuple of (distance, theta), this includes the instrument offset
 
         Returns
         -------------------------
         TelescopePattern 
-            a TelescopePattern object where the "boresight" is the path of the provided module
+            A TelescopePattern object where the "boresight" is the path of the provided module.
         """
         
         if includes_instr_offset:
@@ -1129,14 +1151,14 @@ class TelescopePattern():
 
         data = {'time_offset': self.time_offset.value, 'lst': self.lst.value, 'az_coord': az1, 'alt_coord': alt1}
 
-        return TelescopePattern(data, lat=self.lat)
+        return TelescopePattern(data, lat=self.param['lat'])
 
     def get_sky_pattern(self) -> SkyPattern:
         """
         Returns
         -------------------------
         SkyPattern
-            A SkyPattern object tracing the path of the boresight.
+            A SkyPattern object for the boresight.
         """
 
         start_dec = self.dec_coord[0].to(u.rad).value 
@@ -1153,23 +1175,22 @@ class TelescopePattern():
 
         return SkyPattern(data=data)
 
-    # SAVING/EXTRACTING DATA
-
     def save_param(self, param_json=None):
         """
+        Save observation parameters.
+
         Parameters
         ----------------------------
-        param_json : str or False
-            path to intended file location for the parametes
-            if None, return it as a dictionary
+        path_or_buf : str, file handle, or None; default None
+            File path or object, if `None` is provided the result is returned as a dictionary.
         
         Returns
         ----------------------
         None or dict
-            If path_or_buf is None, returns the resulting json format as a dictionary. Otherwise returns None.
+            If `path_or_buf` is `None`, returns the resulting json format as a dictionary. Otherwise returns `None`.
         """
 
-        param_temp = self.param.copy()
+        param_temp = self._param.copy()
         if 'start_datetime' in param_temp.keys():
             param_temp['start_datetime'] = param_temp['start_datetime'].strftime('%Y-%m-%d %H:%M:%S %z') 
 
@@ -1185,18 +1206,22 @@ class TelescopePattern():
         Save kinematics data of the boresight. 
 
         Parameters
-        ----------------------------
-        path_or_buf : str or file handle, default None
-            File path or object, if None is provided the result is returned as a dictionary.
-        columns : sequence or str, default 'default'
-            Columns to write. 
-            'default' for ['time_offset', 'lst', 'az_coord', 'alt_coord', 'az_vel', 'alt_vel']
-            'all' for ['time_offset', 'az_coord', 'alt_coord', 'az_vel', 'alt_vel', 'vel', 'az_acc', 'alt_acc', 'acc', 'az_jerk', 'alt_jerk', 'jerk', 'lst', 'hour_angle', 'para_angle', 'rot_angle', 'ra_coord', 'dec_coord']
+        ----------------------
+        path_or_buf : str, file handle or None; default None
+            File path or object, if `None` is provided the result is returned as a dictionary.
+        columns : sequence, str or [dict of str -> str/Unit/None]; default 'default'
+            Columns to write. If `dict`, map column names to their desired unit and use `None` if you would like to use the standard.
+            'default' for ['time_offset', 'lst', 'az_coord', 'alt_coord', 'az_vel', 'alt_vel'].
+            'all' for ['time_offset', 'az_coord', 'alt_coord', 'az_vel', 'alt_vel', 'vel', 'az_acc', 'alt_acc', 'acc', 'az_jerk', 'alt_jerk', 'jerk', 'lst', 'hour_angle', 'para_angle', 'rot_angle', 'ra_coord', 'dec_coord'].
         
         Returns
         ----------------------
-        None or dict
-            If path_or_buf is None, returns the resulting json format as a dictionary. Otherwise returns None.
+        None or [dict of str -> array]
+            If `path_or_buf` is `None`, returns the data as a dictionary mapping column name to values. Otherwise returns `None`.
+
+        Examples
+        ---------------------
+        >>> telescope_pattern.save_data('file.csv', columns={'time_offset': 'sec', 'alt_coord': 'arcsec', 'az_coord': None})
         """
 
         # replace str options
@@ -1205,45 +1230,71 @@ class TelescopePattern():
         elif columns == 'all':
             columns = ['time_offset', 'az_coord', 'alt_coord', 'az_vel', 'alt_vel', 'vel', 'az_acc', 'alt_acc', 'acc', 'az_jerk', 'alt_jerk', 'jerk', 'lst', 'hour_angle', 'para_angle', 'rot_angle', 'ra_coord', 'dec_coord']
         
+        data = pd.DataFrame()
+
         # generate required data
-        data = self.data.copy()
-        for col in columns:
-            if not col in ['time_offset', 'lst', 'az_coord', 'alt_coord']:
+        if isinstance(columns, dict):
+            for col, unit in columns.items():
+                if not unit is None:
+                    data[col] = getattr(self, col).to(unit).value
+                else:
+                    data[col] = getattr(self, col).value
+        else:
+            for col in columns:
                 data[col] = getattr(self, col).value
         
-        # save data file 
+        # returning
         if path_or_buf is None:
-            return data[columns].to_dict('list')
+            return data.to_dict('list')
         else:
-            data.to_csv(path_or_buf, columns=columns, index=False)
+            data.to_csv(path_or_buf, index=False)
 
     # ATTRIBUTES
-
-    # data : time_offset, lst, alt_coord, az_coord
-    # param
-    def __getattr__(self, attr):
-
-        if attr in self.param.keys():
-            if self._param_unit[attr] is u.dimensionless_unscaled:
-                return self.param[attr]
-            else:
-                return self.param[attr]*self._param_unit[attr]
-        elif attr in self.data.columns:
-            return self.data[attr].to_numpy()*self._data_unit[attr]
-        else:
-            raise AttributeError(f'attribtue {attr} not found')
     
     @property
+    def param(self):
+        """dict: Parameters inputted by user."""
+        return_param = dict()
+        for p, val in self._param.items():
+            return_param[p] = val if self._param_units[p] is u.dimensionless_unscaled else val*self._param_units[p]
+        return return_param
+
+    @property
+    def instrument(self):
+        """ Insturment: Insturment object."""
+        return self._instrument
+
+    @property
     def scan_duration(self):
+        """Quantity: Total scan duration."""
         return self.time_offset[-1] + self.sample_interval
 
     @property
     def sample_interval(self):
-        return self._sample_interval*u.s
+        """Quantity: Time between samples."""
+        return self._sample_interval*self._stored_units['time_offset']
+
+    # Other Motions/Time
+
+    @property
+    def time_offset(self):
+        """Quantity array: Time offsets."""
+        return self._data['time_offset'].to_numpy()*self._stored_units['time_offset']
+    
+    @property
+    def lst(self):
+        """Quantity array: Local sidereal time."""
+        return self._data['lst'].to_numpy()*self._stored_units['lst']
+
+    @property
+    def ra_coord(self):
+        """Quantity array: Right ascension."""
+        return self._norm_angle((self.lst - self.hour_angle).to(u.deg).value)*u.deg
 
     @property
     def dec_coord(self):
-        lat_rad = self.lat.to(u.rad).value
+        """Quantity array: Declination."""
+        lat_rad = radians(self._param['lat'])
         alt_coord_rad = self.alt_coord.to(u.rad).value
         az_coord_rad = self.az_coord.to(u.rad).value
 
@@ -1252,7 +1303,8 @@ class TelescopePattern():
 
     @property
     def hour_angle(self):
-        lat_rad = self.lat.to(u.rad).value
+        """Quantity array: Hour angle."""
+        lat_rad = radians(self._param['lat'])
         alt_coord_rad = self.alt_coord.to(u.rad).value
         az_coord_rad = self.az_coord.to(u.rad).value
         dec_rad = self.dec_coord.to(u.rad).value
@@ -1265,14 +1317,11 @@ class TelescopePattern():
         return (hrang_rad*u.rad).to(u.hourangle)
 
     @property
-    def ra_coord(self):
-        return self._norm_angle((self.lst - self.hour_angle).to(u.deg).value)*u.deg
-
-    @property
     def para_angle(self):
+        """Quantity array: Parallactic angle."""
         dec_rad = self.dec_coord.to(u.rad).value
         hour_angle_rad = self.hour_angle.to(u.rad).value
-        lat_rad = self.lat.to(u.rad).value
+        lat_rad = radians(self._param['lat'])
 
         para_angle_deg = np.degrees(np.arctan2( 
             np.sin(hour_angle_rad), 
@@ -1282,40 +1331,62 @@ class TelescopePattern():
 
     @property
     def rot_angle(self):
+        """Quantity array: Field rotation (elevation + parallactic angle)."""
         return self._norm_angle((self.para_angle + self.alt_coord).value)*u.deg
+
+    # Azimuthal/Elevation Motion
+
+    @property
+    def az_coord(self):
+        """Quantity array: Azimuth coordinates (in terms of East of North)."""
+        return self._data['az_coord'].to_numpy()*self._stored_units['az_coord']
+    
+    @property
+    def alt_coord(self):
+        """Quantity array: Elevation coordinates."""
+        return self._data['alt_coord'].to_numpy()*self._stored_units['alt_coord']
 
     @property
     def az_vel(self):
-        return _central_diff(self.az_coord.value, self.sample_interval.value)*u.deg/u.s
+        """Quantity array: Azimuth velocity."""
+        return _central_diff(self.az_coord.value, self.sample_interval.value)*(self._stored_units['az_coord']/self._stored_units['time_offset'])
 
     @property
     def alt_vel(self):
-        return _central_diff(self.alt_coord.value, self.sample_interval.value)*u.deg/u.s
+        """Quantity array: Elevation velocity."""
+        return _central_diff(self.alt_coord.value, self.sample_interval.value)*(self._stored_units['alt_coord']/self._stored_units['time_offset'])
 
     @property
     def vel(self):
+        """Quantity array: Total velocity."""
         return np.sqrt(self.az_vel**2 + self.alt_vel**2)
 
     @property
     def az_acc(self):
-        return _central_diff(self.az_vel.value, self.sample_interval.value)*u.deg/u.s/u.s
+        """Quantity array: Azimuth acceleration."""
+        return _central_diff(self.az_vel.value, self.sample_interval.value)*(self._stored_units['az_coord']/self._stored_units['time_offset']**2)
 
     @property
     def alt_acc(self):
-        return _central_diff(self.alt_vel.value, self.sample_interval.value)*u.deg/u.s/u.s
+        """Quantity array: Elevation acceleration."""
+        return _central_diff(self.alt_vel.value, self.sample_interval.value)*(self._stored_units['alt_coord']/self._stored_units['time_offset']**2)
     
     @property
     def acc(self):
+        """Quantity array: Total acceleration."""
         return np.sqrt(self.az_acc**2 + self.alt_acc**2)
 
     @property
     def az_jerk(self):
-        return _central_diff(self.az_acc.value, self.sample_interval.value)*u.deg/(u.s)**3
+        """Quantity array: Azimuth jerk."""
+        return _central_diff(self.az_acc.value, self.sample_interval.value)*(self._stored_units['az_coord']/self._stored_units['time_offset']**3)
     
     @property
     def alt_jerk(self):
-        return _central_diff(self.alt_acc.value, self.sample_interval.value)*u.deg/(u.s)**3
+        """Quantity array: Elevation jerk."""
+        return _central_diff(self.alt_acc.value, self.sample_interval.value)*(self._stored_units['alt_coord']/self._stored_units['time_offset']**3)
     
     @property
     def jerk(self):
+        """Quantity array: Total jerk."""
         return np.sqrt(self.az_jerk**2 + self.alt_jerk**2)

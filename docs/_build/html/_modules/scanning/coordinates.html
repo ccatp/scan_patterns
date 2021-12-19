@@ -43,6 +43,7 @@
 <span class="kn">import</span> <span class="nn">astropy.units</span> <span class="k">as</span> <span class="nn">u</span>
 
 <span class="kn">from</span> <span class="nn">scanning</span> <span class="kn">import</span> <span class="n">FYST_LOC</span><span class="p">,</span> <span class="n">_central_diff</span>
+<span class="kn">from</span> <span class="nn">scanning.camera</span> <span class="kn">import</span> <span class="n">PrimeCam</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">specify units when passing in x, y</span>
@@ -361,7 +362,7 @@
         <span class="sd">&quot;&quot;&quot;Quantity array: Total jerk.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_jerk</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_jerk</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Pong"><a class="viewcode-back" href="../../intro.html#scanning.coordinates.Pong">[docs]</a><span class="k">class</span> <span class="nc">Pong</span><span class="p">(</span><span class="n">SkyPattern</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">Pong</span><span class="p">(</span><span class="n">SkyPattern</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    The Curvy Pong pattern allows for an approximation of a Pong pattern while avoiding </span>
 <span class="sd">    sharp turnarounds at the vertices. The Pong pattern is an analytic and close-pathed </span>
@@ -380,7 +381,7 @@
         <span class="s1">&#39;num_repeat&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">dimensionless_unscaled</span>
     <span class="p">}</span>
 
-<div class="viewcode-block" id="Pong.__init__"><a class="viewcode-back" href="../../intro.html#scanning.coordinates.Pong.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">param_json</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">param_json</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initialize a Pong pattern by passing a parameter file and overwriting any parameters with **kwargs:</span>
 <span class="sd">            option1 : Pong(param_json, **kwargs) </span>
@@ -396,8 +397,10 @@
 <span class="sd">        ----------------------------</span>
 <span class="sd">        num_term : int</span>
 <span class="sd">            Number of terms in the triangle wave expansion. Must be positive. </span>
-<span class="sd">        width, height : float or Quantity or str; default unit deg</span>
-<span class="sd">            Width and height of field of view. Must be positive. </span>
+<span class="sd">        width : float or Quantity or str; default unit deg</span>
+<span class="sd">            Width of the field. Must be positive. </span>
+<span class="sd">        height : float or Quantity or str; default unit deg</span>
+<span class="sd">            Height of the field. Must be positive. </span>
 <span class="sd">        spacing : float or Quantity or str; default unit deg</span>
 <span class="sd">            Space between adjacent (parallel) scan lines in the Pong pattern. Must be positive.</span>
 <span class="sd">        velocity : float or Quantity or str; default unit deg/s</span>
@@ -438,7 +441,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clean_param</span><span class="p">(</span><span class="o">**</span><span class="n">param</span><span class="p">)</span>
         
         <span class="bp">self</span><span class="o">.</span><span class="n">_sample_interval</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_param</span><span class="p">[</span><span class="s1">&#39;sample_interval&#39;</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_scan</span><span class="p">()</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_scan</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">_clean_param</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="n">kwargs</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_clean_param</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
@@ -511,7 +514,7 @@
             <span class="n">num_repeat</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">max_scan_duration</span><span class="o">/</span><span class="n">period</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_param</span><span class="p">[</span><span class="s1">&#39;num_repeat&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">num_repeat</span>
 
-        <span class="n">pongcount</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">period</span><span class="o">/</span><span class="n">sample_interval</span><span class="p">)</span><span class="o">*</span><span class="n">num_repeat</span> 
+        <span class="n">pongcount</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">period</span><span class="o">*</span><span class="n">num_repeat</span><span class="o">/</span><span class="n">sample_interval</span><span class="p">)</span>
         
         <span class="c1"># Calculate the grid positions and apply rotation angle. Load</span>
         <span class="c1"># data into a dataframe.    </span>
@@ -547,7 +550,7 @@
             <span class="n">pos</span> <span class="o">+=</span> <span class="n">c</span> <span class="o">*</span> <span class="n">sin</span><span class="p">(</span><span class="n">b</span><span class="o">*</span><span class="n">n</span><span class="o">*</span><span class="n">t_count</span><span class="p">)</span>
 
         <span class="n">pos</span> <span class="o">*=</span> <span class="n">a</span>
-        <span class="k">return</span> <span class="n">pos</span></div>
+        <span class="k">return</span> <span class="n">pos</span>
 
 <span class="k">class</span> <span class="nc">Daisy</span><span class="p">(</span><span class="n">SkyPattern</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
@@ -761,64 +764,78 @@
 <span class="c1">#  TELESCOPE PATTERN </span>
 <span class="c1">#######################</span>
 
-<span class="k">class</span> <span class="nc">TelescopePattern</span><span class="p">():</span>
+<div class="viewcode-block" id="TelescopePattern"><a class="viewcode-back" href="../../intro.html#scanning.coordinates.TelescopePattern">[docs]</a><span class="k">class</span> <span class="nc">TelescopePattern</span><span class="p">():</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Representing the path in AZ/EL coordinates of the telescope&#39;s boresight.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">_param_unit</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="c1"># other attributes (for development)</span>
+    <span class="c1"># _stored_units</span>
+    <span class="c1"># _instrument</span>
+    <span class="c1"># _data</span>
+    <span class="c1"># _param, _param_units</span>
+
+    <span class="n">_param_units</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s1">&#39;start_ra&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;start_dec&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;lat&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span>
         <span class="s1">&#39;start_hrang&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">hourangle</span><span class="p">,</span> 
         <span class="s1">&#39;start_datetime&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">dimensionless_unscaled</span><span class="p">,</span> 
         <span class="s1">&#39;start_lst&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">hourangle</span><span class="p">,</span>
         <span class="s1">&#39;start_elev&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;moving_up&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">dimensionless_unscaled</span>
     <span class="p">}</span>
-    <span class="n">_data_unit</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;time_offset&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">s</span><span class="p">,</span> <span class="s1">&#39;lst&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">hourangle</span><span class="p">,</span> <span class="s1">&#39;alt_coord&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;az_coord&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">}</span>
+    <span class="n">_stored_units</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;time_offset&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">s</span><span class="p">,</span> <span class="s1">&#39;lst&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">hourangle</span><span class="p">,</span> <span class="s1">&#39;alt_coord&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;az_coord&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">}</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">instrument</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">module</span><span class="o">=</span><span class="s1">&#39;boresight&#39;</span><span class="p">,</span> <span class="n">obs_param</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="c1"># INITIALIZATION</span>
+
+<div class="viewcode-block" id="TelescopePattern.__init__"><a class="viewcode-back" href="../../intro.html#scanning.coordinates.TelescopePattern.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">instrument</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">data_loc</span><span class="o">=</span><span class="s1">&#39;boresight&#39;</span><span class="p">,</span> <span class="n">obs_param</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Determine the motion of the telescope.</span>
-<span class="sd">            option1: data (sky), instrument (optional), module (optional); lat, start_ra, start_dec, (start_datetime or start_hrang or start_lst or [start_elev and moving_up])</span>
-<span class="sd">            option2: data (telescope, excludes lst), instrument (optional), module (optional); lat, (start_ra or start_datetime or start_lst)</span>
-<span class="sd">            option3: data (telescope, includes lst), instrument (optional), module (optional); lat</span>
-<span class="sd">            **kwargs can be passed as a file through obs_param</span>
+<span class="sd">        Determine the motion of the telescope. Note that **kwargs can be passed as a file through `obs_param`.</span>
+<span class="sd">            | option1: data (sky), instrument (optional), data_loc (optional); lat, start_ra, start_dec, (start_datetime or start_hrang or start_lst or [start_elev and moving_up])</span>
+<span class="sd">            | option2: data (telescope, excludes lst), instrument (optional), data_loc (optional); lat, (start_ra or start_datetime or start_lst)</span>
+<span class="sd">            | option3: data (telescope, includes lst), instrument (optional), data_loc (optional); lat</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        -----------------------------</span>
-<span class="sd">        data : str or dict or SkyPattern</span>
-<span class="sd">            Path to a csv file or a dict containing columns &#39;time_offset, &#39;az_coord&#39;, and &#39;alt_coord&#39;.</span>
-<span class="sd">            If &#39;lst&#39; is included as a column, certain observation parameters are not required (see options).</span>
-<span class="sd">            Path to SkyPattern object with time_offset, x_coord, y_coord.</span>
+<span class="sd">        data : str, DataFrame, [dict of str -&gt; sequence], or SkyPattern</span>
+<span class="sd">            If `str`, a file path to a csv file. If `dict` or `DataFrame`, column names map to their values. </span>
+<span class="sd">            Columns must contain &#39;time_offset, &#39;az_coord&#39;, and &#39;alt_coord&#39;. If &#39;lst&#39; is included as a column, certain observation parameters are not required (see options).</span>
+<span class="sd">            Otherwise, `data` is a `SkyPattern` object. </span>
 
-<span class="sd">        instrument : str, Instrument or None, default None</span>
-<span class="sd">            Path to a json file or an Instrument object to be used if any.</span>
-<span class="sd">        module : str or (distance, theta), default &#39;boresight&#39;</span>
+<span class="sd">        instrument : Instrument, default empty PrimeCam</span>
+<span class="sd">            An `Instrument` object. </span>
+<span class="sd">        data_loc : str or two-tuple; default &#39;boresight&#39;</span>
 <span class="sd">            Location relative to the center of the instrument where observation parameters are applied:</span>
-<span class="sd">                &#39;boresight&#39; for boresight of the telescope </span>
-<span class="sd">                string indicating a module name in the instrument e.g. &#39;SFH&#39; or one of the default slots in the instrument e.g. &#39;c&#39;, &#39;i1&#39;</span>
-<span class="sd">                tuple of (distance, theta) indicating module&#39;s offset from the center of the instrument, default unit deg</span>
+<span class="sd">                | &#39;boresight&#39; for boresight of the telescope </span>
+<span class="sd">                | string indicating a module name in the instrument e.g. &#39;SFH&#39; or one of the default slots in the instrument e.g. &#39;c&#39;, &#39;i1&#39;</span>
+<span class="sd">                | tuple of (distance, theta) indicating module&#39;s offset from the center of the instrument; default unit deg</span>
 
 <span class="sd">        obs_param : str</span>
 <span class="sd">            File path to json containing all required obervation parameters (see **kwargs).</span>
 
-<span class="sd">        **kwargs</span>
-<span class="sd">        start_ra : angle-like, default unit deg</span>
+<span class="sd">        Keyword Args</span>
+<span class="sd">        ------------------------------</span>
+<span class="sd">        start_ra : float/Quantity/str; default unit deg</span>
 <span class="sd">            Starting right acension of telescope / right acension offset for sky.</span>
-<span class="sd">        start_dec : angle-like, default unit deg</span>
+<span class="sd">        start_dec : float/Quantity/str; default unit deg</span>
 <span class="sd">            Declination offset for sky_pattern.</span>
-<span class="sd">        lat : angle-like, default unit deg, default FYST_LOC.lat</span>
+<span class="sd">        lat : float/Quantity/str; default unit deg, default FYST_LOC.lat</span>
 <span class="sd">            Latitude of observation. </span>
 
-<span class="sd">        start_datetime : str or datetime, default timezone UTC</span>
+<span class="sd">        start_datetime : str or datetime; default timezone UTC</span>
 <span class="sd">            Starting date and time of observation.</span>
-<span class="sd">        start_hrang : angle-like, default unit hourangle</span>
+<span class="sd">        start_hrang : float/Quantity/str; default unit hourangle</span>
 <span class="sd">            Starting hour angle of source.</span>
-<span class="sd">        start_lst : angle-like, default unit hourangle</span>
+<span class="sd">        start_lst : float/Quantity/str; default unit hourangle</span>
 <span class="sd">            Starting local sidereal time.</span>
-<span class="sd">        start_elev : angle-like, default unit deg</span>
-<span class="sd">            Starting elevation of source, must be used with moving_up</span>
+<span class="sd">        start_elev : float/Quantity/str; default unit deg</span>
+<span class="sd">            Starting elevation of source, must be used with `moving_up`.</span>
 <span class="sd">        moving_up : bool, default True</span>
-<span class="sd">            whether observation is moving towards the meridian or away, must be used with start_elev. </span>
+<span class="sd">            Whether observation is moving towards the meridian or away, must be used with `start_elev`. </span>
+
+<span class="sd">        Example</span>
+<span class="sd">        -------------------------------</span>
+<span class="sd">        &gt;&gt;&gt; sky_pattern = SkyPattern(sky_pattern.csv)</span>
+<span class="sd">        &gt;&gt;&gt; telescope_pattern1 = TelescopePattern(sky_pattern, data_loc=&#39;i1&#39;, start_ra=&#39;5 hourangle&#39;, start_dec=&#39;-60 deg&#39;, start_elev=30)</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="c1"># --- Observation Parameters ---</span>
@@ -839,37 +856,37 @@
         <span class="c1"># sky_pattern has been passed</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">SkyPattern</span><span class="p">):</span>
                 
-            <span class="bp">self</span><span class="o">.</span><span class="n">param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clean_param_sky_pattern</span><span class="p">(</span><span class="o">**</span><span class="n">param</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clean_param_sky_pattern</span><span class="p">(</span><span class="o">**</span><span class="n">param</span><span class="p">)</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">_sample_interval</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">sample_interval</span><span class="o">.</span><span class="n">value</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s1">&#39;time_offset&#39;</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">time_offset</span><span class="o">.</span><span class="n">value</span><span class="p">})</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;lst&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_lst</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s1">&#39;time_offset&#39;</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">time_offset</span><span class="o">.</span><span class="n">value</span><span class="p">})</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;lst&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_lst</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
             <span class="n">az1</span><span class="p">,</span> <span class="n">alt1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_from_sky_pattern</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
 
-            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;az_coord&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">az1</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;alt_coord&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">alt1</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;az_coord&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">az1</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;alt_coord&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">alt1</span>
 
         <span class="c1"># data has been passed</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
                 <span class="k">try</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">usecols</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">,</span> <span class="s1">&#39;lst&#39;</span><span class="p">,</span> <span class="s1">&#39;az_coord&#39;</span><span class="p">,</span> <span class="s1">&#39;alt_coord&#39;</span><span class="p">])</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clean_param_telescope_data</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">param</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">usecols</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">,</span> <span class="s1">&#39;lst&#39;</span><span class="p">,</span> <span class="s1">&#39;az_coord&#39;</span><span class="p">,</span> <span class="s1">&#39;alt_coord&#39;</span><span class="p">])</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clean_param_telescope_data</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">param</span><span class="p">)</span>
                 <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">usecols</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">,</span> <span class="s1">&#39;az_coord&#39;</span><span class="p">,</span> <span class="s1">&#39;alt_coord&#39;</span><span class="p">])</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clean_param_telescope_data</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">param</span><span class="p">)</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;lst&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_lst</span><span class="p">()</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">usecols</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">,</span> <span class="s1">&#39;az_coord&#39;</span><span class="p">,</span> <span class="s1">&#39;alt_coord&#39;</span><span class="p">])</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clean_param_telescope_data</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">param</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;lst&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_lst</span><span class="p">()</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">try</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">)[[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">,</span> <span class="s1">&#39;lst&#39;</span><span class="p">,</span> <span class="s1">&#39;az_coord&#39;</span><span class="p">,</span> <span class="s1">&#39;alt_coord&#39;</span><span class="p">]]</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clean_param_telescope_data</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">param</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">)[[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">,</span> <span class="s1">&#39;lst&#39;</span><span class="p">,</span> <span class="s1">&#39;az_coord&#39;</span><span class="p">,</span> <span class="s1">&#39;alt_coord&#39;</span><span class="p">]]</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clean_param_telescope_data</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">param</span><span class="p">)</span>
                 <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">)[[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">,</span> <span class="s1">&#39;az_coord&#39;</span><span class="p">,</span> <span class="s1">&#39;alt_coord&#39;</span><span class="p">]]</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clean_param_telescope_data</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">param</span><span class="p">)</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;lst&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_lst</span><span class="p">()</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">)[[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">,</span> <span class="s1">&#39;az_coord&#39;</span><span class="p">,</span> <span class="s1">&#39;alt_coord&#39;</span><span class="p">]]</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clean_param_telescope_data</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">param</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;lst&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_lst</span><span class="p">()</span>
 
             <span class="c1"># determine sample_interval </span>
-            <span class="n">sample_interval_list</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">time_offset</span><span class="p">)</span>
+            <span class="n">sample_interval_list</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time_offset</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">sample_interval_list</span><span class="p">)</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">sample_interval_list</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mf">0.01</span><span class="p">:</span>
                 <span class="n">sample_interval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">sample_interval_list</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_sample_interval</span> <span class="o">=</span> <span class="n">sample_interval</span>
@@ -878,25 +895,23 @@
 
         <span class="c1"># --- Instrument and module --- </span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">instrument</span> <span class="o">=</span> <span class="n">instrument</span>
-        <span class="n">dist</span><span class="p">,</span> <span class="n">theta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_true_module_loc</span><span class="p">(</span><span class="n">module</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_instrument</span> <span class="o">=</span> <span class="n">instrument</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">instrument</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">PrimeCam</span><span class="p">()</span>
+        <span class="n">dist</span><span class="p">,</span> <span class="n">theta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_true_module_loc</span><span class="p">(</span><span class="n">data_loc</span><span class="p">)</span>
         
         <span class="c1"># az_coord and alt_coord are for the module&#39;s location</span>
         <span class="c1"># we need the az/alt coordinates of the boresight</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">module</span> <span class="o">==</span> <span class="s1">&#39;boresight&#39;</span> <span class="ow">or</span> <span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">and</span> <span class="n">math</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span> <span class="mi">0</span><span class="p">))):</span>
-            <span class="n">az0</span><span class="p">,</span> <span class="n">alt0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transform_to_boresight</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;az_coord&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;alt_coord&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="n">dist</span><span class="p">,</span> <span class="n">theta</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;az_coord&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">az0</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;alt_coord&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">alt0</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">and</span> <span class="n">math</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span> <span class="mi">0</span><span class="p">)):</span>
+            <span class="n">az0</span><span class="p">,</span> <span class="n">alt0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transform_to_boresight</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">az_coord</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">alt_coord</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">theta</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;az_coord&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">az0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;alt_coord&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">alt0</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;az_coord&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_norm_angle</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">az_coord</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;az_coord&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_norm_angle</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">az_coord</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
         
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alt_coord</span><span class="o">.</span><span class="n">value</span><span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">alt_coord</span><span class="o">.</span><span class="n">value</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alt_coord</span><span class="o">.</span><span class="n">value</span> <span class="o">&gt;</span> <span class="mi">90</span><span class="p">)])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;elevation has values outside of 0 to 90 range&#39;</span><span class="p">)</span>
         <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alt_coord</span><span class="o">.</span><span class="n">value</span><span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">alt_coord</span><span class="o">.</span><span class="n">value</span> <span class="o">&lt;</span> <span class="mi">30</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alt_coord</span><span class="o">.</span><span class="n">value</span> <span class="o">&gt;</span> <span class="mi">75</span><span class="p">)])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;elevation has values outside of 30 to 75 range&#39;</span><span class="p">)</span>
-
-    <span class="c1"># INITIALIZATION</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;elevation has values outside of 30 to 75 range&#39;</span><span class="p">)</span></div>
 
     <span class="k">def</span> <span class="nf">_clean_param_sky_pattern</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="n">kwarg_keys</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
@@ -951,79 +966,20 @@
 
         <span class="k">return</span> <span class="n">new_kwargs</span>
 
-    <span class="k">def</span> <span class="nf">_get_lst</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sky_pattern</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">sky_pattern</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">extra_ra_offset</span> <span class="o">=</span> <span class="n">sky_pattern</span><span class="o">.</span><span class="n">x_coord</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="n">extra_dec_offset</span> <span class="o">=</span> <span class="n">sky_pattern</span><span class="o">.</span><span class="n">y_coord</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">extra_ra_offset</span> <span class="o">=</span> <span class="mi">0</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span>
-            <span class="n">extra_dec_offset</span> <span class="o">=</span> <span class="mi">0</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span>
-
-        <span class="c1"># given a starting datetime</span>
-        <span class="k">if</span> <span class="s1">&#39;start_datetime&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">param</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-            <span class="n">start_datetime</span> <span class="o">=</span> <span class="n">Time</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">start_datetime</span><span class="p">,</span> <span class="n">location</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lat</span><span class="p">,</span> <span class="mi">0</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">))</span>
-            <span class="n">start_lst</span> <span class="o">=</span> <span class="n">start_datetime</span><span class="o">.</span><span class="n">sidereal_time</span><span class="p">(</span><span class="s1">&#39;apparent&#39;</span><span class="p">)</span>
-
-        <span class="c1"># given a starting hourangle</span>
-        <span class="k">elif</span> <span class="s1">&#39;start_hrang&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">param</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">sky_pattern</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">start_lst</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_hrang</span> <span class="o">+</span> <span class="n">extra_ra_offset</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_ra</span>
-        
-        <span class="c1"># given a starting lst</span>
-        <span class="k">elif</span> <span class="s1">&#39;start_lst&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">param</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-            <span class="n">start_lst</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_lst</span>
-
-        <span class="c1"># given a starting elevation</span>
-        <span class="k">elif</span> <span class="s1">&#39;start_elev&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">param</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">sky_pattern</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-
-            <span class="c1"># determine possible hour angles</span>
-            <span class="n">alt_rad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_elev</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
-            <span class="n">dec_rad</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">start_dec</span> <span class="o">+</span> <span class="n">extra_dec_offset</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
-            <span class="n">lat_rad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lat</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
-
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">start_hrang_rad</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">acos</span><span class="p">((</span><span class="n">sin</span><span class="p">(</span><span class="n">alt_rad</span><span class="p">)</span> <span class="o">-</span> <span class="n">sin</span><span class="p">(</span><span class="n">dec_rad</span><span class="p">)</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="n">cos</span><span class="p">(</span><span class="n">dec_rad</span><span class="p">)</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">)))</span>
-            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-                <span class="n">max_el</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">asin</span><span class="p">(</span><span class="n">cos</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">dec_rad</span><span class="p">)</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">)</span> <span class="o">+</span> <span class="n">sin</span><span class="p">(</span><span class="n">dec_rad</span><span class="p">)</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">))))</span>
-                <span class="n">min_el</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">asin</span><span class="p">(</span><span class="n">cos</span><span class="p">(</span><span class="n">pi</span><span class="p">)</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">dec_rad</span><span class="p">)</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">)</span> <span class="o">+</span> <span class="n">sin</span><span class="p">(</span><span class="n">dec_rad</span><span class="p">)</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">))))</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Elevation = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">start_elev</span><span class="si">}</span><span class="s1"> is not possible at provided ra, dec, and latitude. Min elevation is </span><span class="si">{</span><span class="n">min_el</span><span class="si">}</span><span class="s1"> and max elevation is </span><span class="si">{</span><span class="n">max_el</span><span class="si">}</span><span class="s1"> deg.&#39;</span><span class="p">)</span>
-
-            <span class="c1"># choose hour angle</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">moving_up</span><span class="p">:</span>
-                <span class="n">start_hrang_rad</span> <span class="o">=</span> <span class="o">-</span><span class="n">start_hrang_rad</span>
-
-            <span class="c1"># starting sidereal time</span>
-            <span class="n">start_lst</span> <span class="o">=</span> <span class="n">start_hrang_rad</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span> <span class="o">+</span> <span class="n">extra_ra_offset</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_ra</span>
-        
-        <span class="k">elif</span> <span class="s1">&#39;start_ra&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">param</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="ow">and</span> <span class="n">sky_pattern</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">lat_rad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lat</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
-            <span class="n">alt_rad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">alt_coord</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
-            <span class="n">az_rad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">az_coord</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
-
-            <span class="n">dec_rad</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">asin</span><span class="p">(</span> <span class="n">sin</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">)</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">alt_rad</span><span class="p">)</span> <span class="o">+</span> <span class="n">cos</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">)</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">alt_rad</span><span class="p">)</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">az_rad</span><span class="p">)</span> <span class="p">)</span>
-            <span class="n">hrang_rad</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">acos</span><span class="p">(</span> <span class="p">(</span><span class="n">sin</span><span class="p">(</span><span class="n">alt_rad</span><span class="p">)</span> <span class="o">-</span> <span class="n">sin</span><span class="p">(</span><span class="n">dec_rad</span><span class="p">)</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="n">cos</span><span class="p">(</span><span class="n">dec_rad</span><span class="p">)</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">))</span> <span class="p">)</span>
-
-            <span class="k">if</span> <span class="n">sin</span><span class="p">(</span><span class="n">az_rad</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="n">hrang_rad</span> <span class="o">=</span> <span class="mi">2</span><span class="o">*</span><span class="n">pi</span> <span class="o">-</span> <span class="n">hrang_rad</span>
-
-            <span class="n">start_lst</span> <span class="o">=</span> <span class="n">hrang_rad</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_ra</span>
-
-        <span class="c1"># find sidereal time</span>
-        <span class="n">SIDEREAL_TO_UT1</span> <span class="o">=</span> <span class="mf">1.002737909350795</span>
-        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time_offset</span><span class="o">.</span><span class="n">value</span><span class="o">/</span><span class="mi">3600</span><span class="o">*</span><span class="n">SIDEREAL_TO_UT1</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">hourangle</span> <span class="o">+</span> <span class="n">start_lst</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">hourangle</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
-
     <span class="k">def</span> <span class="nf">_from_sky_pattern</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sky_pattern</span><span class="p">):</span>
 
         <span class="k">if</span> <span class="nb">max</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">sky_pattern</span><span class="o">.</span><span class="n">x_coord</span><span class="o">.</span><span class="n">value</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;This is a larger pattern and the conversion between x and y deltas and RA/DEC may be slightly off.&#39;</span><span class="p">)</span>
 
+        <span class="n">param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">param</span>
+
         <span class="c1"># get alt/az</span>
-        <span class="n">start_dec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_dec</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
-        <span class="n">hour_angle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lst</span> <span class="o">-</span> <span class="p">(</span><span class="n">sky_pattern</span><span class="o">.</span><span class="n">x_coord</span><span class="o">/</span><span class="n">cos</span><span class="p">(</span><span class="n">start_dec</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_ra</span><span class="p">)</span> <span class="c1"># FIXME fine for small regions, but consider checking out https://docs.astropy.org/en/stable/coordinates/matchsep.html for larger regions</span>
+        <span class="n">start_dec</span> <span class="o">=</span> <span class="n">param</span><span class="p">[</span><span class="s1">&#39;start_dec&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">hour_angle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lst</span> <span class="o">-</span> <span class="p">(</span><span class="n">sky_pattern</span><span class="o">.</span><span class="n">x_coord</span><span class="o">/</span><span class="n">cos</span><span class="p">(</span><span class="n">start_dec</span><span class="p">)</span> <span class="o">+</span> <span class="n">param</span><span class="p">[</span><span class="s1">&#39;start_ra&#39;</span><span class="p">])</span> <span class="c1"># FIXME fine for small regions, but consider checking out https://docs.astropy.org/en/stable/coordinates/matchsep.html for larger regions</span>
 
         <span class="n">hour_angle_rad</span> <span class="o">=</span> <span class="n">hour_angle</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
-        <span class="n">dec_rad</span> <span class="o">=</span> <span class="p">(</span><span class="n">sky_pattern</span><span class="o">.</span><span class="n">y_coord</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_dec</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
-        <span class="n">lat_rad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lat</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">dec_rad</span> <span class="o">=</span> <span class="p">(</span><span class="n">sky_pattern</span><span class="o">.</span><span class="n">y_coord</span> <span class="o">+</span> <span class="n">param</span><span class="p">[</span><span class="s1">&#39;start_dec&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">lat_rad</span> <span class="o">=</span> <span class="n">param</span><span class="p">[</span><span class="s1">&#39;lat&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
 
         <span class="n">alt_rad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arcsin</span><span class="p">(</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">dec_rad</span><span class="p">)</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">dec_rad</span><span class="p">)</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">)</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">hour_angle_rad</span><span class="p">)</span> <span class="p">)</span>
 
@@ -1036,6 +992,69 @@
         <span class="n">az_rad</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">=</span> <span class="mi">2</span><span class="o">*</span><span class="n">pi</span> <span class="o">-</span> <span class="n">az_rad</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
 
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">az_rad</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">alt_rad</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_get_lst</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sky_pattern</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">sky_pattern</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">extra_ra_offset</span> <span class="o">=</span> <span class="n">sky_pattern</span><span class="o">.</span><span class="n">x_coord</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">extra_dec_offset</span> <span class="o">=</span> <span class="n">sky_pattern</span><span class="o">.</span><span class="n">y_coord</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">extra_ra_offset</span> <span class="o">=</span> <span class="mi">0</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span>
+            <span class="n">extra_dec_offset</span> <span class="o">=</span> <span class="mi">0</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span>
+
+        <span class="n">param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">param</span>
+
+        <span class="c1"># given a starting datetime</span>
+        <span class="k">if</span> <span class="s1">&#39;start_datetime&#39;</span> <span class="ow">in</span> <span class="n">param</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">start_datetime</span> <span class="o">=</span> <span class="n">Time</span><span class="p">(</span><span class="n">param</span><span class="p">[</span><span class="s1">&#39;start_datetime&#39;</span><span class="p">],</span> <span class="n">location</span><span class="o">=</span><span class="p">(</span><span class="n">param</span><span class="p">[</span><span class="s1">&#39;lat&#39;</span><span class="p">],</span> <span class="mi">0</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">))</span>
+            <span class="n">start_lst</span> <span class="o">=</span> <span class="n">start_datetime</span><span class="o">.</span><span class="n">sidereal_time</span><span class="p">(</span><span class="s1">&#39;apparent&#39;</span><span class="p">)</span>
+
+        <span class="c1"># given a starting hourangle</span>
+        <span class="k">elif</span> <span class="s1">&#39;start_hrang&#39;</span> <span class="ow">in</span> <span class="n">param</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">sky_pattern</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">start_lst</span> <span class="o">=</span> <span class="n">param</span><span class="p">[</span><span class="s1">&#39;start_hrang&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="n">extra_ra_offset</span> <span class="o">+</span> <span class="n">param</span><span class="p">[</span><span class="s1">&#39;start_ra&#39;</span><span class="p">]</span>
+        
+        <span class="c1"># given a starting lst</span>
+        <span class="k">elif</span> <span class="s1">&#39;start_lst&#39;</span> <span class="ow">in</span> <span class="n">param</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">start_lst</span> <span class="o">=</span> <span class="n">param</span><span class="p">[</span><span class="s1">&#39;start_lst&#39;</span><span class="p">]</span>
+
+        <span class="c1"># given a starting elevation</span>
+        <span class="k">elif</span> <span class="s1">&#39;start_elev&#39;</span> <span class="ow">in</span> <span class="n">param</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">sky_pattern</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+
+            <span class="c1"># determine possible hour angles</span>
+            <span class="n">alt_rad</span> <span class="o">=</span> <span class="n">param</span><span class="p">[</span><span class="s1">&#39;start_elev&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">dec_rad</span> <span class="o">=</span> <span class="p">(</span><span class="n">param</span><span class="p">[</span><span class="s1">&#39;start_dec&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="n">extra_dec_offset</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">lat_rad</span> <span class="o">=</span> <span class="n">param</span><span class="p">[</span><span class="s1">&#39;lat&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">start_hrang_rad</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">acos</span><span class="p">((</span><span class="n">sin</span><span class="p">(</span><span class="n">alt_rad</span><span class="p">)</span> <span class="o">-</span> <span class="n">sin</span><span class="p">(</span><span class="n">dec_rad</span><span class="p">)</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="n">cos</span><span class="p">(</span><span class="n">dec_rad</span><span class="p">)</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">)))</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="n">max_el</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">asin</span><span class="p">(</span><span class="n">cos</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">dec_rad</span><span class="p">)</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">)</span> <span class="o">+</span> <span class="n">sin</span><span class="p">(</span><span class="n">dec_rad</span><span class="p">)</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">))))</span>
+                <span class="n">min_el</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">asin</span><span class="p">(</span><span class="n">cos</span><span class="p">(</span><span class="n">pi</span><span class="p">)</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">dec_rad</span><span class="p">)</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">)</span> <span class="o">+</span> <span class="n">sin</span><span class="p">(</span><span class="n">dec_rad</span><span class="p">)</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">))))</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Elevation = </span><span class="si">{</span><span class="n">param</span><span class="p">[</span><span class="s2">&quot;start_elev&quot;</span><span class="p">]</span><span class="si">}</span><span class="s1"> is not possible at provided ra, dec, and latitude. Min elevation is </span><span class="si">{</span><span class="n">min_el</span><span class="si">}</span><span class="s1"> and max elevation is </span><span class="si">{</span><span class="n">max_el</span><span class="si">}</span><span class="s1"> deg.&#39;</span><span class="p">)</span>
+
+            <span class="c1"># choose hour angle</span>
+            <span class="k">if</span> <span class="n">param</span><span class="p">[</span><span class="s1">&#39;moving_up&#39;</span><span class="p">]:</span>
+                <span class="n">start_hrang_rad</span> <span class="o">=</span> <span class="o">-</span><span class="n">start_hrang_rad</span>
+
+            <span class="c1"># starting sidereal time</span>
+            <span class="n">start_lst</span> <span class="o">=</span> <span class="n">start_hrang_rad</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span> <span class="o">+</span> <span class="n">extra_ra_offset</span> <span class="o">+</span> <span class="n">param</span><span class="p">[</span><span class="s1">&#39;start_ra&#39;</span><span class="p">]</span>
+        
+        <span class="k">elif</span> <span class="s1">&#39;start_ra&#39;</span> <span class="ow">in</span> <span class="n">param</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="ow">and</span> <span class="n">sky_pattern</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">lat_rad</span> <span class="o">=</span> <span class="n">param</span><span class="p">[</span><span class="s1">&#39;lat&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">alt_rad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">alt_coord</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">az_rad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">az_coord</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+
+            <span class="n">dec_rad</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">asin</span><span class="p">(</span> <span class="n">sin</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">)</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">alt_rad</span><span class="p">)</span> <span class="o">+</span> <span class="n">cos</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">)</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">alt_rad</span><span class="p">)</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">az_rad</span><span class="p">)</span> <span class="p">)</span>
+            <span class="n">hrang_rad</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">acos</span><span class="p">(</span> <span class="p">(</span><span class="n">sin</span><span class="p">(</span><span class="n">alt_rad</span><span class="p">)</span> <span class="o">-</span> <span class="n">sin</span><span class="p">(</span><span class="n">dec_rad</span><span class="p">)</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="n">cos</span><span class="p">(</span><span class="n">dec_rad</span><span class="p">)</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">))</span> <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">sin</span><span class="p">(</span><span class="n">az_rad</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">hrang_rad</span> <span class="o">=</span> <span class="mi">2</span><span class="o">*</span><span class="n">pi</span> <span class="o">-</span> <span class="n">hrang_rad</span>
+
+            <span class="n">start_lst</span> <span class="o">=</span> <span class="n">hrang_rad</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span> <span class="o">+</span> <span class="n">param</span><span class="p">[</span><span class="s1">&#39;start_ra&#39;</span><span class="p">]</span>
+
+        <span class="c1"># find sidereal time</span>
+        <span class="n">SIDEREAL_TO_UT1</span> <span class="o">=</span> <span class="mf">1.002737909350795</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time_offset</span><span class="o">.</span><span class="n">value</span><span class="o">/</span><span class="mi">3600</span><span class="o">*</span><span class="n">SIDEREAL_TO_UT1</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">hourangle</span> <span class="o">+</span> <span class="n">start_lst</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">hourangle</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
 
     <span class="c1"># TRANSFORMATIONS</span>
 
@@ -1133,21 +1152,26 @@
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_norm_angle</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">az1</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">alt1</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">view_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">,</span> <span class="n">includes_instr_offset</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="c1"># METHODS</span>
+
+<div class="viewcode-block" id="TelescopePattern.view_module"><a class="viewcode-back" href="../../intro.html#scanning.coordinates.TelescopePattern.view_module">[docs]</a>    <span class="k">def</span> <span class="nf">view_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">,</span> <span class="n">includes_instr_offset</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get a TelescopePattern object representing the AZ/EL coordinates of the</span>
+<span class="sd">        provided module. </span>
+
 <span class="sd">        Parameters</span>
 <span class="sd">        ------------------------</span>
-<span class="sd">        module : str or (distance, theta)</span>
-<span class="sd">            string indicating a module name in the instrument e.g. &#39;SFH&#39;</span>
-<span class="sd">            string indicating one of the default slots in the instrument e.g. &#39;c&#39;, &#39;i1&#39;</span>
-<span class="sd">            tuple of (distance, theta) indicating module&#39;s offset from the center of the instrument</span>
+<span class="sd">        module : str or two-tuple</span>
+<span class="sd">            | string indicating a module name in the instrument e.g. &#39;SFH&#39;</span>
+<span class="sd">            | string indicating one of the default slots in the instrument e.g. &#39;c&#39;, &#39;i1&#39;</span>
+<span class="sd">            | tuple of (distance, theta) indicating module&#39;s offset from the center of the instrument, default unit deg</span>
 <span class="sd">        includes_instr_offset : bool, default False</span>
 <span class="sd">            if &quot;module&quot; parameter is a tuple of (distance, theta), this includes the instrument offset</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------------------------</span>
 <span class="sd">        TelescopePattern </span>
-<span class="sd">            a TelescopePattern object where the &quot;boresight&quot; is the path of the provided module</span>
+<span class="sd">            A TelescopePattern object where the &quot;boresight&quot; is the path of the provided module.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         
         <span class="k">if</span> <span class="n">includes_instr_offset</span><span class="p">:</span>
@@ -1160,14 +1184,14 @@
 
         <span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;time_offset&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_offset</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="s1">&#39;lst&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">lst</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="s1">&#39;az_coord&#39;</span><span class="p">:</span> <span class="n">az1</span><span class="p">,</span> <span class="s1">&#39;alt_coord&#39;</span><span class="p">:</span> <span class="n">alt1</span><span class="p">}</span>
 
-        <span class="k">return</span> <span class="n">TelescopePattern</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">lat</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">lat</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">TelescopePattern</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">lat</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">param</span><span class="p">[</span><span class="s1">&#39;lat&#39;</span><span class="p">])</span></div>
 
-    <span class="k">def</span> <span class="nf">get_sky_pattern</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SkyPattern</span><span class="p">:</span>
+<div class="viewcode-block" id="TelescopePattern.get_sky_pattern"><a class="viewcode-back" href="../../intro.html#scanning.coordinates.TelescopePattern.get_sky_pattern">[docs]</a>    <span class="k">def</span> <span class="nf">get_sky_pattern</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SkyPattern</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns</span>
 <span class="sd">        -------------------------</span>
 <span class="sd">        SkyPattern</span>
-<span class="sd">            A SkyPattern object tracing the path of the boresight.</span>
+<span class="sd">            A SkyPattern object for the boresight.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="n">start_dec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dec_coord</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> 
@@ -1182,25 +1206,24 @@
         <span class="k">if</span> <span class="nb">max</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;x_coord&#39;</span><span class="p">]))</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;This is a larger pattern and the conversion between x and y deltas and RA/DEC may be slightly off.&#39;</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">SkyPattern</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">SkyPattern</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span></div>
 
-    <span class="c1"># SAVING/EXTRACTING DATA</span>
-
-    <span class="k">def</span> <span class="nf">save_param</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">param_json</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="TelescopePattern.save_param"><a class="viewcode-back" href="../../intro.html#scanning.coordinates.TelescopePattern.save_param">[docs]</a>    <span class="k">def</span> <span class="nf">save_param</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">param_json</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Save observation parameters.</span>
+
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------------------------</span>
-<span class="sd">        param_json : str or False</span>
-<span class="sd">            path to intended file location for the parametes</span>
-<span class="sd">            if None, return it as a dictionary</span>
+<span class="sd">        path_or_buf : str, file handle, or None; default None</span>
+<span class="sd">            File path or object, if `None` is provided the result is returned as a dictionary.</span>
 <span class="sd">        </span>
 <span class="sd">        Returns</span>
 <span class="sd">        ----------------------</span>
 <span class="sd">        None or dict</span>
-<span class="sd">            If path_or_buf is None, returns the resulting json format as a dictionary. Otherwise returns None.</span>
+<span class="sd">            If `path_or_buf` is `None`, returns the resulting json format as a dictionary. Otherwise returns `None`.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
-        <span class="n">param_temp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">param</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">param_temp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_param</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="k">if</span> <span class="s1">&#39;start_datetime&#39;</span> <span class="ow">in</span> <span class="n">param_temp</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="n">param_temp</span><span class="p">[</span><span class="s1">&#39;start_datetime&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">param_temp</span><span class="p">[</span><span class="s1">&#39;start_datetime&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H:%M:%S %z&#39;</span><span class="p">)</span> 
 
@@ -1209,25 +1232,29 @@
             <span class="k">return</span> <span class="n">param_temp</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">param_json</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">param_temp</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">param_temp</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">save_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path_or_buf</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="s1">&#39;default&#39;</span><span class="p">):</span>
+<div class="viewcode-block" id="TelescopePattern.save_data"><a class="viewcode-back" href="../../intro.html#scanning.coordinates.TelescopePattern.save_data">[docs]</a>    <span class="k">def</span> <span class="nf">save_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path_or_buf</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="s1">&#39;default&#39;</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Save kinematics data of the boresight. </span>
 
 <span class="sd">        Parameters</span>
-<span class="sd">        ----------------------------</span>
-<span class="sd">        path_or_buf : str or file handle, default None</span>
-<span class="sd">            File path or object, if None is provided the result is returned as a dictionary.</span>
-<span class="sd">        columns : sequence or str, default &#39;default&#39;</span>
-<span class="sd">            Columns to write. </span>
+<span class="sd">        ----------------------</span>
+<span class="sd">        path_or_buf : str, file handle or None; default None</span>
+<span class="sd">            File path or object, if `None` is provided the result is returned as a dictionary.</span>
+<span class="sd">        columns : sequence, str or [dict of str -&gt; str/Unit/None]; default &#39;default&#39;</span>
+<span class="sd">            Columns to write. If `dict`, map column names to their desired unit and use `None` if you would like to use the standard.</span>
 <span class="sd">            &#39;default&#39; for [&#39;time_offset&#39;, &#39;lst&#39;, &#39;az_coord&#39;, &#39;alt_coord&#39;, &#39;az_vel&#39;, &#39;alt_vel&#39;]</span>
 <span class="sd">            &#39;all&#39; for [&#39;time_offset&#39;, &#39;az_coord&#39;, &#39;alt_coord&#39;, &#39;az_vel&#39;, &#39;alt_vel&#39;, &#39;vel&#39;, &#39;az_acc&#39;, &#39;alt_acc&#39;, &#39;acc&#39;, &#39;az_jerk&#39;, &#39;alt_jerk&#39;, &#39;jerk&#39;, &#39;lst&#39;, &#39;hour_angle&#39;, &#39;para_angle&#39;, &#39;rot_angle&#39;, &#39;ra_coord&#39;, &#39;dec_coord&#39;]</span>
 <span class="sd">        </span>
 <span class="sd">        Returns</span>
 <span class="sd">        ----------------------</span>
-<span class="sd">        None or dict</span>
-<span class="sd">            If path_or_buf is None, returns the resulting json format as a dictionary. Otherwise returns None.</span>
+<span class="sd">        None or [dict of str -&gt; array]</span>
+<span class="sd">            If `path_or_buf` is `None`, returns the data as a dictionary mapping column name to values. Otherwise returns `None`.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        ---------------------</span>
+<span class="sd">        &gt;&gt;&gt; telescope_pattern.save_data(&#39;file.csv&#39;, columns={&#39;time_offset&#39;: &#39;sec&#39;, &#39;alt_coord&#39;: &#39;arcsec&#39;, &#39;az_coord&#39;: None})</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="c1"># replace str options</span>
@@ -1236,45 +1263,71 @@
         <span class="k">elif</span> <span class="n">columns</span> <span class="o">==</span> <span class="s1">&#39;all&#39;</span><span class="p">:</span>
             <span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">,</span> <span class="s1">&#39;az_coord&#39;</span><span class="p">,</span> <span class="s1">&#39;alt_coord&#39;</span><span class="p">,</span> <span class="s1">&#39;az_vel&#39;</span><span class="p">,</span> <span class="s1">&#39;alt_vel&#39;</span><span class="p">,</span> <span class="s1">&#39;vel&#39;</span><span class="p">,</span> <span class="s1">&#39;az_acc&#39;</span><span class="p">,</span> <span class="s1">&#39;alt_acc&#39;</span><span class="p">,</span> <span class="s1">&#39;acc&#39;</span><span class="p">,</span> <span class="s1">&#39;az_jerk&#39;</span><span class="p">,</span> <span class="s1">&#39;alt_jerk&#39;</span><span class="p">,</span> <span class="s1">&#39;jerk&#39;</span><span class="p">,</span> <span class="s1">&#39;lst&#39;</span><span class="p">,</span> <span class="s1">&#39;hour_angle&#39;</span><span class="p">,</span> <span class="s1">&#39;para_angle&#39;</span><span class="p">,</span> <span class="s1">&#39;rot_angle&#39;</span><span class="p">,</span> <span class="s1">&#39;ra_coord&#39;</span><span class="p">,</span> <span class="s1">&#39;dec_coord&#39;</span><span class="p">]</span>
         
+        <span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+
         <span class="c1"># generate required data</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">columns</span><span class="p">:</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">col</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">,</span> <span class="s1">&#39;lst&#39;</span><span class="p">,</span> <span class="s1">&#39;az_coord&#39;</span><span class="p">,</span> <span class="s1">&#39;alt_coord&#39;</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">columns</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">col</span><span class="p">,</span> <span class="n">unit</span> <span class="ow">in</span> <span class="n">columns</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">unit</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">data</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">col</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">data</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">col</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">columns</span><span class="p">:</span>
                 <span class="n">data</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">col</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
         
-        <span class="c1"># save data file </span>
+        <span class="c1"># returning</span>
         <span class="k">if</span> <span class="n">path_or_buf</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">data</span><span class="p">[</span><span class="n">columns</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(</span><span class="s1">&#39;list&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">data</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(</span><span class="s1">&#39;list&#39;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">data</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">path_or_buf</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">data</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">path_or_buf</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
 
     <span class="c1"># ATTRIBUTES</span>
-
-    <span class="c1"># data : time_offset, lst, alt_coord, az_coord</span>
-    <span class="c1"># param</span>
-    <span class="k">def</span> <span class="fm">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr</span><span class="p">):</span>
-
-        <span class="k">if</span> <span class="n">attr</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">param</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_param_unit</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span> <span class="ow">is</span> <span class="n">u</span><span class="o">.</span><span class="n">dimensionless_unscaled</span><span class="p">:</span>
-                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">param</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">param</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_unit</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span>
-        <span class="k">elif</span> <span class="n">attr</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_data_unit</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;attribtue </span><span class="si">{</span><span class="n">attr</span><span class="si">}</span><span class="s1"> not found&#39;</span><span class="p">)</span>
     
     <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">param</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;dict of str -&gt; (float or Quantity): Parameters inputted by user.&quot;&quot;&quot;</span>
+        <span class="n">return_param</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_param</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">return_param</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_param_units</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="ow">is</span> <span class="n">u</span><span class="o">.</span><span class="n">dimensionless_unscaled</span> <span class="k">else</span> <span class="n">val</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_units</span><span class="p">[</span><span class="n">p</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">return_param</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">instrument</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Insturment: Insturment object.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_instrument</span>
+
+    <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">scan_duration</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Quantity: Total scan duration.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_offset</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_interval</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">sample_interval</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_interval</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">s</span>
+        <span class="sd">&quot;&quot;&quot;Quantity: Time between samples.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_interval</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">]</span>
+
+    <span class="c1"># Other Motions/Time</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">time_offset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Quantity array: Time offsets.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">]</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">lst</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Quantity array: Local sidereal time.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;lst&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;lst&#39;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ra_coord</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Quantity array: Right ascension.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_norm_angle</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">lst</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">hour_angle</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span><span class="o">.</span><span class="n">value</span><span class="p">)</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">dec_coord</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">lat_rad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lat</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="sd">&quot;&quot;&quot;Quantity array: Declination.&quot;&quot;&quot;</span>
+        <span class="n">lat_rad</span> <span class="o">=</span> <span class="n">radians</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_param</span><span class="p">[</span><span class="s1">&#39;lat&#39;</span><span class="p">])</span>
         <span class="n">alt_coord_rad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">alt_coord</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
         <span class="n">az_coord_rad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">az_coord</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
 
@@ -1283,7 +1336,8 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">hour_angle</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">lat_rad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lat</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="sd">&quot;&quot;&quot;Quantity array: Hour angle.&quot;&quot;&quot;</span>
+        <span class="n">lat_rad</span> <span class="o">=</span> <span class="n">radians</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_param</span><span class="p">[</span><span class="s1">&#39;lat&#39;</span><span class="p">])</span>
         <span class="n">alt_coord_rad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">alt_coord</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
         <span class="n">az_coord_rad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">az_coord</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
         <span class="n">dec_rad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dec_coord</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
@@ -1296,14 +1350,11 @@
         <span class="k">return</span> <span class="p">(</span><span class="n">hrang_rad</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">hourangle</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">ra_coord</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_norm_angle</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">lst</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">hour_angle</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span><span class="o">.</span><span class="n">value</span><span class="p">)</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span>
-
-    <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">para_angle</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Quantity array: Parallactic angle.&quot;&quot;&quot;</span>
         <span class="n">dec_rad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dec_coord</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
         <span class="n">hour_angle_rad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hour_angle</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
-        <span class="n">lat_rad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lat</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">lat_rad</span> <span class="o">=</span> <span class="n">radians</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_param</span><span class="p">[</span><span class="s1">&#39;lat&#39;</span><span class="p">])</span>
 
         <span class="n">para_angle_deg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arctan2</span><span class="p">(</span> 
             <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">hour_angle_rad</span><span class="p">),</span> 
@@ -1313,43 +1364,65 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">rot_angle</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Quantity array: Field rotation (elevation + parallactic angle).&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_norm_angle</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">para_angle</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">alt_coord</span><span class="p">)</span><span class="o">.</span><span class="n">value</span><span class="p">)</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span>
+
+    <span class="c1"># Azimuthal/Elevation Motion</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">az_coord</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Quantity array: Azimuth coordinates (in terms of East of North).&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;az_coord&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;az_coord&#39;</span><span class="p">]</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">alt_coord</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Quantity array: Elevation coordinates.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;alt_coord&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;alt_coord&#39;</span><span class="p">]</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">az_vel</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">_central_diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">az_coord</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_interval</span><span class="o">.</span><span class="n">value</span><span class="p">)</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="o">/</span><span class="n">u</span><span class="o">.</span><span class="n">s</span>
+        <span class="sd">&quot;&quot;&quot;Quantity array: Azimuth velocity.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">_central_diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">az_coord</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_interval</span><span class="o">.</span><span class="n">value</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;az_coord&#39;</span><span class="p">]</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">])</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">alt_vel</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">_central_diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alt_coord</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_interval</span><span class="o">.</span><span class="n">value</span><span class="p">)</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="o">/</span><span class="n">u</span><span class="o">.</span><span class="n">s</span>
+        <span class="sd">&quot;&quot;&quot;Quantity array: Elevation velocity.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">_central_diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alt_coord</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_interval</span><span class="o">.</span><span class="n">value</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;alt_coord&#39;</span><span class="p">]</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">])</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">vel</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Quantity array: Total velocity.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">az_vel</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">alt_vel</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">az_acc</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">_central_diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">az_vel</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_interval</span><span class="o">.</span><span class="n">value</span><span class="p">)</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="o">/</span><span class="n">u</span><span class="o">.</span><span class="n">s</span><span class="o">/</span><span class="n">u</span><span class="o">.</span><span class="n">s</span>
+        <span class="sd">&quot;&quot;&quot;Quantity array: Azimuth acceleration.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">_central_diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">az_vel</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_interval</span><span class="o">.</span><span class="n">value</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;az_coord&#39;</span><span class="p">]</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">alt_acc</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">_central_diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alt_vel</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_interval</span><span class="o">.</span><span class="n">value</span><span class="p">)</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="o">/</span><span class="n">u</span><span class="o">.</span><span class="n">s</span><span class="o">/</span><span class="n">u</span><span class="o">.</span><span class="n">s</span>
+        <span class="sd">&quot;&quot;&quot;Quantity array: Elevation acceleration.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">_central_diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alt_vel</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_interval</span><span class="o">.</span><span class="n">value</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;alt_coord&#39;</span><span class="p">]</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
     
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">acc</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Quantity array: Total acceleration.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">az_acc</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">alt_acc</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">az_jerk</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">_central_diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">az_acc</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_interval</span><span class="o">.</span><span class="n">value</span><span class="p">)</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="o">/</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">s</span><span class="p">)</span><span class="o">**</span><span class="mi">3</span>
+        <span class="sd">&quot;&quot;&quot;Quantity array: Azimuth jerk.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">_central_diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">az_acc</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_interval</span><span class="o">.</span><span class="n">value</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;az_coord&#39;</span><span class="p">]</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">]</span><span class="o">**</span><span class="mi">3</span><span class="p">)</span>
     
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">alt_jerk</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">_central_diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alt_acc</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_interval</span><span class="o">.</span><span class="n">value</span><span class="p">)</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="o">/</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">s</span><span class="p">)</span><span class="o">**</span><span class="mi">3</span>
+        <span class="sd">&quot;&quot;&quot;Quantity array: Elevation jerk.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">_central_diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alt_acc</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_interval</span><span class="o">.</span><span class="n">value</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;alt_coord&#39;</span><span class="p">]</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">]</span><span class="o">**</span><span class="mi">3</span><span class="p">)</span>
     
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">jerk</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">az_jerk</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">alt_jerk</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+        <span class="sd">&quot;&quot;&quot;Quantity array: Total jerk.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">az_jerk</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">alt_jerk</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span></div>
 </pre></div>
 
           </div>
