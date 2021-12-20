@@ -616,7 +616,7 @@ def field_rotation_hist(obs, min_elev=30, max_elev=75, min_rot_rate=0, path=None
 
 # Simulation 
 
-def hitmap(sim, kept_hits=True, removed_hits=False, total_hits=False, path=None, show_plot=True, **kwargs):
+def hitmap(sim, kept_hits=True, removed_hits=False, total_hits=False, path=None, show_plot=True, with_rot0=True, **kwargs):
     """
     Parameters
     ------------------------------
@@ -643,9 +643,6 @@ def hitmap(sim, kept_hits=True, removed_hits=False, total_hits=False, path=None,
     
     fig, ax = plt.subplots(1, num_hitmaps+1, sharex=True, sharey=True, figsize=((num_hitmaps+1)*4, 4))
 
-    # parameters
-    pixel_size = sim.conditions['pixel_size']
-
     if not kwargs.get('norm_time', False):
         hit_per_str = 'px'
     else:
@@ -656,14 +653,14 @@ def hitmap(sim, kept_hits=True, removed_hits=False, total_hits=False, path=None,
     ax_i = 1
 
     if kept_hits:
-        sky_hist = sim.sky_hist('kept', **kwargs)
+        sky_hist, hitmap_range = sim.sky_histogram('kept', **kwargs)
         ax[ax_i].set_title(f'Kept hits/{hit_per_str}')
 
-        max_pixel = round(np.shape(sky_hist)[0]/2)
-        max_pixel_deg = max_pixel*pixel_size
+        min_pixel_deg = min(hitmap_range)
+        max_pixel_deg = max(hitmap_range)
 
         vmax = None if kept_hits is True else kept_hits
-        pcm = ax[ax_i].imshow(sky_hist, extent=[-max_pixel_deg, max_pixel_deg, -max_pixel_deg, max_pixel_deg], vmin=0, vmax=vmax, interpolation='nearest', origin='lower')
+        pcm = ax[ax_i].imshow(sky_hist, extent=[min_pixel_deg, max_pixel_deg, min_pixel_deg, max_pixel_deg], vmin=0, vmax=vmax, interpolation='nearest', origin='lower')
         ax[ax_i].set_aspect('equal', 'box')
         ax[ax_i].set(xlabel='x offset (deg)', ylabel='y offset (deg)')
 
@@ -675,18 +672,16 @@ def hitmap(sim, kept_hits=True, removed_hits=False, total_hits=False, path=None,
         fig.colorbar(pcm, cax=cax, orientation='horizontal')
 
         ax_i += 1
-
-    # REMOVED HITS
     
     if removed_hits:
-        sky_hist = sim.sky_hist('removed', **kwargs)
+        sky_hist, hitmap_range = sim.sky_histogram('removed', **kwargs)
         ax[ax_i].set_title(f'Removed hits/{hit_per_str}')
 
-        max_pixel = round(np.shape(sky_hist)[0]/2)
-        max_pixel_deg = max_pixel*pixel_size
+        min_pixel_deg = min(hitmap_range)
+        max_pixel_deg = max(hitmap_range)
 
         vmax = None if removed_hits is True else removed_hits
-        pcm = ax[ax_i].imshow(sky_hist, extent=[-max_pixel_deg, max_pixel_deg, -max_pixel_deg, max_pixel_deg], vmin=0, vmax=vmax, interpolation='nearest', origin='lower')
+        pcm = ax[ax_i].imshow(sky_hist, extent=[min_pixel_deg, max_pixel_deg, min_pixel_deg, max_pixel_deg], vmin=0, vmax=vmax, interpolation='nearest', origin='lower')
         ax[ax_i].set_aspect('equal', 'box')
         ax[ax_i].set(xlabel='x offset (deg)', ylabel='y offset (deg)')
 
@@ -699,17 +694,15 @@ def hitmap(sim, kept_hits=True, removed_hits=False, total_hits=False, path=None,
 
         ax_i += 1
     
-    # TOTAL HITS
-
     if total_hits:
-        sky_hist = sim.sky_hist('total', **kwargs)
+        sky_hist, hitmap_range = sim.sky_histogram('total', **kwargs)
         ax[ax_i].set_title(f'Total hits/{hit_per_str}')
 
-        max_pixel = round(np.shape(sky_hist)[0]/2)
-        max_pixel_deg = max_pixel*pixel_size
+        min_pixel_deg = min(hitmap_range)
+        max_pixel_deg = max(hitmap_range)
 
         vmax = None if total_hits is True else total_hits
-        pcm = ax[ax_i].imshow(sky_hist, extent=[-max_pixel_deg, max_pixel_deg, -max_pixel_deg, max_pixel_deg], vmin=0, vmax=vmax, interpolation='nearest', origin='lower')
+        pcm = ax[ax_i].imshow(sky_hist, extent=[min_pixel_deg, max_pixel_deg, min_pixel_deg, max_pixel_deg], vmin=0, vmax=vmax, interpolation='nearest', origin='lower')
         ax[ax_i].set_aspect('equal', 'box')
         ax[ax_i].set(xlabel='x offset (deg)', ylabel='y offset (deg)')
 
@@ -724,18 +717,27 @@ def hitmap(sim, kept_hits=True, removed_hits=False, total_hits=False, path=None,
 
     # DETECTOR AND SKY PATTERN
 
-    mask_det = sim.detector_filter()
-    x_mod = sim.module.x.value[mask_det]
-    y_mod = sim.module.y.value[mask_det]
-    rot0 = sim.telescope_pattern.rot_angle[0].to(u.rad).value
+    mask_det = sim._det_mask
+    x_mod = sim._module.x.value[mask_det]
+    y_mod = sim._module.y.value[mask_det]
+    rot0 = math.radians(sim._field_rotation[0])
 
-    sky_pattern = sim.telescope_pattern.get_sky_pattern()
-    ax[0].scatter(sky_pattern.x_coord.value, sky_pattern.y_coord.value, color='red', s=0.01, alpha=0.1)
-    ax[0].scatter(x_mod*cos(rot0) - y_mod*sin(rot0), x_mod*sin(rot0) + y_mod*cos(rot0), s=0.05)
+    if len(x_mod) > 10:
+        s_size = 0.05
+    else:
+        s_size = 10
+
+    ax[0].plot(sim._sky_pattern.x_coord.value, sim._sky_pattern.y_coord.value, color='red', alpha=0.5)
+
+    if with_rot0:
+        ax[0].scatter(x_mod*cos(rot0) - y_mod*sin(rot0), x_mod*sin(rot0) + y_mod*cos(rot0), s=s_size)
+        ax[0].set_title('Pixel Positions (incl. initial field rotation)')
+    else:
+        ax[0].scatter(x_mod, y_mod, s=s_size)
+        ax[0].set_title('Pixel Positions')
 
     ax[0].set_aspect('equal', 'box')
     ax[0].set(xlabel='x offset (deg)', ylabel='y offset (deg)')
-    ax[0].set_title('Initial Pixel Positions')
     divider = make_axes_locatable(ax[0])
     cax = divider.append_axes("bottom", size="3%", pad=0.5)
     cax.axis('off')
@@ -753,95 +755,85 @@ def hitmap(sim, kept_hits=True, removed_hits=False, total_hits=False, path=None,
     else:
         plt.close()
 
-def pxan_det(sim, norm_pxan=False, norm_time=False, path=None, show_plot=True):
-    """
-    Parameters
-    ---------------------------------------------
-    sim : Simulation
-        A simulation object. 
-    norm_pxan : bool, default False
-        Average the number of hits by the number of pixels during pixel analysis. 
-    norm_time : bool, default False
-        True for hits/px/sec. False for hits/px.
-    path : str or None, default None
-        If not None, saves the image to the file path. 
-    show_plot : bool, default True
-        Whether to display the resulting figure.
-    """
+def pxan_detector(sim, kept_hits=True, removed_hits=False, total_hits=False, path=None, show_plot=True, **kwargs):
 
-    assert(sim.pxan)
+    # initialize figure
+    num_hitmaps = np.count_nonzero([kept_hits, removed_hits, total_hits])
+    if num_hitmaps == 0:
+        raise ValueError('at least one of kept_hits, removed_hits, or total_hits must be plotted')
+    
+    fig, ax = plt.subplots(1, num_hitmaps+1, sharex=True, sharey=True, figsize=((num_hitmaps+1)*4, 4))
 
-    det_hist = sim.det_hist
-    det_hist_rem = sim.det_hist_rem
-    max_hits = math.ceil(max(det_hist + det_hist_rem))
+    # parameters
 
-    # normalize time
-    hit_per_str = 'px'
-    if norm_time:
-        total_time = sim._sky_pattern.scan_duration.value
-        det_hist = det_hist/total_time
-        det_hist_rem = det_hist_rem/total_time
+    if not kwargs.get('norm_time', False):
+        hit_per_str = 'px'
+    else:
         hit_per_str = 'px/s'
-
-    #normaize pixel analysis
-    if norm_pxan:
-        det_hist = det_hist/sim.num_pxan
-        det_hist_rem = det_hist_rem/sim.num_pxan
-
-    fig_det = plt.figure(1)#, figsize=(15, 10))
-
-    # --- DETECTOR HITMAP ---
 
     cm = plt.cm.get_cmap('viridis')
 
-    x_mod = sim._module['x']*sim.pixel_size
-    y_mod = sim._module['y']*sim.pixel_size
+    mask_det = sim._det_mask
+    x_mod = sim._module.x.value[mask_det]
+    y_mod = sim._module.y.value[mask_det]
+    #rot0 = math.radians(sim._field_rotation[0])
 
-    # plot detector elem (total)
-    #det1 = plt.subplot2grid((1, 3), (0, 0), fig=fig_det)
-    #sc = det1.scatter(x_mod, y_mod, c=det_hist + det_hist_rem, cmap=cm, vmin=0, vmax=max_hits, s=15)
-    #fig_det.colorbar(sc, ax=det1, orientation='horizontal')
-    #det1.set_aspect('equal', 'box')
-    #det1.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
-    #det1.set_title(f'Total hits/{hit_per_str}')
+    # KEPT HITS
 
-    # plot detector elem (kept)
-    det2 = plt.subplot2grid((1, 2), (0, 0), fig=fig_det)
-    sc = det2.scatter(x_mod, y_mod, c=det_hist, cmap=cm, vmin=0, vmax=None, s=5)
-    #fig_det.colorbar(sc, ax=det2, orientation='horizontal')
-    det2.set_aspect('equal', 'box')
-    det2.set(xlabel='x offset (deg)', ylabel='y offset (deg)')
-    det2.set_title('Kept hits per pixel')
+    ax_i = 1
 
-    divider = make_axes_locatable(det2)
-    cax1 = divider.append_axes("bottom", size="3%", pad=0.5)
-    fig_det.colorbar(sc, cax=cax1, orientation='horizontal')
+    if kept_hits:
+        det_hist = sim.det_histogram(hits='kept', **kwargs)
+        det_hist = det_hist[~np.isnan(det_hist)]
+        sc = ax[ax_i].scatter(x_mod, y_mod, c=det_hist, cmap=cm, vmin=0, vmax=None, s=5)
+        ax[ax_i].set_aspect('equal', 'box')
+        ax[ax_i].set(xlabel='x offset (deg)', ylabel='y offset (deg)', title=f'Kept hits/{hit_per_str}')
+
+        divider = make_axes_locatable(ax[ax_i])
+        cax1 = divider.append_axes("bottom", size="3%", pad=0.5)
+        fig.colorbar(sc, cax=cax1, orientation='horizontal')
+
+        ax_i += 1
+    
+    if removed_hits:
+        det_hist = sim.det_histogram(hits='removed', **kwargs)
+        det_hist = det_hist[~np.isnan(det_hist)]
+        sc = ax[ax_i].scatter(x_mod, y_mod, c=det_hist, cmap=cm, vmin=0, vmax=None, s=5)
+        ax[ax_i].set_aspect('equal', 'box')
+        ax[ax_i].set(xlabel='x offset (deg)', ylabel='y offset (deg)', title=f'Removed hits/{hit_per_str}')
+
+        divider = make_axes_locatable(ax[ax_i])
+        cax1 = divider.append_axes("bottom", size="3%", pad=0.5)
+        fig.colorbar(sc, cax=cax1, orientation='horizontal')
+
+        ax_i += 1
+    
+    if total_hits:
+        det_hist = sim.det_histogram(hits='total', **kwargs)
+        det_hist = det_hist[~np.isnan(det_hist)]
+        sc = ax[ax_i].scatter(x_mod, y_mod, c=det_hist, cmap=cm, vmin=0, vmax=None, s=5)
+        ax[ax_i].set_aspect('equal', 'box')
+        ax[ax_i].set(xlabel='x offset (deg)', ylabel='y offset (deg)', title=f'Total hits/{hit_per_str}')
+
+        divider = make_axes_locatable(ax[ax_i])
+        cax1 = divider.append_axes("bottom", size="3%", pad=0.5)
+        fig.colorbar(sc, cax=cax1, orientation='horizontal')
+
+        ax_i += 1
 
     # pattern it self
-    pattern = plt.subplot2grid((1, 2), (0, 1), fig=fig_det, sharex=det2, sharey=det2)
     x_coord = sim._sky_pattern.x_coord.value
     y_coord = sim._sky_pattern.y_coord.value
 
-    pattern.plot(x_coord, y_coord)
-    pattern.set_aspect('equal', 'box')
-    pattern.set(xlabel='x offset (deg)', ylabel='y offset (deg)', title='Path of Instrument Module')
-    divider = make_axes_locatable(pattern)
+    ax[0].plot(x_coord, y_coord)
+    ax[0].set_aspect('equal', 'box')
+    ax[0].set(xlabel='x offset (deg)', ylabel='y offset (deg)', title='Path of Instrument Module')
+    divider = make_axes_locatable(ax[0])
     cax4 = divider.append_axes("bottom", size="3%", pad=0.5)
     cax4.axis('off')
 
+    fig.tight_layout()
 
-
-
-    """# scale bar
-    if self.scan.scan_type == 'pong':
-        spacing = round(self.scan.spacing.to(u.deg).value, 3)
-        scalebar = AnchoredSizeBar(det1.transData, spacing, label=f'{spacing} deg spacing', loc=1, pad=0.5, borderpad=0.5, sep=5)
-        det1.add_artist(scalebar)
-        scalebar = AnchoredSizeBar(det1.transData, spacing, label=f'{spacing} deg spacing', loc=1, pad=0.5, borderpad=0.5, sep=5)
-        det2.add_artist(scalebar)"""
-
-    fig_det.tight_layout()
-    
     # saving
     if not path is None:
         plt.savefig(path)
@@ -853,60 +845,61 @@ def pxan_det(sim, norm_pxan=False, norm_time=False, path=None, show_plot=True):
     else:
         plt.close()
 
+def pxan_time(sim, bin=1, kept_hits=True, removed_hits=False, total_hits=False, path=None, show_plot=True, **kwargs):
 
-def pxan_detector(sim, kept_hits=True, removed_hits=False, total_hits=False, path=None, show_plot=True, **kwargs):
+    bin = u.Quantity(bin, u.s).value
+
     # initialize figure
     num_hitmaps = np.count_nonzero([kept_hits, removed_hits, total_hits])
     if num_hitmaps == 0:
         raise ValueError('at least one of kept_hits, removed_hits, or total_hits must be plotted')
     
-    fig, ax = plt.subplots(1, num_hitmaps+1, sharex=True, sharey=True, figsize=((num_hitmaps+1)*4, 4))
+    fig, ax = plt.subplots(1, num_hitmaps, sharex=True, sharey=True, figsize=(num_hitmaps*8, 4))
+
+    if num_hitmaps == 1:
+        ax = [ax]
 
     # parameters
 
-    if kwargs.get('convolve', True):
-        hit_per_str = 'px/s'
-    else:
+    if not kwargs.get('norm_time', False):
         hit_per_str = 'px'
-
-    cm = plt.cm.get_cmap('viridis')
-
-    det_mask = sim.detector_filter()
-    x_mod = sim.module.x.value[det_mask]
-    y_mod = sim.module.y.value[det_mask]
+    else:
+        hit_per_str = 'px/s'
 
     # KEPT HITS
 
-    ax_i = 1
+    ax_i = 0
 
     if kept_hits:
-        det_hist = sim.det_hist(hits='kept', **kwargs)
-        sc = ax[ax_i].scatter(x_mod, y_mod, c=det_hist, cmap=cm, vmin=0, vmax=None, s=5)
-        ax[ax_i].set_aspect('equal', 'box')
-        ax[ax_i].set(xlabel='x offset (deg)', ylabel='y offset (deg)', title=f'Kept hits/{hit_per_str}')
+        time_hist = sim.time_histogram(hits='kept', **kwargs)
+        mask_nan = ~np.isnan(time_hist)
+        time_hist = time_hist[mask_nan]
+        time_offset = sim._sky_pattern.time_offset.value[mask_nan]
 
-        divider = make_axes_locatable(ax[ax_i])
-        cax1 = divider.append_axes("bottom", size="3%", pad=0.5)
-        fig.colorbar(sc, cax=cax1, orientation='horizontal')
+        scan_duration = sim._sky_pattern.scan_duration.value
+        bin_edges = np.arange(0, scan_duration, bin)
 
-    # pattern it self
-    """pattern = plt.subplot2grid((1, 2), (0, 1), fig=fig_det, sharex=det2, sharey=det2)
-    x_coord = sim._sky_pattern.x_coord.value
-    y_coord = sim._sky_pattern.y_coord.value
+        ax[ax_i].hist(time_offset, bins=bin_edges, weights=time_hist)
+        ax[ax_i].set(xlabel='Time Offset (sec)', ylabel='Number of Hits', title=f'Kept hits/{hit_per_str}')
 
-    pattern.plot(x_coord, y_coord)
-    pattern.set_aspect('equal', 'box')
-    pattern.set(xlabel='x offset (deg)', ylabel='y offset (deg)', title='Path of Instrument Module')
-    divider = make_axes_locatable(pattern)
-    cax4 = divider.append_axes("bottom", size="3%", pad=0.5)
-    cax4.axis('off')"""
-
+        ax_i += 1
     
+    
+    fig.tight_layout()
 
-def pxan_time(sim):
-    pass
+    # saving
+    if not path is None:
+        plt.savefig(path)
+        print(f'Saved to {path}.')
+    
+    # displaying
+    if show_plot:
+        plt.show()
+    else:
+        plt.close()
 
 def pxan_polarization(sim, kept_hits=True, removed_hits=False, total_hits=False, path=None, show_plot=True, **kwargs):
+
     # initialize figure
     num_hitmaps = np.count_nonzero([kept_hits, removed_hits, total_hits])
     if num_hitmaps == 0:
@@ -918,12 +911,12 @@ def pxan_polarization(sim, kept_hits=True, removed_hits=False, total_hits=False,
         ax = [ax]
 
     ax_i = 0
-    pol = sim.module.pol.value[sim.detector_filter()]
+    pol = sim._module.pol.value[sim._det_mask]
     all_pol = np.unique(pol)
     width = all_pol[1] - all_pol[0] - 1
 
     if kept_hits:
-        det_hist = sim.det_hist(hits='kept', **kwargs)
+        det_hist = sim.det_histogram(hits='kept', **kwargs)
 
         for p in all_pol:
             mask = pol == p
@@ -936,7 +929,7 @@ def pxan_polarization(sim, kept_hits=True, removed_hits=False, total_hits=False,
         ax_i +=1
 
     if removed_hits:
-        det_hist = sim.det_hist(hits='removed', **kwargs)
+        det_hist = sim.det_histogram(hits='removed', **kwargs)
 
         for p in all_pol:
             mask = pol == p
@@ -949,7 +942,7 @@ def pxan_polarization(sim, kept_hits=True, removed_hits=False, total_hits=False,
         ax_i +=1
 
     if total_hits:
-        det_hist = sim.det_hist(hits='total', **kwargs)
+        det_hist = sim.det_histogram(hits='total', **kwargs)
 
         for p in all_pol:
             mask = pol == p
@@ -976,7 +969,7 @@ def polarization_histogram(sim, kept_hits=True, removed_hits=False, total_hits=F
     ax_i = 0
 
     if kept_hits:
-        pol_and_rot, all_pol_counts = sim.pol_hist('kept')
+        pol_and_rot, all_pol_counts = sim.pol_histogram('kept')
         all_pol = np.array(pol_and_rot.columns)
         num_ts = len(pol_and_rot.index)
 
@@ -986,48 +979,48 @@ def polarization_histogram(sim, kept_hits=True, removed_hits=False, total_hits=F
             ax[ax_i].hist(pol_and_rot, bins=90, range=(0, 90), weights=all_pol_counts, stacked=True, label=[f'{p}$^\circ$' for p in all_pol], density=True)
         else:
             for ip, p in enumerate(all_pol):
-                ax[ax_i].hist(pol_and_rot.iloc[:, ip], bins=90, range=(0, 90), weights=[all_pol_counts[ip]/(sum(all_pol_counts)*num_ts)]*num_ts, label=f'{p}$^\circ$', histtype='step')
+                ax[ax_i].hist(pol_and_rot.iloc[:, ip], bins=90, range=(0, 90), weights=[all_pol_counts[ip]]*num_ts, label=f'{p}$^\circ$', histtype='step')
 
         ax[ax_i].grid()
-        ax[ax_i].set(xlabel='Polarization Geometry + Field Rotation [deg]', ylabel='Percent of Hits', title='Kept Hits', xlim=(0, 90))
+        ax[ax_i].set(xlabel='Polarization Geometry + Field Rotation [deg]', ylabel='Number of Hits', title='Kept Hits', xlim=(0, 90))
         ax[ax_i].legend(loc='upper right', title='Initial Polarization')
 
         ax_i += 1
 
     if removed_hits:
-        pol_and_rot, all_pol_counts = sim.pol_hist('removed')
+        pol_and_rot, all_pol_counts = sim.pol_histogram('removed')
         all_pol = np.array(pol_and_rot.columns)
         num_ts = len(pol_and_rot.index)
-
+        
         if stacked:
             pol_and_rot = pol_and_rot.to_numpy()
             all_pol_counts = np.tile(all_pol_counts, (num_ts, 1))
             ax[ax_i].hist(pol_and_rot, bins=90, range=(0, 90), weights=all_pol_counts, stacked=True, label=[f'{p}$^\circ$' for p in all_pol], density=True)
         else:
             for ip, p in enumerate(all_pol):
-                ax[ax_i].hist(pol_and_rot.iloc[:, ip], bins=90, range=(0, 90), weights=[all_pol_counts[ip]/(sum(all_pol_counts)*num_ts)]*num_ts, label=f'{p}$^\circ$', histtype='step')
+                ax[ax_i].hist(pol_and_rot.iloc[:, ip], bins=90, range=(0, 90), weights=[all_pol_counts[ip]]*num_ts, label=f'{p}$^\circ$', histtype='step')
 
         ax[ax_i].grid()
-        ax[ax_i].set(xlabel='Polarization Geometry + Field Rotation [deg]', ylabel='Percent of Hits', title='Kept Hits', xlim=(0, 90))
+        ax[ax_i].set(xlabel='Polarization Geometry + Field Rotation [deg]', ylabel='Number of Hits', title='Removed Hits', xlim=(0, 90))
         ax[ax_i].legend(loc='upper right', title='Initial Polarization')
 
         ax_i += 1
 
     if total_hits:
-        pol_and_rot, all_pol_counts = sim.pol_hist('total')
+        pol_and_rot, all_pol_counts = sim.pol_histogram('total')
         all_pol = np.array(pol_and_rot.columns)
         num_ts = len(pol_and_rot.index)
 
         if stacked:
             pol_and_rot = pol_and_rot.to_numpy()
             all_pol_counts = np.tile(all_pol_counts, (num_ts, 1))
-            ax[ax_i].hist(pol_and_rot, bins=90, range=(0, 90), weights=all_pol_counts, stacked=True, label=[f'{p}$^\circ$' for p in all_pol], density=True)
+            ax[ax_i].hist(pol_and_rot, bins=90, range=(0, 90), weights=all_pol_counts, stacked=True, label=[f'{p}$^\circ$' for p in all_pol])
         else:
             for ip, p in enumerate(all_pol):
-                ax[ax_i].hist(pol_and_rot.iloc[:, ip], bins=90, range=(0, 90), weights=[all_pol_counts[ip]/(sum(all_pol_counts)*num_ts)]*num_ts, label=f'{p}$^\circ$', histtype='step')
+                ax[ax_i].hist(pol_and_rot.iloc[:, ip], bins=90, range=(0, 90), weights=[all_pol_counts[ip]]*num_ts, label=f'{p}$^\circ$', histtype='step')
 
         ax[ax_i].grid()
-        ax[ax_i].set(xlabel='Polarization Geometry + Field Rotation [deg]', ylabel='Percent of Hits', title='Kept Hits', xlim=(0, 90))
+        ax[ax_i].set(xlabel='Polarization Geometry + Field Rotation [deg]', ylabel='Number of Hits', title='Total Hits', xlim=(0, 90))
         ax[ax_i].legend(loc='upper right', title='Initial Polarization')
 
     plt.show()
