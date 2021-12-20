@@ -8,8 +8,9 @@ import pandas as pd
 from astropy.time import Time, TimeDelta
 import astropy.units as u
 from astropy.utils import isiterable
+from astropy.coordinates import EarthLocation
 
-from scanning import FYST_LOC
+FYST_LOC = EarthLocation(lat='-22d59m08.30s', lon='-67d44m25.00s', height=5611.8*u.m)
 
 class Observation():
 
