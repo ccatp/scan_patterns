@@ -10,53 +10,82 @@ from astropy.utils.misc import isiterable
 import numpy as np
 import pandas as pd
 import astropy.units as u
+from astropy.utils import isiterable
 from fast_histogram import histogram2d
-
-import matplotlib.pyplot as plt
 
 class Simulation():
 
     # other attributes (for development)
-    # sky_hist, sky_hist_rem
-    # det_hist, det_hist_rem
-    # time_hist, time_hist_rem
-    # pol_hist, pol_hist_rem
+    # _sky_hist, _sky_hist_rem
+    # _det_hist, _det_hist_rem
+    # _time_hist, _time_hist_rem
 
+    # _param_unit
     # _sky_pattern
     # _field_rotation (degrees)
     # _module
     # _mem_limit
 
     # _pxan
-    # _param
-    # _prep
+    # _param: ...
+    # _prep: max_pixel, x_range_pxan, y_range_pxan, num_pxan
     # _det_mask
     # _validity_mask
 
+    # what unit each parameter is stored in
+    _param_units = {'pixel_size': u.deg, 'max_acc': u.deg/u.s/u.s, 'min_speed': u.deg/u.s, 'det_radius': u.deg, 'det_lim': u.deg, 'det_list': u.deg, 'pxan_list': u.deg, 'pxan_lim': u.deg}
+
     @property
-    def pxan(self):
-        return self._pxan
+    def sky_pattern(self):
+        """SkyPattern : Associated `SkyPattern` object."""
+        return self._sky_pattern
+    
+    @property
+    def module(self):
+        """Module : `Module` object. """
+        return self._module
+    
+    @property
+    def field_rotation(self):
+        """Quantity array : Field rotation."""
+        return self._field_rotation*u.deg
     
     @property
     def param(self):
-        return self._param
+        return {p: val*self._param_units[p] for p, val in self._param.items()}
 
-    def __init__(self, telescope_pattern, module, sim_param=None, mem_limit=8*10**7, **kwargs) -> None:
+    @property
+    def det_mask(self):
+        """ bool array : Mask for detector elements that are turned on."""
+        return self._det_mask
+    
+    @property
+    def validity_mask(self):
+        """bool array : Mask for samples that are within the acceleration/speed limits."""
+        return self._validity_mask
+
+    # INITIALIZATION
+
+    def __init__(self, telescope_pattern, module, sim_param=None, mem_limit=640, **kwargs) -> None:
         """
         Run a simulation on `telescope_pattern` with `module`. Use **kwargs to specify conditions. 
-        Note that if multiple detector filters are used (`pols_on`, `det_lim`, etc.), all must be 
-        satisifed. 
+        Note that if multiple detector filters are used (`pols_on`, `det_lim`, etc.), only detector
+        elements that satisfy all will be used. 
 
         Parameters
         ----------------------------
         telescope_pattern : TelescopePattern
-            A TelescopePattern object.
+            A `TelescopePattern` object.
         module : str or Module
             If `str`: Gets the Module and AZ/ALT coordinates from a string indicating a module name in the instrument e.g. 'SFH'. 
             Recommended if `telescope_pattern` holds intrument data. 
             If `Module`: Uses `telescope_pattern`'s "boresight" coordinates and uses `module` for its pixel positions. 
             Recommended if `telescope_pattern` does not hold instrument data. 
-        mem_limit : 
+        sim_param : str
+            File path to a json file containing parameters for simulation (see **kwargs).
+        mem_limit : int; default 640 MB
+            Approximate memory limit in megabytes when simulating the scan. 
+            
 
         Keyword Args
         --------------------------
@@ -67,20 +96,22 @@ class Simulation():
         min_acc : float/Quantity/str; default None, default unit deg/s
             Minimum speed in x-y offsets. If `None`, all points are considered valid.
         
-        pols_on : int sequence or None; default None
+        pols_on : int, int sequence or None; default None FIXME allow other units
             Which polarization geometries (in degrees) of the detector elements to keep on. If `None`, include all. 
-        rhombi_on : int sequence or None; default None
+        rhombi_on : int, int sequence or None; default None
             Which rhombi to keep on. If `None`, include all rhombi. 
-        wafers_on : int sequence or None; default None
+        wafers_on : int, int sequence or None; default None
             Which wafers to keep on. If `None`, include all wafers. 
         det_radius : two-length tuple or None; default None; default unit arcsec
             Take the (min_radius, max_radius) of detector elements to keep. Use `None` in the tuple for an unspecified limit. If `None`, include all. 
         det_lim : two-length sequence of two-length tuples or None; default None; default unit arcsec
-            Take the [(x_min, x_max), (y_min, y_max)] range of dtector elements to keep. Use `None` in the tuple for an unspecified limit. If `None`, include all. 
+            Take the [(x_min, x_max), (y_min, y_max)] range of detector elements to keep. Use `None` in the tuple for an unspecified limit. If `None`, include all.
+            FIXME is this with mod_rot? instr_rot? field rotation? 
         det_list : sequence of int, sequence of two-length tuples, or None; default None 
             If a sequence of `int`, a list of detector numbers to keep on exact detector elements.
             If a sequence of two-length tuples, a list of (x, y) positions to keep on the detector element closest to each position; default unit arcsec
             If `None, include all. 
+            FIXME is this with mod_rot? instr_rot? field rotation?
         
         pxan_lim : two-length sequence of two-length tuples or None; default None; default unit arcsec
             A recutangular range of x-y pixels within [(xmin, xmax), (ymin, ymax)] to perform analysis.
@@ -105,7 +136,8 @@ class Simulation():
 
         # clean parameters
         if not sim_param is None:
-            assert(not kwargs)
+            if kwargs:
+                raise TypeError('passed "sim_param" but also passed keywords')
             with open(sim_param, 'r') as f:
                 kwargs = json.load(f)
 
@@ -122,74 +154,82 @@ class Simulation():
     def _clean_param(self, **kwargs):
         new_kwargs = dict()
 
-        new_kwargs['pixel_size'] = u.Quantity(kwargs.pop('pixel_size', 10), u.arcsec).to(u.deg).value
+        new_kwargs['pixel_size'] = u.Quantity(kwargs.pop('pixel_size', 10), u.arcsec).to(self._param_units['pixel_size']).value
 
         max_acc = kwargs.pop('max_acc', None)
-        new_kwargs['max_acc'] = u.Quantity(max_acc, u.deg/u.s/u.s).value if not max_acc is None else None
+        if not max_acc is None:
+            new_kwargs['max_acc'] = u.Quantity(max_acc, self._param_units['max_acc']).value
 
         min_speed = kwargs.pop('min_speed', None)
-        new_kwargs['min_speed'] = u.Quantity(min_speed, u.deg/u.s).value if not min_speed is None else None
+        if not min_speed is None:
+            new_kwargs['min_speed'] = u.Quantity(min_speed, self._param_units['min_speed']).value
 
         # parameters for keeping on certain parts of the module
 
         pols_on = kwargs.pop('pols_on', None)
         if not pols_on is None:
             all_pols = np.unique(self._module.pol.value)
+            if not isiterable(pols_on):
+                pols_on = [pols_on]
             if not set(pols_on).issubset(all_pols):
                 raise ValueError(f'pols_on = {pols_on} is not a subset of available polarizations {all_pols}')
-        new_kwargs['pols_on'] = pols_on
+            new_kwargs['pols_on'] = pols_on
   
         rhombi_on = kwargs.pop('rhombi_on', None)
         if not rhombi_on is None:
             all_rhombi = np.unique(self._module.rhombus)
+            if not isiterable(rhombi_on):
+                rhombi_on = [rhombi_on]
             if not set(rhombi_on).issubset(all_rhombi):
                 raise ValueError(f'rhombi_on = {rhombi_on} is not a subset of available rhombuses {all_rhombi}')
-        new_kwargs['rhombi_on'] = rhombi_on
+            new_kwargs['rhombi_on'] = rhombi_on
 
         wafers_on = kwargs.pop('wafers_on', None)
         if not wafers_on is None:
             all_wafers = np.unique(self._module.wafer)
+            if not isiterable(wafers_on):
+                wafers_on = [wafers_on]
             if not set(wafers_on).issubset(all_wafers):
                 raise ValueError(f'wafers_on = {wafers_on} is not a subset of available wafers {all_wafers}')
-        new_kwargs['wafers_on'] = wafers_on
+            new_kwargs['wafers_on'] = wafers_on
         
         det_radius = kwargs.pop('det_radius', None)
         if not det_radius is None:
-            min_radius = det_radius[0]
-            min_radius = -math.inf if min_radius is None else u.Quantity(min_radius, u.arcsec).to(u.deg).value
-            max_radius = det_radius[1]
-            max_radius = math.inf if max_radius is None else u.Quantity(max_radius, u.arcsec).to(u.deg).value
+            try:
+                min_radius = det_radius[0]
+                min_radius = -math.inf if min_radius is None else u.Quantity(min_radius, u.arcsec).to(self._param_units['det_radius']).value
+                max_radius = det_radius[1]
+                max_radius = math.inf if max_radius is None else u.Quantity(max_radius, u.arcsec).to(self._param_units['det_radius']).value
+            except (IndexError, TypeError):
+                raise TypeError('"det_radius" is of incorrect shape')
             new_kwargs['det_radius'] = (min_radius, max_radius)
-        else:
-            new_kwargs['det_radius'] = None
         
         det_lim = kwargs.pop('det_lim', None)
         if not det_lim is None:
-            min_x = det_lim[0][0]
-            min_x = -math.inf if min_x is None else u.Quantity(min_x, u.arcsec).to(u.deg).value
-            max_x = det_lim[0][1]
-            max_x = math.inf if max_x is None else u.Quantity(max_x, u.arcsec).to(u.deg).value
-            min_y = det_lim[1][0]
-            min_y = -math.inf if min_y is None else u.Quantity(min_y, u.arcsec).to(u.deg).value
-            max_y = det_lim[1][1]
-            max_y = math.inf if max_y is None else u.Quantity(max_y, u.arcsec).to(u.deg).value
+            try:
+                min_x = det_lim[0][0]
+                min_x = -math.inf if min_x is None else u.Quantity(min_x, u.arcsec).to(self._param_units['det_lim']).value
+                max_x = det_lim[0][1]
+                max_x = math.inf if max_x is None else u.Quantity(max_x, u.arcsec).to(self._param_units['det_lim']).value
+                min_y = det_lim[1][0]
+                min_y = -math.inf if min_y is None else u.Quantity(min_y, u.arcsec).to(self._param_units['det_lim']).value
+                max_y = det_lim[1][1]
+                max_y = math.inf if max_y is None else u.Quantity(max_y, u.arcsec).to(self._param_units['det_lim']).value
+            except (IndexError, TypeError):
+                raise TypeError('"det_lim" is of incorrect shape or type')
             new_kwargs['det_lim'] = ((min_x, max_x), (min_y, max_y))
-        else:
-            new_kwargs['det_lim'] = None
         
         det_list = kwargs.pop('det_list', None)
         if not det_list is None:
             try:
                 new_det_list = []
                 for point in det_list:
-                    new_det_list.append( (u.Quantity(point[0], u.arcsec).to(u.deg).value, u.Quantity(point[1], u.arcsec).to(u.deg).value) )
+                    new_det_list.append( (u.Quantity(point[0], u.arcsec).to(self._param_units['det_list']).value, u.Quantity(point[1], u.arcsec).to(self._param_units['det_list']).value) )
                 new_kwargs['det_list'] = np.array(new_det_list)
             except TypeError:
-                assert(len(np.shape(det_list)) == 1)
-                new_kwargs['det_list'] = np.array(det_list)
-
-        else:
-            new_kwargs['det_list'] = None
+                if not (len(np.shape(det_list)) == 1):
+                    raise TypeError(f'"det_list" is of incorrect shape or type')
+                new_kwargs['det_list'] = np.array(det_list, dtype=int)
 
         # for pixel analysis
 
@@ -202,19 +242,25 @@ class Simulation():
 
         elif not pxan_lim is None:
             self._pxan = True
-            x_min = u.Quantity(pxan_lim[0][0], u.arcsec).to(u.deg).value
-            x_max = u.Quantity(pxan_lim[0][1], u.arcsec).to(u.deg).value
-            y_min = u.Quantity(pxan_lim[1][0], u.arcsec).to(u.deg).value
-            y_max = u.Quantity(pxan_lim[1][1], u.arcsec).to(u.deg).value
+            try:
+                x_min = u.Quantity(pxan_lim[0][0], u.arcsec).to(u.deg).value
+                x_max = u.Quantity(pxan_lim[0][1], u.arcsec).to(u.deg).value
+                y_min = u.Quantity(pxan_lim[1][0], u.arcsec).to(u.deg).value
+                y_max = u.Quantity(pxan_lim[1][1], u.arcsec).to(u.deg).value
+            except (IndexError, TypeError):
+                raise TypeError('"pxan_lim" is of incorrect shape or type')
             new_kwargs['pxan_lim']= [(x_min, x_max), (y_min, y_max)]
 
         elif not pxan_list is None:
             self._pxan = True
             new_pxan_list = []
-            for px in pxan_list:
-                x = u.Quantity(px[0], u.arcsec).to(u.deg).value
-                y = u.Quantity(px[1], u.arcsec).to(u.deg).value
-                new_pxan_list.append( (x, y) )
+            try:
+                for px in pxan_list:
+                    x = u.Quantity(px[0], u.arcsec).to(u.deg).value
+                    y = u.Quantity(px[1], u.arcsec).to(u.deg).value
+                    new_pxan_list.append( (x, y) )
+            except (IndexError, TypeError):
+                raise TypeError('"pxan_lim" is of incorrect shape or type')
             new_kwargs['pxan_list'] = new_pxan_list
 
         # return
@@ -305,12 +351,17 @@ class Simulation():
 
         return ts_mask
     
+    # SIMULATING SCAN
+
     def _set_histograms(self, kept):
 
         # select (in)valid points
-        validity_mask = self._validity_mask
-        if not kept:
-            validity_mask = ~validity_mask
+        if kept:
+            validity_mask = self._validity_mask
+            print('Generating histograms for kept hits...')
+        else:
+            validity_mask = ~self._validity_mask
+            print('Generating histograms for removed hits...')
 
         # prep x_coord, y_coord, and rot_angle for simulating
         pixel_size = self._param['pixel_size']
@@ -324,13 +375,14 @@ class Simulation():
         hitmap_range = np.arange(-self._prep['max_pixel'], self._prep['max_pixel'])
         sky_hist = pd.DataFrame(sky_hist, index=hitmap_range, columns=hitmap_range)
 
-        if self.pxan:
+        if self._pxan:
             det_num = self._module.pixel_num[self._det_mask]
             det_hist = pd.Series(det_hist, index=det_num).reindex(self._module.pixel_num)
 
             sky_pattern_index = np.arange(self._sky_pattern.x_coord.value.size)
             time_num = sky_pattern_index[validity_mask]
             time_hist = pd.Series(time_hist, index=time_num).reindex(sky_pattern_index)
+            time_hist.index = self._sky_pattern.time_offset.value
 
         # store histograms
         if kept:
@@ -361,7 +413,7 @@ class Simulation():
 
         # initialize histograms to be returned
         sky_hist = np.zeros((num_bins, num_bins))
-        if self.pxan:
+        if self._pxan:
             det_hist = np.zeros(num_det_elem)
             time_hist = np.zeros(num_ts)
         else:
@@ -372,9 +424,11 @@ class Simulation():
         if num_ts == 0 or num_det_elem == 0:
             return sky_hist, det_hist, time_hist
 
-        # Divide process into chunks to abide by memory limits
+        # Divide process into chunks to abide by memory limits 
+        # We store using np.float16, which takes 2 bytes for each additional value
+        max_number_points = (self._mem_limit*10**6)/2
 
-        chunk_ts = math.floor(self._mem_limit/num_det_elem)
+        chunk_ts = math.floor(max_number_points/num_det_elem)
         for chunk in range(math.ceil(num_ts/chunk_ts)):
 
             # initialize empty arrays (rows of ts and cols of det elements) to store hits 
@@ -399,7 +453,7 @@ class Simulation():
             sky_hist += histogram2d(all_x_coords, all_y_coords, range=[[-max_pixel, max_pixel], [-max_pixel, max_pixel]], bins=[num_bins, num_bins])
 
             # apply pixel(s) analysis
-            if self.pxan:
+            if self._pxan:
                 mask = False
                 for x_range, y_range in zip(x_range_pxan, y_range_pxan):
                     mask = mask | ( (all_x_coords >= x_range[0]) & (all_x_coords < x_range[1]) & (all_y_coords >= y_range[0]) & (all_y_coords < y_range[1]) )
@@ -407,6 +461,7 @@ class Simulation():
                 det_hist += np.count_nonzero(mask, axis=0)
                 time_hist[start:end] = np.count_nonzero(mask, axis=1)
 
+        # note that we transpose sky_hist, since histogram2d has rows and columns flipped
         return sky_hist.T, det_hist, time_hist
 
     def _check_histograms(func):
@@ -425,11 +480,39 @@ class Simulation():
             elif hits == 'removed':
                 if self._sky_hist_rem is None:
                     self._set_histograms(False)
+
+            else:
+                raise ValueError(f'"hits" = {hits} is not one of "total", "kept", or "removed"')
+
             return func(self, hits, *args, **kwargs)
         return wrapper
 
+    # USER FUNCTIONS
+
     @_check_histograms
-    def sky_histogram(self, hits='kept', convolve=True, norm_time=False, path=None):
+    def sky_histogram(self, hits='kept', convolve=True, norm_time=False, path_or_buf=None):
+        """
+        Get a 2D histogram of the resultant hitmap. 
+
+        Parameters
+        ------------------------------
+        hits : str; default 'kept'
+            One of 'kept', 'removed', or 'total' hits. 
+        convolve : bool; default True
+            Whether to convolve the hitmap. 
+        norm_time : bool; default False
+            `True` for hits/px per total scan duration. `False` for hits/px.
+        path_or_buf : str, file handle or None; default None
+            File path or object, if `None` is provided the result is returned.
+            The file is saved as a csv with the header and columns representing the bin edges (in deg). 
+
+        Returns
+        -------------------------
+        None or (2d float array, Quantity array)
+            If `path_or_buf` is `None`, returns a 2D histogram of the hits as well as the bin edges.
+            Otherwise returns `None`.
+        """
+
         if hits == 'kept':
             sky_hist = self._sky_hist.to_numpy()
         elif hits == 'removed':
@@ -454,16 +537,42 @@ class Simulation():
             sky_hist = sky_hist/total_time
         
         # return
-        hitmap_range = np.arange(-self._prep['max_pixel'], self._prep['max_pixel'])*pixel_size
+        max_pixel = self._prep['max_pixel']
+        bin_edges = np.linspace(-max_pixel, max_pixel, 2*max_pixel+1)[:-1]*pixel_size
 
-        if path is None:
-            return sky_hist, hitmap_range
+        _shape = np.shape(sky_hist)
+        assert((_shape[0] == _shape[1]) and (_shape[0] == bin_edges.size))
+
+        if path_or_buf is None:
+            return sky_hist, bin_edges*self._param_units['pixel_size']
         else:
-            sky_hist = pd.DataFrame(sky_hist, index=hitmap_range, columns=hitmap_range)
-            sky_hist.to_csv(path, index=True, header=True)
+            sky_hist = pd.DataFrame(sky_hist, index=bin_edges, columns=bin_edges)
+            sky_hist.to_csv(path_or_buf, index=True, header=True)
                 
     @_check_histograms
     def det_histogram(self, hits='kept', norm_pxan=True, norm_time=False, path=None):
+        """
+        Get a histogram of the number of hits per detector element on a pixel on the sky (specified in `pxan_list` or `pxan_lim`).
+
+        Parameters
+        ------------------------------
+        hits : str; default 'kept'
+            One of 'kept', 'removed', or 'total' hits. 
+        norm_pxan : bool; default True
+            Whether to average the hits by dividing the total hits by the number of pixels. 
+        norm_time : bool; default False
+            `True` for hits/px per total scan duration. `False` for hits/px.
+        path_or_buf : str, file handle or None; default None
+            File path or object, if `None` is provided the result is returned. The file is saved as a csv.
+
+        Returns
+        -------------------------
+        None or (float array, int array)
+            If `path_or_buf` is `None`, returns the counts for each detector element as well as the corresponding detector number.
+            `NaN` values mean that detector element has been filtered off. Otherwise returns `None`.
+        """
+        assert(self._pxan)
+
         if hits == 'kept':
             det_hist = self._det_hist
         elif hits == 'removed':
@@ -482,18 +591,46 @@ class Simulation():
             det_hist = det_hist/total_time
         
         if path is None:
-            return det_hist.values
+            return det_hist.values, det_hist.index.to_numpy()
         else:
             det_hist.to_csv(path, index=True)
 
     @_check_histograms
     def time_histogram(self, hits='kept', norm_pxan=True, norm_time=False, path=None):
+        """
+        Get a histogram of the number of hits at each time step on a pixel on the sky (specified in `pxan_list` or `pxan_lim`).
+
+        Parameters
+        ------------------------------
+        hits : str; default 'kept'
+            One of 'kept', 'removed', or 'total' hits. 
+        norm_pxan : bool; default True
+            Whether to average the hits by dividing the total hits by the number of pixels. 
+        norm_time : bool; default False
+            `True` for hits/px per total scan duration. `False` for hits/px.
+        path_or_buf : str, file handle or None; default None
+            File path or object, if `None` is provided the result is returned. The file is saved as a csv.
+
+        Returns
+        -------------------------
+        None or (float array, int array)
+            If `path_or_buf` is `None`, returns the counts for each time step as well as the corresponding time offset.
+            `NaN` values mean that time step is out/in the speed/accleration limits. Otherwise returns `None`.
+        """
+
         if hits == 'kept':
-            time_hist = self._time_hist.values
+            time_hist = self._time_hist
+            time_offset = time_hist.index.to_numpy()
+            time_hist = time_hist.values
         elif hits == 'removed':
-            time_hist = self._time_hist_rem.values
+            time_hist = self._time_hist_rem
+            time_offset = time_hist.index.to_numpy()
+            time_hist = time_hist.values
         else:
-            time_hist = np.nan_to_num(self._time_hist) + np.nan_to_num(self._time_hist_rem)
+            time_hist1 = self._time_hist
+            time_hist2 = self._time_hist_rem
+            time_offset = time_hist1.index.to_numpy()
+            time_hist = np.nan_to_num(time_hist1) + np.nan_to_num(time_hist2)
         
         # divide by number of pixels in pixel analysis
         if norm_pxan:
@@ -506,11 +643,15 @@ class Simulation():
             time_hist = time_hist/total_time
         
         if path is None:
-            return time_hist
+            return time_hist, time_offset
         else:
-            pd.Series(time_hist).to_csv(path, index=True)
+            pd.Series(time_hist, index=time_offset).to_csv(path, index=True)
 
     def pol_histogram(self, hits='kept', path=None):
+        """
+        TODO add documentation
+        
+        """
         
         if hits == 'kept':
             field_rotation = self._field_rotation[self._validity_mask]

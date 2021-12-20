@@ -15,6 +15,13 @@ import matplotlib.patches as patches
 
 from scanning.coordinates import SkyPattern, TelescopePattern
 
+"""
+TODO
+- add documentation to each function
+- add bin plots
+
+"""
+
 # Modules and Instruments
 
 def plot_module(mod, mode=None, path=None, show_plot=True):
@@ -616,23 +623,26 @@ def field_rotation_hist(obs, min_elev=30, max_elev=75, min_rot_rate=0, path=None
 
 # Simulation 
 
-def hitmap(sim, kept_hits=True, removed_hits=False, total_hits=False, path=None, show_plot=True, with_rot0=True, **kwargs):
+def hitmap(sim, convolve=True, norm_time=False, kept_hits=True, removed_hits=False, total_hits=False, path=None, show_plot=True, with_rot0=True):
     """
+    Get a hitmap. 
+
     Parameters
     ------------------------------
     sim : Simulation
         A simulation object. 
-    convolve : bool, default True
+    convolve : bool; default True
         Whether to convolve the hitmap. 
-    norm_time : bool, default False
-        True for hits/px/sec. False for hits/px.
-    
-    kept_hits, removed_hits, total_hits : bool or int, default True, False, False, respectively
-        Whether to plot seperate hitmaps for kept/rem/total hits (True) or not (False). 
+    norm_time : bool; default False
+        `True` for hits/px per total scan duration. `False` for hits/px.
+    kept_hits removed_hits total_hits : bool or int; default True False False respectively
+        Whether to plot seperate hitmaps for kept/rem/total hits (`True`) or not (Fal`se). 
         If an integer is passed, the corresponding plot will show, with the color bar maximum set to this interger.
-    path : str or None, default None
-        If not None, saves the image to the file path. 
-    show_plot : bool, default True
+    with_rot0 : bool; default True
+        Include initial field rotation into side plot of detector elements. 
+    path : str or None; default None
+        If not `None`, saves the image to the file path. 
+    show_plot : bool; default True
         Whether to display the resulting figure.
     """
 
@@ -643,7 +653,7 @@ def hitmap(sim, kept_hits=True, removed_hits=False, total_hits=False, path=None,
     
     fig, ax = plt.subplots(1, num_hitmaps+1, sharex=True, sharey=True, figsize=((num_hitmaps+1)*4, 4))
 
-    if not kwargs.get('norm_time', False):
+    if not norm_time:
         hit_per_str = 'px'
     else:
         hit_per_str = 'px/s'
@@ -653,7 +663,8 @@ def hitmap(sim, kept_hits=True, removed_hits=False, total_hits=False, path=None,
     ax_i = 1
 
     if kept_hits:
-        sky_hist, hitmap_range = sim.sky_histogram('kept', **kwargs)
+        sky_hist, hitmap_range = sim.sky_histogram('kept', convolve=convolve, norm_time=norm_time)
+        hitmap_range = hitmap_range.value
         ax[ax_i].set_title(f'Kept hits/{hit_per_str}')
 
         min_pixel_deg = min(hitmap_range)
@@ -674,7 +685,8 @@ def hitmap(sim, kept_hits=True, removed_hits=False, total_hits=False, path=None,
         ax_i += 1
     
     if removed_hits:
-        sky_hist, hitmap_range = sim.sky_histogram('removed', **kwargs)
+        sky_hist, hitmap_range = sim.sky_histogram('removed', convolve=convolve, norm_time=norm_time)
+        hitmap_range = hitmap_range.value
         ax[ax_i].set_title(f'Removed hits/{hit_per_str}')
 
         min_pixel_deg = min(hitmap_range)
@@ -695,7 +707,8 @@ def hitmap(sim, kept_hits=True, removed_hits=False, total_hits=False, path=None,
         ax_i += 1
     
     if total_hits:
-        sky_hist, hitmap_range = sim.sky_histogram('total', **kwargs)
+        sky_hist, hitmap_range = sim.sky_histogram('total', convolve=convolve, norm_time=norm_time)
+        hitmap_range = hitmap_range.value
         ax[ax_i].set_title(f'Total hits/{hit_per_str}')
 
         min_pixel_deg = min(hitmap_range)
@@ -717,23 +730,23 @@ def hitmap(sim, kept_hits=True, removed_hits=False, total_hits=False, path=None,
 
     # DETECTOR AND SKY PATTERN
 
-    mask_det = sim._det_mask
-    x_mod = sim._module.x.value[mask_det]
-    y_mod = sim._module.y.value[mask_det]
-    rot0 = math.radians(sim._field_rotation[0])
+    mask_det = sim.det_mask
+    x_mod = sim.module.x.value[mask_det]
+    y_mod = sim.module.y.value[mask_det]
+    rot0 = sim.field_rotation[0].to(u.rad).value
 
-    if len(x_mod) > 10:
+    if len(x_mod) > 15:
         s_size = 0.05
     else:
         s_size = 10
 
-    ax[0].plot(sim._sky_pattern.x_coord.value, sim._sky_pattern.y_coord.value, color='red', alpha=0.5)
+    ax[0].plot(sim.sky_pattern.x_coord.value, sim.sky_pattern.y_coord.value, color='blue', alpha=0.5)
 
     if with_rot0:
-        ax[0].scatter(x_mod*cos(rot0) - y_mod*sin(rot0), x_mod*sin(rot0) + y_mod*cos(rot0), s=s_size)
+        ax[0].scatter(x_mod*cos(rot0) - y_mod*sin(rot0), x_mod*sin(rot0) + y_mod*cos(rot0), s=s_size, color='red')
         ax[0].set_title('Pixel Positions (incl. initial field rotation)')
     else:
-        ax[0].scatter(x_mod, y_mod, s=s_size)
+        ax[0].scatter(x_mod, y_mod, s=s_size, color='red')
         ax[0].set_title('Pixel Positions')
 
     ax[0].set_aspect('equal', 'box')
@@ -755,7 +768,26 @@ def hitmap(sim, kept_hits=True, removed_hits=False, total_hits=False, path=None,
     else:
         plt.close()
 
-def pxan_detector(sim, kept_hits=True, removed_hits=False, total_hits=False, path=None, show_plot=True, **kwargs):
+def pxan_detector(sim, norm_pxan=True, norm_time=False, kept_hits=True, removed_hits=False, total_hits=False, path=None, show_plot=True):
+    """
+    Get a hitmap of the number of hits per detector element on a pixel on the sky (specified in `pxan_list` or `pxan_lim`).
+
+    Parameters
+    ------------------------------
+    sim : Simulation
+        A simulation object. 
+    norm_pxan : bool; default True
+        Whether to average the hits by dividing the total hits by the number of pixels. 
+    norm_time : bool; default False
+        `True` for hits/px per total scan duration. `False` for hits/px.
+    kept_hits removed_hits total_hits : bool or int; default True False False respectively
+        Whether to plot seperate hitmaps for kept/rem/total hits (`True`) or not (Fal`se). 
+        If an integer is passed, the corresponding plot will show, with the color bar maximum set to this interger.
+    path : str or None; default None
+        If not `None`, saves the image to the file path. 
+    show_plot : bool; default True
+        Whether to display the resulting figure.
+    """
 
     # initialize figure
     num_hitmaps = np.count_nonzero([kept_hits, removed_hits, total_hits])
@@ -766,16 +798,16 @@ def pxan_detector(sim, kept_hits=True, removed_hits=False, total_hits=False, pat
 
     # parameters
 
-    if not kwargs.get('norm_time', False):
+    if norm_time:
         hit_per_str = 'px'
     else:
         hit_per_str = 'px/s'
 
     cm = plt.cm.get_cmap('viridis')
 
-    mask_det = sim._det_mask
-    x_mod = sim._module.x.value[mask_det]
-    y_mod = sim._module.y.value[mask_det]
+    mask_det = sim.det_mask
+    x_mod = sim.module.x.value[mask_det]
+    y_mod = sim.module.y.value[mask_det]
     #rot0 = math.radians(sim._field_rotation[0])
 
     # KEPT HITS
@@ -783,9 +815,11 @@ def pxan_detector(sim, kept_hits=True, removed_hits=False, total_hits=False, pat
     ax_i = 1
 
     if kept_hits:
-        det_hist = sim.det_histogram(hits='kept', **kwargs)
+        det_hist, _ = sim.det_histogram(hits='kept', norm_pxan=norm_pxan, norm_time=norm_time)
         det_hist = det_hist[~np.isnan(det_hist)]
-        sc = ax[ax_i].scatter(x_mod, y_mod, c=det_hist, cmap=cm, vmin=0, vmax=None, s=5)
+
+        vmax = None if kept_hits is True else kept_hits
+        sc = ax[ax_i].scatter(x_mod, y_mod, c=det_hist, cmap=cm, vmin=0, vmax=vmax, s=5)
         ax[ax_i].set_aspect('equal', 'box')
         ax[ax_i].set(xlabel='x offset (deg)', ylabel='y offset (deg)', title=f'Kept hits/{hit_per_str}')
 
@@ -796,9 +830,11 @@ def pxan_detector(sim, kept_hits=True, removed_hits=False, total_hits=False, pat
         ax_i += 1
     
     if removed_hits:
-        det_hist = sim.det_histogram(hits='removed', **kwargs)
+        det_hist, _ = sim.det_histogram(hits='removed', norm_pxan=norm_pxan, norm_time=norm_time)
         det_hist = det_hist[~np.isnan(det_hist)]
-        sc = ax[ax_i].scatter(x_mod, y_mod, c=det_hist, cmap=cm, vmin=0, vmax=None, s=5)
+
+        vmax = None if removed_hits is True else removed_hits
+        sc = ax[ax_i].scatter(x_mod, y_mod, c=det_hist, cmap=cm, vmin=0, vmax=vmax, s=5)
         ax[ax_i].set_aspect('equal', 'box')
         ax[ax_i].set(xlabel='x offset (deg)', ylabel='y offset (deg)', title=f'Removed hits/{hit_per_str}')
 
@@ -809,9 +845,11 @@ def pxan_detector(sim, kept_hits=True, removed_hits=False, total_hits=False, pat
         ax_i += 1
     
     if total_hits:
-        det_hist = sim.det_histogram(hits='total', **kwargs)
+        det_hist, _ = sim.det_histogram(hits='total', norm_pxan=norm_pxan, norm_time=norm_time)
         det_hist = det_hist[~np.isnan(det_hist)]
-        sc = ax[ax_i].scatter(x_mod, y_mod, c=det_hist, cmap=cm, vmin=0, vmax=None, s=5)
+
+        vmax = None if total_hits is True else total_hits
+        sc = ax[ax_i].scatter(x_mod, y_mod, c=det_hist, cmap=cm, vmin=0, vmax=vmax, s=5)
         ax[ax_i].set_aspect('equal', 'box')
         ax[ax_i].set(xlabel='x offset (deg)', ylabel='y offset (deg)', title=f'Total hits/{hit_per_str}')
 
@@ -822,8 +860,8 @@ def pxan_detector(sim, kept_hits=True, removed_hits=False, total_hits=False, pat
         ax_i += 1
 
     # pattern it self
-    x_coord = sim._sky_pattern.x_coord.value
-    y_coord = sim._sky_pattern.y_coord.value
+    x_coord = sim.sky_pattern.x_coord.value
+    y_coord = sim.sky_pattern.y_coord.value
 
     ax[0].plot(x_coord, y_coord)
     ax[0].set_aspect('equal', 'box')
@@ -845,7 +883,27 @@ def pxan_detector(sim, kept_hits=True, removed_hits=False, total_hits=False, pat
     else:
         plt.close()
 
-def pxan_time(sim, bin=1, kept_hits=True, removed_hits=False, total_hits=False, path=None, show_plot=True, **kwargs):
+def pxan_time(sim, bin=1, norm_pxan=True, norm_time=False, kept_hits=True, removed_hits=False, total_hits=False, path=None, show_plot=True):
+    """
+    Get a histogram of the number of hits per timestamp on a pixel on the sky (specified in `pxan_list` or `pxan_lim`).
+
+    Parameters
+    ------------------------------
+    sim : Simulation
+        A simulation object. 
+    bin : float, Quantity, or str; default 1, default unit seconds
+        Desired time bin. 
+    norm_pxan : bool; default True
+        Whether to average the hits by dividing the total hits by the number of pixels. 
+    norm_time : bool; default False
+        `True` for hits/px per total scan duration. `False` for hits/px.
+    kept_hits removed_hits total_hits : bool; default True False False respectively
+        Whether to plot seperate hitmaps for kept/rem/total hits (`True`) or not (Fal`se). 
+    path : str or None; default None
+        If not `None`, saves the image to the file path. 
+    show_plot : bool; default True
+        Whether to display the resulting figure.
+    """
 
     bin = u.Quantity(bin, u.s).value
 
@@ -861,7 +919,7 @@ def pxan_time(sim, bin=1, kept_hits=True, removed_hits=False, total_hits=False, 
 
     # parameters
 
-    if not kwargs.get('norm_time', False):
+    if not norm_time:
         hit_per_str = 'px'
     else:
         hit_per_str = 'px/s'
@@ -871,16 +929,44 @@ def pxan_time(sim, bin=1, kept_hits=True, removed_hits=False, total_hits=False, 
     ax_i = 0
 
     if kept_hits:
-        time_hist = sim.time_histogram(hits='kept', **kwargs)
+        time_hist, time_offset = sim.time_histogram(hits='kept', norm_pxan=norm_pxan, norm_time=norm_time)
         mask_nan = ~np.isnan(time_hist)
         time_hist = time_hist[mask_nan]
-        time_offset = sim._sky_pattern.time_offset.value[mask_nan]
+        time_offset = time_offset[mask_nan]
 
-        scan_duration = sim._sky_pattern.scan_duration.value
-        bin_edges = np.arange(0, scan_duration, bin)
+        scan_duration = sim.sky_pattern.scan_duration.value
+        bin_edges = np.arange(0, scan_duration + bin, bin)
 
         ax[ax_i].hist(time_offset, bins=bin_edges, weights=time_hist)
         ax[ax_i].set(xlabel='Time Offset (sec)', ylabel='Number of Hits', title=f'Kept hits/{hit_per_str}')
+
+        ax_i += 1
+
+    if removed_hits:
+        time_hist, time_offset = sim.time_histogram(hits='removed', norm_pxan=norm_pxan, norm_time=norm_time)
+        mask_nan = ~np.isnan(time_hist)
+        time_hist = time_hist[mask_nan]
+        time_offset = time_offset[mask_nan]
+
+        scan_duration = sim.sky_pattern.scan_duration.value
+        bin_edges = np.arange(0, scan_duration + bin, bin)
+
+        ax[ax_i].hist(time_offset, bins=bin_edges, weights=time_hist)
+        ax[ax_i].set(xlabel='Time Offset (sec)', ylabel='Number of Hits', title=f'Removed hits/{hit_per_str}')
+
+        ax_i += 1
+    
+    if total_hits:
+        time_hist, time_offset = sim.time_histogram(hits='total', norm_pxan=norm_pxan, norm_time=norm_time)
+        mask_nan = ~np.isnan(time_hist)
+        time_hist = time_hist[mask_nan]
+        time_offset = time_offset[mask_nan]
+
+        scan_duration = sim.sky_pattern.scan_duration.value
+        bin_edges = np.arange(0, scan_duration + bin, bin)
+
+        ax[ax_i].hist(time_offset, bins=bin_edges, weights=time_hist)
+        ax[ax_i].set(xlabel='Time Offset (sec)', ylabel='Number of Hits', title=f'total hits/{hit_per_str}')
 
         ax_i += 1
     
@@ -898,7 +984,23 @@ def pxan_time(sim, bin=1, kept_hits=True, removed_hits=False, total_hits=False, 
     else:
         plt.close()
 
-def pxan_polarization(sim, kept_hits=True, removed_hits=False, total_hits=False, path=None, show_plot=True, **kwargs):
+def pxan_polarization(sim, norm_pxan=True, norm_time=False, kept_hits=True, removed_hits=False, total_hits=False, path=None, show_plot=True):
+    """
+    Parameters
+    ------------------------------
+    sim : Simulation
+        A simulation object. 
+    norm_pxan : bool; default True
+        Whether to average the hits by dividing the total hits by the number of pixels. 
+    norm_time : bool; default False
+        `True` for hits/px per total scan duration. `False` for hits/px.
+    kept_hits removed_hits total_hits : bool; default True False False respectively
+        Whether to plot seperate hitmaps for kept/rem/total hits (`True`) or not (Fal`se). 
+    path : str or None; default None
+        If not `None`, saves the image to the file path. 
+    show_plot : bool; default True
+        Whether to display the resulting figure.
+    """
 
     # initialize figure
     num_hitmaps = np.count_nonzero([kept_hits, removed_hits, total_hits])
@@ -911,16 +1013,16 @@ def pxan_polarization(sim, kept_hits=True, removed_hits=False, total_hits=False,
         ax = [ax]
 
     ax_i = 0
-    pol = sim._module.pol.value[sim._det_mask]
+    pol = sim.module.pol.value[sim.det_mask]
     all_pol = np.unique(pol)
     width = all_pol[1] - all_pol[0] - 1
 
     if kept_hits:
-        det_hist = sim.det_histogram(hits='kept', **kwargs)
+        det_hist, _ = sim.det_histogram(hits='kept', norm_pxan=norm_pxan, norm_time=norm_time)
 
         for p in all_pol:
             mask = pol == p
-            num_p = sum(det_hist[mask])
+            num_p = np.sum(det_hist[mask])
             ax[ax_i].bar(p, height=num_p, width=width)
 
         ax[ax_i].set(xlabel='Polarization Geometry [deg]', ylabel='# of hits', title='Kept Hits')
@@ -929,11 +1031,11 @@ def pxan_polarization(sim, kept_hits=True, removed_hits=False, total_hits=False,
         ax_i +=1
 
     if removed_hits:
-        det_hist = sim.det_histogram(hits='removed', **kwargs)
+        det_hist, _ = sim.det_histogram(hits='removed', norm_pxan=norm_pxan, norm_time=norm_time)
 
         for p in all_pol:
             mask = pol == p
-            num_p = sum(det_hist[mask])
+            num_p = np.sum(det_hist[mask])
             ax[ax_i].bar(p, height=num_p, width=width)
 
         ax[ax_i].set(xlabel='Polarization Geometry [deg]', ylabel='# of hits', title='Kept Hits')
@@ -942,17 +1044,31 @@ def pxan_polarization(sim, kept_hits=True, removed_hits=False, total_hits=False,
         ax_i +=1
 
     if total_hits:
-        det_hist = sim.det_histogram(hits='total', **kwargs)
+        det_hist, _ = sim.det_histogram(hits='total', norm_pxan=norm_pxan, norm_time=norm_time)
 
         for p in all_pol:
             mask = pol == p
-            num_p = sum(det_hist[mask])
+            print(det_hist)
+            num_p = np.sum(det_hist[mask])
             ax[ax_i].bar(p, height=num_p, width=width)
 
         ax[ax_i].set(xlabel='Polarization Geometry [deg]', ylabel='# of hits', title='Kept Hits')
         ax[ax_i].set_xticks(all_pol)
 
         ax_i +=1
+    
+    fig.tight_layout()
+
+    # saving
+    if not path is None:
+        plt.savefig(path)
+        print(f'Saved to {path}.')
+    
+    # displaying
+    if show_plot:
+        plt.show()
+    else:
+        plt.close()
 
 def polarization_histogram(sim, kept_hits=True, removed_hits=False, total_hits=False, stacked=False, path=None, show_plot=True):
 
@@ -1023,4 +1139,15 @@ def polarization_histogram(sim, kept_hits=True, removed_hits=False, total_hits=F
         ax[ax_i].set(xlabel='Polarization Geometry + Field Rotation [deg]', ylabel='Number of Hits', title='Total Hits', xlim=(0, 90))
         ax[ax_i].legend(loc='upper right', title='Initial Polarization')
 
-    plt.show()
+    fig.tight_layout()
+
+    # saving
+    if not path is None:
+        plt.savefig(path)
+        print(f'Saved to {path}.')
+    
+    # displaying
+    if show_plot:
+        plt.show()
+    else:
+        plt.close()
