@@ -461,6 +461,8 @@ class Simulation():
                 det_hist += np.count_nonzero(mask, axis=0)
                 time_hist[start:end] = np.count_nonzero(mask, axis=1)
 
+        print(f'total number of hits {num_ts*num_det_elem} == {np.sum(sky_hist.flatten())}')
+
         # note that we transpose sky_hist, since histogram2d has rows and columns flipped
         return sky_hist.T, det_hist, time_hist
 
