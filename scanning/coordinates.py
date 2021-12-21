@@ -765,7 +765,7 @@ class TelescopePattern():
 
     # INITIALIZATION
 
-    def __init__(self, data, instrument=None, data_loc='boresight', obs_param=None, **kwargs) -> None:
+    def __init__(self, data, instrument=None, data_loc='boresight', obs_param=None, units=None, **kwargs) -> None:
         """
         Determine the motion of the telescope. Note that **kwargs can be passed as a file through `obs_param`.
             | option1: data (sky), instrument (optional), data_loc (optional); lat, start_ra, start_dec, (start_datetime or start_hrang or start_lst or [start_elev and moving_up])
@@ -778,6 +778,10 @@ class TelescopePattern():
             If `str`, a file path to a csv file. If `dict` or `DataFrame`, column names map to their values. 
             Columns must contain 'time_offset, 'az_coord', and 'alt_coord'. If 'lst' is included as a column, certain observation parameters are not required (see options).
             Otherwise, `data` is a `SkyPattern` object. 
+        units : [dict of str -> str or Unit] or None; default None
+            If `data` is not `SkyPattern`, this mapping column in `data` with their units. All columns do not need to be mapped.
+            If not provided, all angle-like units are assumed to be in degrees (except for hour angle and lst which are in hourangle)
+            and all time-like units are assumed to be in seconds.
 
         instrument : Instrument or None, default None
             An `Instrument` object. 
@@ -848,21 +852,27 @@ class TelescopePattern():
         # data has been passed
         else:
             if isinstance(data, str):
-                try:
-                    self._data = pd.read_csv(data, index_col=False, usecols=['time_offset', 'lst', 'az_coord', 'alt_coord'])
-                    self._param = self._clean_param_telescope_data(False, **param)
+                try: 
+                    self._data = pd.read_csv(data, index_col=False)
                 except ValueError:
-                    self._data = pd.read_csv(data, index_col=False, usecols=['time_offset', 'az_coord', 'alt_coord'])
-                    self._param = self._clean_param_telescope_data(True, **param)
-                    self._data['lst'] = self._get_lst()
+                    raise ValueError('could not parse "data"')
             else:
                 try:
-                    self._data = pd.DataFrame(data)[['time_offset', 'lst', 'az_coord', 'alt_coord']]
-                    self._param = self._clean_param_telescope_data(False, **param)
-                except KeyError:
-                    self._data = pd.DataFrame(data)[['time_offset', 'az_coord', 'alt_coord']]
-                    self._param = self._clean_param_telescope_data(True, **param)
-                    self._data['lst'] = self._get_lst()
+                    self._data = pd.DataFrame(data)
+                except ValueError:
+                    raise ValueError('could not parse "data"')
+
+            if not units is None:
+                for col, unit in units.items():
+                    self._data[col] = self._data[col]*u.Unit(unit).to(self._stored_units[col])
+                
+            self._param = self._clean_param_telescope_data(False, **param)
+
+            try:
+                self._data[['time_offset', 'lst', 'az_coord', 'alt_coord']]
+            except KeyError:
+                self._data[['time_offset', 'az_coord', 'alt_coord']]
+                self._data['lst'] = self._get_lst()
 
             # determine sample_interval 
             sample_interval_list = np.diff(self.time_offset.value)
