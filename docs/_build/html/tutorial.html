@@ -40,10 +40,11 @@
               <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">How to Use</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#note-on-units">Note on Units</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#units">Units</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#building-modules-and-instruments">Building Modules and Instruments</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#representing-scan-patterns">Representing Scan Patterns</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#simulating-scan-patterns">Simulating Scan Patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#optimal-observation-times">Optimal Observation Times</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="classes.html">Classes</a></li>
@@ -77,9 +78,10 @@
   <section id="how-to-use">
 <h1>How to Use<a class="headerlink" href="#how-to-use" title="Permalink to this headline"></a></h1>
 <p>The following are helpful tutorials for using the <code class="docutils literal notranslate"><span class="pre">mapping</span></code> package.
-For interactive tutorials, checkout the Jupyter notebooks in <code class="docutils literal notranslate"><span class="pre">tutorials/</span></code>.</p>
-<section id="note-on-units">
-<h2>Note on Units<a class="headerlink" href="#note-on-units" title="Permalink to this headline"></a></h2>
+While best to follow in order, each section does not neccessarily have to rely on the ones before.
+For interactive tutorials, checkout the Jupyter notebooks in <a class="reference external" href="https://github.com/KristinChengWu/mapping/tree/master/tutorials">tutorials/</a>.</p>
+<section id="units">
+<h2>Units<a class="headerlink" href="#units" title="Permalink to this headline"></a></h2>
 <p>When passing in arguments that have a unit associated with it,
 there exists default units but specific units can also be passed.</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">scanning</span>
@@ -187,7 +189,7 @@ configure multiple <a class="reference internal" href="classes.html#scanning.cam
 </pre></div>
 </div>
 <p>Using <a class="reference internal" href="visualization.html#scanning.visualization.instrument_config" title="scanning.visualization.instrument_config"><code class="xref py py-func docutils literal notranslate"><span class="pre">scanning.visualization.instrument_config()</span></code></a>, this is what the instrument looks like:</p>
-<a class="reference internal image-reference" href="_images/sample_instrument_config.png"><img alt="_images/sample_instrument_config.png" src="_images/sample_instrument_config.png" style="width: 400px;" /></a>
+<a class="reference internal image-reference" href="_images/instrument_config.png"><img alt="_images/instrument_config.png" src="_images/instrument_config.png" style="width: 500px;" /></a>
 <p>Slot names such as ‘i1’ or ‘c’, , which are different for each subclass, can get queried like so:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">prime_cam</span><span class="o">.</span><span class="n">slots</span>
 <span class="go">{&#39;c&#39;: &lt;Quantity [0., 0.] deg&gt;,</span>
@@ -218,8 +220,8 @@ There is also the <a class="reference internal" href="classes.html#scanning.coor
 <span class="gp">&gt;&gt;&gt; </span><span class="n">daisy</span> <span class="o">=</span> <span class="n">scanning</span><span class="o">.</span><span class="n">Daisy</span><span class="p">(</span><span class="n">velocity</span><span class="o">=</span><span class="mi">1</span><span class="o">/</span><span class="mi">3</span><span class="p">,</span> <span class="n">start_acc</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">R0</span><span class="o">=</span><span class="mf">0.47</span><span class="p">,</span> <span class="n">Rt</span><span class="o">=</span><span class="mi">800</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">,</span> <span class="n">Ra</span><span class="o">=</span><span class="mi">600</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">,</span> <span class="n">T</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">sample_interval</span><span class="o">=</span><span class="mi">1</span><span class="o">/</span><span class="mi">400</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>Using <a class="reference internal" href="visualization.html#id1" title="scanning.visualization.sky_path"><code class="xref py py-func docutils literal notranslate"><span class="pre">scanning.visualization.sky_path()</span></code></a>, this is what the above pattern looks like in RA/DEC offsets.</p>
-<a class="reference internal image-reference" href="_images/sample_daisy.png"><img alt="_images/sample_daisy.png" src="_images/sample_daisy.png" style="width: 400px;" /></a>
+<p>Using <a class="reference internal" href="visualization.html#scanning.visualization.sky_path" title="scanning.visualization.sky_path"><code class="xref py py-func docutils literal notranslate"><span class="pre">scanning.visualization.sky_path()</span></code></a>, this is what the above pattern looks like in RA/DEC offsets.</p>
+<a class="reference internal image-reference" href="_images/sky_path-daisy.png"><img alt="_images/sky_path-daisy.png" src="_images/sky_path-daisy.png" style="width: 500px;" /></a>
 <p>Those parameters can then be saved as a json file (or returned as a dictionary if no path is specified)
 and passed into the constructor to re-generate the same pattern.
 Use keyword arguments to overwrite specific parameters.</p>
@@ -235,9 +237,73 @@ Instead, you can pass the csv file or dictionary (so long as “time_offset”, 
 <span class="gp">&gt;&gt;&gt; </span><span class="n">scanning</span><span class="o">.</span><span class="n">SkyPattern</span><span class="p">(</span><span class="s1">&#39;sample_sky_pattern.csv&#39;</span><span class="p">,</span> <span class="n">units</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;time_offset&#39;</span><span class="p">:</span> <span class="s1">&#39;s&#39;</span><span class="p">,</span> <span class="s1">&#39;x_coord&#39;</span><span class="p">:</span> <span class="s1">&#39;arcsec&#39;</span><span class="p">,</span> <span class="s1">&#39;y_coord&#39;</span><span class="p">:</span> <span class="s1">&#39;arcsec&#39;</span><span class="p">})</span>
 </pre></div>
 </div>
+<p>A <a class="reference internal" href="classes.html#scanning.coordinates.TelescopePattern" title="scanning.coordinates.TelescopePattern"><code class="xref py py-class docutils literal notranslate"><span class="pre">TelescopePattern</span></code></a> stores time offset, sidereal time, azimuth coordinates, and elevation coordinates.
+Typically, this can be interpreted as the path of the boresight for a particular scan,
+but that does not neccessarily have to be the case.</p>
+<p>One way of intializing a <a class="reference internal" href="classes.html#scanning.coordinates.TelescopePattern" title="scanning.coordinates.TelescopePattern"><code class="xref py py-class docutils literal notranslate"><span class="pre">TelescopePattern</span></code></a> is by passing a <a class="reference internal" href="classes.html#scanning.coordinates.SkyPattern" title="scanning.coordinates.SkyPattern"><code class="xref py py-class docutils literal notranslate"><span class="pre">SkyPattern</span></code></a> instance along with observational
+data that has the right ascension and declination of your source, and some way to initialize time.
+Optionally, you can pass an <a class="reference internal" href="classes.html#scanning.camera.Instrument" title="scanning.camera.Instrument"><code class="xref py py-class docutils literal notranslate"><span class="pre">Instrument</span></code></a> object and choose a module where the <a class="reference internal" href="classes.html#scanning.coordinates.SkyPattern" title="scanning.coordinates.SkyPattern"><code class="xref py py-class docutils literal notranslate"><span class="pre">SkyPattern</span></code></a> is applied to.
+The module parameter <code class="docutils literal notranslate"><span class="pre">data_loc</span></code> can be a slot location, module identifier, or a (dist, theta).:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">t</span> <span class="o">=</span> <span class="n">scanning</span><span class="o">.</span><span class="n">TelescopePattern</span><span class="p">(</span>
+    <span class="n">daisy</span><span class="p">,</span> <span class="n">instrument</span><span class="o">=</span><span class="n">scanning</span><span class="o">.</span><span class="n">PrimeCam</span><span class="p">(),</span> <span class="n">data_loc</span><span class="o">=</span><span class="s1">&#39;i1&#39;</span><span class="p">,</span>
+    <span class="n">start_ra</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span> <span class="n">start_dec</span><span class="o">=-</span><span class="mi">60</span><span class="p">,</span> <span class="n">start_elev</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">moving_up</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>There are a few parameters (that are mutually exclusive) that can be used to initialize a start time:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">start_datetime</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">start_hrang</span></code> (hour angle)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">start_lst</span></code> (local sidereal time)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">start_elev</span></code> and <code class="docutils literal notranslate"><span class="pre">moving_up</span></code> (default True)</p></li>
+</ul>
+</div></blockquote>
+<p>Similar to <cite>SkyPattern</cite>, you can save the parameters of observation to use later on.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">t</span><span class="o">.</span><span class="n">save_param</span><span class="p">(</span><span class="s1">&#39;sample_tp_param.json&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">scanning</span><span class="o">.</span><span class="n">TelescopePattern</span><span class="p">(</span><span class="n">daisy</span><span class="p">,</span> <span class="n">scanning</span><span class="o">.</span><span class="n">PrimeCam</span><span class="p">(),</span> <span class="n">data_loc</span><span class="o">=</span><span class="s1">&#39;i1&#39;</span><span class="p">,</span> <span class="n">obs_param</span><span class="o">=</span><span class="s1">&#39;sample_tp_param.json&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Now that you have an initialized <a class="reference internal" href="classes.html#scanning.coordinates.TelescopePattern" title="scanning.coordinates.TelescopePattern"><code class="xref py py-class docutils literal notranslate"><span class="pre">TelescopePattern</span></code></a>, suppose you want to see any module away from the boresight.
+The following returns a new <a class="reference internal" href="classes.html#scanning.coordinates.TelescopePattern" title="scanning.coordinates.TelescopePattern"><code class="xref py py-class docutils literal notranslate"><span class="pre">TelescopePattern</span></code></a> where the stored AZ/EL coordinates are that of the specified module.
+Note that this new object does not retain instrument information, since the idea of a boresight is not applicable anymore.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">t_i5</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">view_module</span><span class="p">(</span><span class="s1">&#39;i5&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>You can also get the corresponding <a class="reference internal" href="classes.html#scanning.coordinates.SkyPattern" title="scanning.coordinates.SkyPattern"><code class="xref py py-class docutils literal notranslate"><span class="pre">SkyPattern</span></code></a> object.
+In the example below, this would get a <a class="reference internal" href="classes.html#scanning.coordinates.SkyPattern" title="scanning.coordinates.SkyPattern"><code class="xref py py-class docutils literal notranslate"><span class="pre">SkyPattern</span></code></a> object representing the x-y offsets made by slot “i5”.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">t_i5</span><span class="o">.</span><span class="n">get_sky_pattern</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Similar to <a class="reference internal" href="classes.html#scanning.coordinates.SkyPattern" title="scanning.coordinates.SkyPattern"><code class="xref py py-class docutils literal notranslate"><span class="pre">SkyPattern</span></code></a>, you can save the data as a csv file (or return the data as a dictionary) and pass it into the constructor to initialize it again.
+You can specify columns and units you would like to save. See docstrings for more information.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">t</span><span class="o">.</span><span class="n">save_data</span><span class="p">(</span><span class="s1">&#39;sample_tp.csv&#39;</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;time_offset&#39;</span><span class="p">:</span> <span class="s1">&#39;s&#39;</span><span class="p">,</span> <span class="s1">&#39;lst&#39;</span><span class="p">:</span> <span class="s1">&#39;deg&#39;</span><span class="p">,</span> <span class="s1">&#39;az_coord&#39;</span><span class="p">:</span> <span class="s1">&#39;deg&#39;</span><span class="p">,</span> <span class="s1">&#39;alt_coord&#39;</span><span class="p">:</span> <span class="s1">&#39;deg&#39;</span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">scanning</span><span class="o">.</span><span class="n">TelescopePattern</span><span class="p">(</span><span class="s1">&#39;sample_tp.csv&#39;</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;time_offset&#39;</span><span class="p">:</span> <span class="s1">&#39;s&#39;</span><span class="p">,</span> <span class="s1">&#39;lst&#39;</span><span class="p">:</span> <span class="s1">&#39;deg&#39;</span><span class="p">,</span> <span class="s1">&#39;az_coord&#39;</span><span class="p">:</span> <span class="s1">&#39;deg&#39;</span><span class="p">,</span> <span class="s1">&#39;alt_coord&#39;</span><span class="p">:</span> <span class="s1">&#39;deg&#39;</span><span class="p">})</span>
+</pre></div>
+</div>
 </section>
 <section id="simulating-scan-patterns">
 <h2>Simulating Scan Patterns<a class="headerlink" href="#simulating-scan-patterns" title="Permalink to this headline"></a></h2>
+</section>
+<section id="optimal-observation-times">
+<h2>Optimal Observation Times<a class="headerlink" href="#optimal-observation-times" title="Permalink to this headline"></a></h2>
+<p>An <cite>Observation</cite> object represents an observation of a source(s) for a particular time range,
+and can be used to find the ideal time for observation.</p>
+<p>You can pass a list of declinations.
+By default, the observation period is the full 24 hour angle range.
+You can see when the object fits certain conditions (and return this information).</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">obs</span> <span class="o">=</span> <span class="n">scanning</span><span class="o">.</span><span class="n">Observation</span><span class="p">([</span><span class="mi">30</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">20</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">obs</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">min_elev</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">max_elev</span><span class="o">=</span><span class="mi">75</span><span class="p">,</span> <span class="n">min_rot_rate</span><span class="o">=</span><span class="mi">15</span><span class="p">)</span>
+<span class="go">(dec=30.0N):  [[-0.5279999999999898, 1.9520000000000124]]</span>
+<span class="go">(dec=0.0N):  [[-1.1039999999999903, 3.792000000000014]]</span>
+<span class="go">(dec=-20.0N):  [[-4.319999999999993, -2.6079999999999917], [1.0560000000000116, 1.7280000000000122]]</span>
+</pre></div>
+</div>
+<p>Other than hour angle, you can pass a datetime range instead.
+Corresponding right ascension(s) must also be listed.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">scanning</span><span class="o">.</span><span class="n">Observation</span><span class="p">([</span><span class="mi">30</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">20</span><span class="p">],</span> <span class="n">datetime_range</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;2001-12-09&#39;</span><span class="p">,</span> <span class="s1">&#39;2001-12-10&#39;</span><span class="p">],</span> <span class="n">ra</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">hourangle</span><span class="p">)</span>
+</pre></div>
+</div>
 </section>
 </section>
 

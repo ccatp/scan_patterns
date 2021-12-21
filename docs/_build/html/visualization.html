@@ -37,11 +37,16 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tutorial.html">How to Use</a></li>
 <li class="toctree-l1"><a class="reference internal" href="classes.html">Classes</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Visualization</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Visualization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#camera-modules-and-instruments">Camera Modules and Instruments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#scan-patterns">Scan Patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#simulations">Simulations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#observations">Observations</a></li>
+</ul>
+</li>
 </ul>
 
         </div>
@@ -70,22 +75,9 @@
              
   <section id="visualization">
 <h1>Visualization<a class="headerlink" href="#visualization" title="Permalink to this headline"></a></h1>
-<p>Below are a list of visualization functions for visualzing camera modules and instruments.</p>
-<span class="target" id="module-scanning.visualization"></span><dl class="py function">
-<dt class="sig sig-object py" id="scanning.visualization.instrument_config">
-<span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">instrument_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">instrument</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#instrument_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.visualization.instrument_config" title="Permalink to this definition"></a></dt>
-<dd><p>Save a plot of the instrument configuration.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>instrument</strong> (<a class="reference internal" href="classes.html#scanning.camera.Instrument" title="scanning.camera.Instrument"><em>Instrument</em></a>) – An Instrument object.</p></li>
-<li><p><strong>path</strong> (<em>str</em><em> or </em><em>None</em><em>, </em><em>default None</em>) – If not None, saves the image to the file path.</p></li>
-<li><p><strong>show_plot</strong> (<em>bool</em><em>, </em><em>default True</em>) – Whether to display the resulting figure.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
+<section id="camera-modules-and-instruments">
+<h2>Camera Modules and Instruments<a class="headerlink" href="#camera-modules-and-instruments" title="Permalink to this headline"></a></h2>
+<p>Below are a list of visualization functions and examples and examples for visualzing camera modules and instruments.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="scanning.visualization.plot_module">
 <span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">plot_module</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mod</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#plot_module"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.visualization.plot_module" title="Permalink to this definition"></a></dt>
@@ -105,33 +97,62 @@
 </dl>
 </dd></dl>
 
-<p>Below are a list of visualization functions for visualzing scan patterns.</p>
-<span class="target" id="module-0"></span><dl class="py function">
-<dt class="sig sig-object py" id="scanning.visualization.sky_kinematics">
-<span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">sky_kinematics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pattern</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plots</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['coord',</span> <span class="pre">'vel',</span> <span class="pre">'acc',</span> <span class="pre">'jerk']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#sky_kinematics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.visualization.sky_kinematics" title="Permalink to this definition"></a></dt>
-<dd><p>TODO</p>
+<a class="reference internal image-reference" href="_images/plot_module.png"><img alt="_images/plot_module.png" src="_images/plot_module.png" style="width: 500px;" /></a>
+<dl class="py function">
+<dt class="sig sig-object py" id="scanning.visualization.instrument_config">
+<span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">instrument_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">instrument</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#instrument_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.visualization.instrument_config" title="Permalink to this definition"></a></dt>
+<dd><p>Save a plot of the instrument configuration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>instrument</strong> (<a class="reference internal" href="classes.html#scanning.camera.Instrument" title="scanning.camera.Instrument"><em>Instrument</em></a>) – An Instrument object.</p></li>
+<li><p><strong>path</strong> (<em>str</em><em> or </em><em>None</em><em>, </em><em>default None</em>) – If not None, saves the image to the file path.</p></li>
+<li><p><strong>show_plot</strong> (<em>bool</em><em>, </em><em>default True</em>) – Whether to display the resulting figure.</p></li>
+</ul>
+</dd>
+</dl>
 </dd></dl>
 
+<a class="reference internal image-reference" href="_images/instrument_config.png"><img alt="_images/instrument_config.png" src="_images/instrument_config.png" style="width: 500px;" /></a>
+</section>
+<section id="scan-patterns">
+<h2>Scan Patterns<a class="headerlink" href="#scan-patterns" title="Permalink to this headline"></a></h2>
+<p>Below are a list of visualization functions and examples for visualzing scan patterns.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="scanning.visualization.sky_path">
 <span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">sky_path</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pattern</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#sky_path"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.visualization.sky_path" title="Permalink to this definition"></a></dt>
 <dd><p>TODO</p>
 </dd></dl>
 
-<dl class="py function">
-<dt class="sig sig-object py" id="scanning.visualization.telescope_kinematics">
-<span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">telescope_kinematics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">telescope_pattern</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plots</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['coord',</span> <span class="pre">'vel',</span> <span class="pre">'acc',</span> <span class="pre">'jerk']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#telescope_kinematics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.visualization.telescope_kinematics" title="Permalink to this definition"></a></dt>
-<dd><p>TODO</p>
-</dd></dl>
-
+<a class="reference internal image-reference" href="_images/sky_path-daisy.png"><img alt="_images/sky_path-daisy.png" src="_images/sky_path-daisy.png" style="width: 150px;" /></a>
+<a class="reference internal image-reference" href="_images/sky_path-pong.png"><img alt="_images/sky_path-pong.png" src="_images/sky_path-pong.png" style="width: 150px;" /></a>
+<a class="reference internal image-reference" href="_images/sky_path.png"><img alt="_images/sky_path.png" src="_images/sky_path.png" style="width: 300px;" /></a>
 <dl class="py function">
 <dt class="sig sig-object py" id="scanning.visualization.telescope_path">
 <span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">telescope_path</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">telescope_pattern</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#telescope_path"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.visualization.telescope_path" title="Permalink to this definition"></a></dt>
 <dd><p>TODO</p>
 </dd></dl>
 
-<p>Below are a list of visualization functions for visualzing simulation outputs.</p>
-<span class="target" id="module-1"></span><dl class="py function">
+<a class="reference internal image-reference" href="_images/telescope_path.png"><img alt="_images/telescope_path.png" src="_images/telescope_path.png" style="width: 500px;" /></a>
+<dl class="py function">
+<dt class="sig sig-object py" id="scanning.visualization.telescope_kinematics">
+<span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">telescope_kinematics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">telescope_pattern</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plots</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['coord',</span> <span class="pre">'vel',</span> <span class="pre">'acc',</span> <span class="pre">'jerk']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#telescope_kinematics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.visualization.telescope_kinematics" title="Permalink to this definition"></a></dt>
+<dd><p>TODO</p>
+</dd></dl>
+
+<a class="reference internal image-reference" href="_images/telescope_kinematics.png"><img alt="_images/telescope_kinematics.png" src="_images/telescope_kinematics.png" style="width: 500px;" /></a>
+<dl class="py function">
+<dt class="sig sig-object py" id="scanning.visualization.sky_kinematics">
+<span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">sky_kinematics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pattern</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plots</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['coord',</span> <span class="pre">'vel',</span> <span class="pre">'acc',</span> <span class="pre">'jerk']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#sky_kinematics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.visualization.sky_kinematics" title="Permalink to this definition"></a></dt>
+<dd><p>TODO</p>
+</dd></dl>
+
+<a class="reference internal image-reference" href="_images/sky_kinematics.png"><img alt="_images/sky_kinematics.png" src="_images/sky_kinematics.png" style="width: 500px;" /></a>
+</section>
+<section id="simulations">
+<h2>Simulations<a class="headerlink" href="#simulations" title="Permalink to this headline"></a></h2>
+<p>Below are a list of visualization functions and examples for visualzing simulation outputs.</p>
+<span class="target" id="module-scanning.visualization"></span><dl class="py function">
 <dt class="sig sig-object py" id="scanning.visualization.hitmap">
 <span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">hitmap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">convolve</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norm_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kept_hits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">removed_hits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_hits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_rot0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#hitmap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.visualization.hitmap" title="Permalink to this definition"></a></dt>
 <dd><p>Get a hitmap.</p>
@@ -212,31 +233,25 @@ If an integer is passed, the corresponding plot will show, with the color bar ma
 </dl>
 </dd></dl>
 
-<p>Below are a list of visualization functions for visualzing <a class="reference internal" href="classes.html#scanning.observation.Observation" title="scanning.observation.Observation"><code class="xref py py-class docutils literal notranslate"><span class="pre">Observation</span></code></a> objects.</p>
-<span class="target" id="module-2"></span><dl class="py function">
-<dt class="sig sig-object py" id="id0">
-<span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">sky_kinematics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pattern</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plots</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['coord',</span> <span class="pre">'vel',</span> <span class="pre">'acc',</span> <span class="pre">'jerk']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#sky_kinematics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id0" title="Permalink to this definition"></a></dt>
-<dd><p>TODO</p>
-</dd></dl>
-
+</section>
+<section id="observations">
+<h2>Observations<a class="headerlink" href="#observations" title="Permalink to this headline"></a></h2>
+<p>Below are a list of visualization functions and examples for visualzing <a class="reference internal" href="classes.html#scanning.observation.Observation" title="scanning.observation.Observation"><code class="xref py py-class docutils literal notranslate"><span class="pre">Observation</span></code></a> objects.</p>
 <dl class="py function">
-<dt class="sig sig-object py" id="id1">
-<span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">sky_path</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pattern</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#sky_path"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id1" title="Permalink to this definition"></a></dt>
+<dt class="sig sig-object py" id="scanning.visualization.filter_observation">
+<span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">filter_observation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'elevation'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_elev</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_elev</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">75</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_rot_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#filter_observation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.visualization.filter_observation" title="Permalink to this definition"></a></dt>
 <dd><p>TODO</p>
 </dd></dl>
 
+<a class="reference internal image-reference" href="_images/filter_observation.png"><img alt="_images/filter_observation.png" src="_images/filter_observation.png" style="width: 500px;" /></a>
 <dl class="py function">
-<dt class="sig sig-object py" id="id2">
-<span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">telescope_kinematics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">telescope_pattern</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plots</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['coord',</span> <span class="pre">'vel',</span> <span class="pre">'acc',</span> <span class="pre">'jerk']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#telescope_kinematics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id2" title="Permalink to this definition"></a></dt>
+<dt class="sig sig-object py" id="scanning.visualization.field_rotation_hist">
+<span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">field_rotation_hist</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_elev</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_elev</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">75</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_rot_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#field_rotation_hist"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.visualization.field_rotation_hist" title="Permalink to this definition"></a></dt>
 <dd><p>TODO</p>
 </dd></dl>
 
-<dl class="py function">
-<dt class="sig sig-object py" id="id3">
-<span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">telescope_path</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">telescope_pattern</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#telescope_path"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id3" title="Permalink to this definition"></a></dt>
-<dd><p>TODO</p>
-</dd></dl>
-
+<a class="reference internal image-reference" href="_images/field_rotation_hist.png"><img alt="_images/field_rotation_hist.png" src="_images/field_rotation_hist.png" style="width: 500px;" /></a>
+</section>
 </section>
 
 

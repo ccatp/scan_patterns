@@ -35,10 +35,10 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../intro.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../install.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../classes.html">Classes</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../tutorial.html">How to Use</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../classes.html">Classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../visualization.html">Visualization</a></li>
 </ul>
 
         </div>
@@ -134,21 +134,23 @@
 
     <span class="c1"># INITIALIZATION</span>
 
-<div class="viewcode-block" id="Simulation.__init__"><a class="viewcode-back" href="../../classes.html#scanning.optimization.Simulation.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">telescope_pattern</span><span class="p">,</span> <span class="n">module</span><span class="p">,</span> <span class="n">sim_param</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mem_limit</span><span class="o">=</span><span class="mi">640</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<div class="viewcode-block" id="Simulation.__init__"><a class="viewcode-back" href="../../classes.html#scanning.optimization.Simulation.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">telescope_pattern</span><span class="p">,</span> <span class="n">instrument</span><span class="p">,</span> <span class="n">module_identifier</span><span class="p">,</span> <span class="n">sim_param</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mem_limit</span><span class="o">=</span><span class="mi">640</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Run a simulation on `telescope_pattern` with `module`. Use **kwargs to specify conditions. </span>
-<span class="sd">        Note that if multiple detector filters are used (`pols_on`, `det_lim`, etc.), only detector</span>
-<span class="sd">        elements that satisfy all will be used. </span>
+<span class="sd">        Creating a `Simulation` object works by passing a `TelescopePattern` object, which stores the AZ/EL coordinates of </span>
+<span class="sd">        the telescope boresight. By passing an `Instrument` object and the name of one of its modules, we use the detector </span>
+<span class="sd">        element positions of that camera module and use the coordinates of the scan pattern that that camera module would make. </span>
+<span class="sd">        </span>
+<span class="sd">        Use **kwargs to specify conditions. Note that if multiple detector filters are used (`pols_on`, `det_lim`, etc.), </span>
+<span class="sd">        only detector elements that satisfy all will be used. </span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------------------------</span>
 <span class="sd">        telescope_pattern : TelescopePattern</span>
-<span class="sd">            A `TelescopePattern` object.</span>
-<span class="sd">        module : str or Module</span>
-<span class="sd">            If `str`: Gets the Module and AZ/ALT coordinates from a string indicating a module name in the instrument e.g. &#39;SFH&#39;. </span>
-<span class="sd">            Recommended if `telescope_pattern` holds intrument data. </span>
-<span class="sd">            If `Module`: Uses `telescope_pattern`&#39;s &quot;boresight&quot; coordinates and uses `module` for its pixel positions. </span>
-<span class="sd">            Recommended if `telescope_pattern` does not hold instrument data. </span>
+<span class="sd">            A `TelescopePattern` object representing the boresight. </span>
+<span class="sd">        instrument : Instrument</span>
+<span class="sd">            `Instrument` object to get `module` from. </span>
+<span class="sd">        module_identifier : str</span>
+<span class="sd">            Gets the `Module` and AZ/ALT coordinates from a string indicating a module name in the instrument e.g. &#39;SFH&#39;. </span>
 <span class="sd">        sim_param : str</span>
 <span class="sd">            File path to a json file containing parameters for simulation (see **kwargs).</span>
 <span class="sd">        mem_limit : int; default 640 MB</span>
@@ -191,16 +193,16 @@
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_mem_limit</span> <span class="o">=</span> <span class="n">mem_limit</span>
+
+        <span class="c1"># get Module object from instrument</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_module</span> <span class="o">=</span> <span class="n">instrument</span><span class="o">.</span><span class="n">get_module</span><span class="p">(</span><span class="n">module_identifier</span><span class="p">,</span> <span class="n">with_instr_rot</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">with_mod_rot</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># get the telescope pattern</span>
+        <span class="n">module_loc</span> <span class="o">=</span> <span class="n">instrument</span><span class="o">.</span><span class="n">get_module_location</span><span class="p">(</span><span class="n">module_identifier</span><span class="p">,</span> <span class="n">from_boresight</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">telescope_pattern</span> <span class="o">=</span> <span class="n">telescope_pattern</span><span class="o">.</span><span class="n">view_module</span><span class="p">(</span><span class="n">module_loc</span><span class="p">,</span> <span class="n">includes_instr_offset</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-            <span class="n">module_name</span> <span class="o">=</span> <span class="n">module</span>
-            <span class="n">module</span> <span class="o">=</span> <span class="n">telescope_pattern</span><span class="o">.</span><span class="n">instrument</span><span class="o">.</span><span class="n">get_module</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">with_instr_rot</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">with_mod_rot</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="n">telescope_pattern</span> <span class="o">=</span> <span class="n">telescope_pattern</span><span class="o">.</span><span class="n">view_module</span><span class="p">(</span><span class="n">module_name</span><span class="p">)</span>
-        
-        <span class="c1"># store sky pattern, field rotation, and module</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_sky_pattern</span> <span class="o">=</span> <span class="n">telescope_pattern</span><span class="o">.</span><span class="n">get_sky_pattern</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_field_rotation</span> <span class="o">=</span> <span class="n">telescope_pattern</span><span class="o">.</span><span class="n">rot_angle</span><span class="o">.</span><span class="n">value</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_module</span> <span class="o">=</span> <span class="n">module</span> 
 
         <span class="c1"># clean parameters</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">sim_param</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>

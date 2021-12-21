@@ -2,22 +2,71 @@
 Visualization 
 ###########################
 
-Below are a list of visualization functions for visualzing camera modules and instruments. 
+Camera Modules and Instruments
+====================================
 
-.. automodule:: scanning.visualization
-    :members: plot_module, instrument_config
+Below are a list of visualization functions and examples and examples for visualzing camera modules and instruments. 
 
-Below are a list of visualization functions for visualzing scan patterns. 
+.. autofunction:: scanning.visualization.plot_module
 
-.. automodule:: scanning.visualization
-    :members: sky_path, telescope_path, telescope_kinematics, sky_kinematics
+.. image:: images/plot_module.png
+    :width: 500
 
-Below are a list of visualization functions for visualzing simulation outputs. 
+.. autofunction:: scanning.visualization.instrument_config
+
+.. image:: images/instrument_config.png
+    :width: 500
+
+Scan Patterns
+====================================
+
+Below are a list of visualization functions and examples for visualzing scan patterns. 
+
+.. autofunction:: scanning.visualization.sky_path
+
+.. image:: images/sky_path-daisy.png
+    :width: 150
+
+.. image:: images/sky_path-pong.png
+    :width: 150
+
+.. image:: images/sky_path.png
+    :width: 300
+
+.. autofunction:: scanning.visualization.telescope_path
+
+.. image:: images/telescope_path.png
+    :width: 500
+
+.. autofunction:: scanning.visualization.telescope_kinematics
+
+.. image:: images/telescope_kinematics.png
+    :width: 500
+
+.. autofunction:: scanning.visualization.sky_kinematics
+
+.. image:: images/sky_kinematics.png
+    :width: 500
+
+Simulations
+====================================
+
+Below are a list of visualization functions and examples for visualzing simulation outputs. 
 
 .. automodule:: scanning.visualization
     :members: hitmap, pxan_detector, pxan_time, pxan_polarization, polarization_histogram
 
-Below are a list of visualization functions for visualzing :py:class:`~scanning.observation.Observation` objects.
+Observations
+====================================
 
-.. automodule:: scanning.visualization
-    :members: sky_path, telescope_path, telescope_kinematics, sky_kinematics
+Below are a list of visualization functions and examples for visualzing :py:class:`~scanning.observation.Observation` objects.
+
+.. autofunction:: scanning.visualization.filter_observation
+
+.. image:: images/filter_observation.png
+    :width: 500
+
+.. autofunction:: scanning.visualization.field_rotation_hist
+
+.. image:: images/field_rotation_hist.png
+    :width: 500

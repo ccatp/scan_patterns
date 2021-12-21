@@ -35,7 +35,6 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../intro.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../install.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../tutorial.html">How to Use</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../classes.html">Classes</a></li>
@@ -78,8 +77,6 @@
 <span class="kn">from</span> <span class="nn">astropy.time</span> <span class="kn">import</span> <span class="n">Time</span>
 <span class="kn">import</span> <span class="nn">astropy.units</span> <span class="k">as</span> <span class="nn">u</span>
 <span class="kn">from</span> <span class="nn">astropy.coordinates</span> <span class="kn">import</span> <span class="n">EarthLocation</span>
-
-<span class="kn">from</span> <span class="nn">scanning.camera</span> <span class="kn">import</span> <span class="n">PrimeCam</span>
 
 <span class="k">def</span> <span class="nf">_central_diff</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">h</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">time</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 
@@ -836,7 +833,7 @@
 
     <span class="c1"># INITIALIZATION</span>
 
-<div class="viewcode-block" id="TelescopePattern.__init__"><a class="viewcode-back" href="../../classes.html#scanning.coordinates.TelescopePattern.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">instrument</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">data_loc</span><span class="o">=</span><span class="s1">&#39;boresight&#39;</span><span class="p">,</span> <span class="n">obs_param</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<div class="viewcode-block" id="TelescopePattern.__init__"><a class="viewcode-back" href="../../classes.html#scanning.coordinates.TelescopePattern.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">instrument</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">data_loc</span><span class="o">=</span><span class="s1">&#39;boresight&#39;</span><span class="p">,</span> <span class="n">obs_param</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Determine the motion of the telescope. Note that **kwargs can be passed as a file through `obs_param`.</span>
 <span class="sd">            | option1: data (sky), instrument (optional), data_loc (optional); lat, start_ra, start_dec, (start_datetime or start_hrang or start_lst or [start_elev and moving_up])</span>
@@ -849,8 +846,12 @@
 <span class="sd">            If `str`, a file path to a csv file. If `dict` or `DataFrame`, column names map to their values. </span>
 <span class="sd">            Columns must contain &#39;time_offset, &#39;az_coord&#39;, and &#39;alt_coord&#39;. If &#39;lst&#39; is included as a column, certain observation parameters are not required (see options).</span>
 <span class="sd">            Otherwise, `data` is a `SkyPattern` object. </span>
+<span class="sd">        units : [dict of str -&gt; str or Unit] or None; default None</span>
+<span class="sd">            If `data` is not `SkyPattern`, this mapping column in `data` with their units. All columns do not need to be mapped.</span>
+<span class="sd">            If not provided, all angle-like units are assumed to be in degrees (except for hour angle and lst which are in hourangle)</span>
+<span class="sd">            and all time-like units are assumed to be in seconds.</span>
 
-<span class="sd">        instrument : Instrument, default empty PrimeCam</span>
+<span class="sd">        instrument : Instrument or None, default None</span>
 <span class="sd">            An `Instrument` object. </span>
 <span class="sd">        data_loc : str or two-tuple; default &#39;boresight&#39;</span>
 <span class="sd">            Location relative to the center of the instrument where observation parameters are applied:</span>
@@ -919,21 +920,27 @@
         <span class="c1"># data has been passed</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-                <span class="k">try</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">usecols</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">,</span> <span class="s1">&#39;lst&#39;</span><span class="p">,</span> <span class="s1">&#39;az_coord&#39;</span><span class="p">,</span> <span class="s1">&#39;alt_coord&#39;</span><span class="p">])</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clean_param_telescope_data</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">param</span><span class="p">)</span>
+                <span class="k">try</span><span class="p">:</span> 
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
                 <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">usecols</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">,</span> <span class="s1">&#39;az_coord&#39;</span><span class="p">,</span> <span class="s1">&#39;alt_coord&#39;</span><span class="p">])</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clean_param_telescope_data</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">param</span><span class="p">)</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;lst&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_lst</span><span class="p">()</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;could not parse &quot;data&quot;&#39;</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">try</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">)[[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">,</span> <span class="s1">&#39;lst&#39;</span><span class="p">,</span> <span class="s1">&#39;az_coord&#39;</span><span class="p">,</span> <span class="s1">&#39;alt_coord&#39;</span><span class="p">]]</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clean_param_telescope_data</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">param</span><span class="p">)</span>
-                <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">)[[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">,</span> <span class="s1">&#39;az_coord&#39;</span><span class="p">,</span> <span class="s1">&#39;alt_coord&#39;</span><span class="p">]]</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clean_param_telescope_data</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">param</span><span class="p">)</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;lst&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_lst</span><span class="p">()</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;could not parse &quot;data&quot;&#39;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">units</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">col</span><span class="p">,</span> <span class="n">unit</span> <span class="ow">in</span> <span class="n">units</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">Unit</span><span class="p">(</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="n">col</span><span class="p">])</span>
+                
+            <span class="bp">self</span><span class="o">.</span><span class="n">_param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clean_param_telescope_data</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">param</span><span class="p">)</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">,</span> <span class="s1">&#39;lst&#39;</span><span class="p">,</span> <span class="s1">&#39;az_coord&#39;</span><span class="p">,</span> <span class="s1">&#39;alt_coord&#39;</span><span class="p">]]</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[[</span><span class="s1">&#39;time_offset&#39;</span><span class="p">,</span> <span class="s1">&#39;az_coord&#39;</span><span class="p">,</span> <span class="s1">&#39;alt_coord&#39;</span><span class="p">]]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;lst&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_lst</span><span class="p">()</span>
 
             <span class="c1"># determine sample_interval </span>
             <span class="n">sample_interval_list</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time_offset</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
@@ -945,7 +952,7 @@
 
         <span class="c1"># --- Instrument and module --- </span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_instrument</span> <span class="o">=</span> <span class="n">instrument</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">instrument</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">PrimeCam</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_instrument</span> <span class="o">=</span> <span class="n">instrument</span>
         <span class="n">dist</span><span class="p">,</span> <span class="n">theta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_true_module_loc</span><span class="p">(</span><span class="n">data_loc</span><span class="p">)</span>
         
         <span class="c1"># az_coord and alt_coord are for the module&#39;s location</span>
@@ -1118,7 +1125,7 @@
         <span class="k">return</span> <span class="p">(</span><span class="n">az</span> <span class="o">-</span> <span class="n">lowest_az</span><span class="p">)</span><span class="o">%</span><span class="p">(</span><span class="mi">360</span><span class="p">)</span> <span class="o">+</span> <span class="n">lowest_az</span> 
 
     <span class="k">def</span> <span class="nf">_true_module_loc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot; Gets the (dist, theta) of the module from the boresight (not necessarily central tube)&quot;&quot;&quot;</span>
+        <span class="c1"># Gets the (dist, theta) of the module from the boresight (not necessarily central tube)</span>
 
         <span class="k">if</span> <span class="n">module</span> <span class="o">==</span> <span class="s1">&#39;boresight&#39;</span><span class="p">:</span>
             <span class="k">return</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
@@ -1126,10 +1133,12 @@
         <span class="c1"># passed by module identifier or instrument slot name</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">instrument</span><span class="o">.</span><span class="n">get_location</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">from_boresight</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">instrument</span><span class="o">.</span><span class="n">get_module_location</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">from_boresight</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+            <span class="k">except</span> <span class="ne">AttributeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;&quot;instrument&quot; is of type </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">instrument</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
                 <span class="k">try</span><span class="p">:</span>
-                    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">instrument</span><span class="o">.</span><span class="n">get_slot</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">from_boresight</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+                    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">instrument</span><span class="o">.</span><span class="n">get_slot_location</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">from_boresight</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
                 <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">module</span><span class="si">}</span><span class="s1"> is not an existing module name or instrument slot&#39;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -1346,6 +1355,10 @@
     <span class="k">def</span> <span class="nf">instrument</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot; Insturment: Insturment object.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_instrument</span>
+
+    <span class="nd">@instrument</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">instrument</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_instrument</span> <span class="o">=</span> <span class="n">value</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">scan_duration</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>

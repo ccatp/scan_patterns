@@ -16,6 +16,10 @@ See the full documentation here:
 
 https://mapping-fyst.readthedocs.io/en/latest/
 
+To interact with the [tutorial notebooks](tutorials) without installation, you can use this:
+
+https://mybinder.org/v2/gh/KristinChengWu/mapping/HEAD
+
 ##  Installation
 
 For local installations, you can install the latest version
