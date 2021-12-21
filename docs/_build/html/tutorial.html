@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How to Use &mdash; mapping  documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Classes" href="classes.html" />
+    <link rel="prev" title="Installation" href="install.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> mapping
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">How to Use</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#note-on-units">Note on Units</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#building-modules-and-instruments">Building Modules and Instruments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#representing-scan-patterns">Representing Scan Patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#simulating-scan-patterns">Simulating Scan Patterns</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="classes.html">Classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="visualization.html">Visualization</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">mapping</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>How to Use</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/tutorial.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="how-to-use">
+<h1>How to Use<a class="headerlink" href="#how-to-use" title="Permalink to this headline"></a></h1>
+<p>The following are helpful tutorials for using the <code class="docutils literal notranslate"><span class="pre">mapping</span></code> package.
+For interactive tutorials, checkout the Jupyter notebooks in <code class="docutils literal notranslate"><span class="pre">tutorials/</span></code>.</p>
+<section id="note-on-units">
+<h2>Note on Units<a class="headerlink" href="#note-on-units" title="Permalink to this headline"></a></h2>
+<p>When passing in arguments that have a unit associated with it,
+there exists default units but specific units can also be passed.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">scanning</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># using astropy</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">astropy.units</span> <span class="k">as</span> <span class="nn">u</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mod</span> <span class="o">=</span> <span class="n">scanning</span><span class="o">.</span><span class="n">Module</span><span class="p">(</span><span class="n">wavelength</span><span class="o">=</span><span class="mf">0.0005</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">m</span><span class="p">)</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># using strings</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mod</span> <span class="o">=</span> <span class="n">scanning</span><span class="o">.</span><span class="n">Module</span><span class="p">(</span><span class="n">wavelength</span><span class="o">=</span><span class="s1">&#39;0.0005 m&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>When receiving values that have an associated unit, typically by accessing a property of the object,
+an <a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.units.Quantity.html#astropy.units.Quantity">astropy.units.Quantity</a> object is returned.
+You can convert to a specific unit in a similar way.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">mod</span><span class="o">.</span><span class="n">ang_res</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">mod</span><span class="o">.</span><span class="n">ang_res</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">)</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">mod</span><span class="o">.</span><span class="n">ang_res</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s1">&#39;arcsec&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
+<span class="go">0.005733544455586236 deg</span>
+<span class="go">20.64076004011045</span>
+<span class="go">20.64076004011045</span>
+</pre></div>
+</div>
+<p>See <a class="reference external" href="https://docs.astropy.org/en/stable/units/index.html#module-astropy.units.si">astropy.units</a>
+for a list of unit names that you can use. Notable ones include:</p>
+<blockquote>
+<div><ul class="simple">
+<li><dl class="simple">
+<dt>angle-like:</dt><dd><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">arcmin</span></code>/<code class="docutils literal notranslate"><span class="pre">arcminute</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">arcsec</span></code>/<code class="docutils literal notranslate"><span class="pre">arcsecond</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">deg</span></code>/<code class="docutils literal notranslate"><span class="pre">degree</span></code> (usually the default)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hourangle</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">rad</span></code>/<code class="docutils literal notranslate"><span class="pre">radian</span></code></p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>time-like:</dt><dd><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">h</span></code>/<code class="docutils literal notranslate"><span class="pre">hour</span></code>/<code class="docutils literal notranslate"><span class="pre">hr</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">min</span></code>/<code class="docutils literal notranslate"><span class="pre">minute</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">s</span></code>/<code class="docutils literal notranslate"><span class="pre">second</span></code> (usually the default)</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</div></blockquote>
+</section>
+<section id="building-modules-and-instruments">
+<h2>Building Modules and Instruments<a class="headerlink" href="#building-modules-and-instruments" title="Permalink to this headline"></a></h2>
+<p>The <a class="reference internal" href="classes.html#scanning.camera.Module" title="scanning.camera.Module"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a> class allows one to represent a camera module, which consists of three wafers each consisiting of three rhombuses.</p>
+<p>You can create a <a class="reference internal" href="classes.html#scanning.camera.Module" title="scanning.camera.Module"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a> object by passing an <code class="docutils literal notranslate"><span class="pre">F_Lambda</span></code> and <code class="docutils literal notranslate"><span class="pre">wavelength</span></code> or <code class="docutils literal notranslate"><span class="pre">freq</span></code>.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">scanning</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mod</span> <span class="o">=</span> <span class="n">scanning</span><span class="o">.</span><span class="n">Module</span><span class="p">(</span><span class="n">freq</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span> <span class="n">F_lambda</span><span class="o">=</span><span class="mf">1.2</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>There are also pre-defined <a class="reference internal" href="classes.html#scanning.camera.Module" title="scanning.camera.Module"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a> objects, all at 1.2 F-Lambda, that you can import from <code class="xref py py-mod docutils literal notranslate"><span class="pre">scanning</span></code>:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="xref py py-const docutils literal notranslate"><span class="pre">SFH</span></code> - 860 GHz</p></li>
+<li><p><code class="xref py py-const docutils literal notranslate"><span class="pre">CMBPol</span></code> - 350 GHz</p></li>
+<li><p><code class="xref py py-const docutils literal notranslate"><span class="pre">EoRSpec</span></code> - 262.5, 262.5, and 367.5 GHz (one for each wafer)</p></li>
+<li><p><code class="xref py py-const docutils literal notranslate"><span class="pre">Mod280</span></code> - 280 GHz</p></li>
+</ul>
+</div></blockquote>
+<p>You can save this module as a csv file by specifying which columns you would like to save.
+You can also specify the units you would like to save in.
+To return the data as a dictionary, do not specify a path in the first argument.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># save as a csv file with specific columns and units</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mod</span><span class="o">.</span><span class="n">save_data</span><span class="p">(</span><span class="s1">&#39;sample_module.csv&#39;</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="s1">&#39;arcsec&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="s1">&#39;arcsec&#39;</span><span class="p">,</span> <span class="s1">&#39;pol&#39;</span><span class="p">:</span> <span class="s1">&#39;deg&#39;</span><span class="p">,</span> <span class="s1">&#39;rhombus&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="s1">&#39;wafer&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">})</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># return a dictionary (units by default are in degrees)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mod</span><span class="o">.</span><span class="n">save_data</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">])</span>
+<span class="go">{&#39;x&#39;: [0.3398681466571475, 0.34416533012062867, 0.34846251358410985,...</span>
+</pre></div>
+</div>
+<p>To re-generate the same object, pass that csv file or dictionary into <a class="reference internal" href="classes.html#scanning.camera.Module" title="scanning.camera.Module"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a>.
+Note that all columns (x, y, pol, rhombus, wafer) are recommended to be passed.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">scanning</span><span class="o">.</span><span class="n">Module</span><span class="p">(</span><span class="s1">&#39;sample_module.csv&#39;</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="s1">&#39;arcsec&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="s1">&#39;arcsec&#39;</span><span class="p">,</span> <span class="s1">&#39;pol&#39;</span><span class="p">:</span> <span class="s1">&#39;deg&#39;</span><span class="p">})</span>
+</pre></div>
+</div>
+<p>The <a class="reference internal" href="classes.html#scanning.camera.Instrument" title="scanning.camera.Instrument"><code class="xref py py-class docutils literal notranslate"><span class="pre">Instrument</span></code></a> class (with <a class="reference internal" href="classes.html#scanning.camera.PrimeCam" title="scanning.camera.PrimeCam"><code class="xref py py-class docutils literal notranslate"><span class="pre">PrimeCam</span></code></a> and
+<a class="reference internal" href="classes.html#scanning.camera.ModCam" title="scanning.camera.ModCam"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModCam</span></code></a> being specific subclasses) allows one to
+configure multiple <a class="reference internal" href="classes.html#scanning.camera.Module" title="scanning.camera.Module"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a> objects into any location relative to the boresight.</p>
+<p>You can fill up an <a class="reference internal" href="classes.html#scanning.camera.Instrument" title="scanning.camera.Instrument"><code class="xref py py-class docutils literal notranslate"><span class="pre">Instrument</span></code></a> with <a class="reference internal" href="classes.html#scanning.camera.Module" title="scanning.camera.Module"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a> objects and specify its location in polar coordinates and rotation.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">prime_cam</span> <span class="o">=</span> <span class="n">scanning</span><span class="o">.</span><span class="n">PrimeCam</span><span class="p">()</span>                                    <span class="c1"># empty Instrument</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">prime_cam</span><span class="o">.</span><span class="n">add_module</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="n">location</span><span class="o">=</span><span class="p">(</span><span class="mf">1.78</span><span class="p">,</span> <span class="mi">90</span><span class="p">),</span> <span class="n">identifier</span><span class="o">=</span><span class="s1">&#39;mod1&#39;</span><span class="p">)</span> <span class="c1"># location in terms of (dist, theta)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">prime_cam</span><span class="o">.</span><span class="n">add_module</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="n">location</span><span class="o">=</span><span class="s1">&#39;i1&#39;</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="s1">&#39;mod2&#39;</span><span class="p">)</span>       <span class="c1"># location in terms of a pre-defined slot</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">prime_cam</span><span class="o">.</span><span class="n">add_module</span><span class="p">(</span><span class="s1">&#39;Mod280&#39;</span><span class="p">,</span> <span class="n">location</span><span class="o">=</span><span class="s1">&#39;i2&#39;</span><span class="p">)</span>                      <span class="c1"># a pre-defined module str option</span>
+</pre></div>
+</div>
+<p>You can also change modules and delete modules.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">prime_cam</span><span class="o">.</span><span class="n">change_module</span><span class="p">(</span><span class="s1">&#39;Mod280&#39;</span><span class="p">,</span> <span class="n">new_location</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">prime_cam</span><span class="o">.</span><span class="n">change_module</span><span class="p">(</span><span class="s1">&#39;mod2&#39;</span><span class="p">,</span> <span class="n">new_identifier</span><span class="o">=</span><span class="s1">&#39;mod2_renamed&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">prime_cam</span><span class="o">.</span><span class="n">delete_module</span><span class="p">(</span><span class="s1">&#39;mod2_renamed&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">prime_cam</span>
+<span class="go">instrument: offset [0. 0.] deg, rotation 0.0 deg</span>
+<span class="go">------------------------------------</span>
+<span class="go">mod1</span>
+<span class="go"> (r, theta) = (1.78, 90), rotation = 0.0</span>
+<span class="go">Mod280</span>
+<span class="go"> (r, theta) = (0.0, 0.0), rotation = 0.0</span>
+</pre></div>
+</div>
+<p>Using <a class="reference internal" href="visualization.html#scanning.visualization.instrument_config" title="scanning.visualization.instrument_config"><code class="xref py py-func docutils literal notranslate"><span class="pre">scanning.visualization.instrument_config()</span></code></a>, this is what the instrument looks like:</p>
+<a class="reference internal image-reference" href="_images/sample_instrument_config.png"><img alt="_images/sample_instrument_config.png" src="_images/sample_instrument_config.png" style="width: 400px;" /></a>
+<p>Slot names such as ‘i1’ or ‘c’, , which are different for each subclass, can get queried like so:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">prime_cam</span><span class="o">.</span><span class="n">slots</span>
+<span class="go">{&#39;c&#39;: &lt;Quantity [0., 0.] deg&gt;,</span>
+<span class="go"> &#39;i1&#39;: &lt;Quantity [  1.78, -90.  ] deg&gt;,</span>
+<span class="go"> &#39;i2&#39;: &lt;Quantity [  1.78, -30.  ] deg&gt;,</span>
+<span class="go"> &#39;i3&#39;: &lt;Quantity [ 1.78, 30.  ] deg&gt;,</span>
+<span class="go"> &#39;i4&#39;: &lt;Quantity [ 1.78, 90.  ] deg&gt;,</span>
+<span class="go"> &#39;i5&#39;: &lt;Quantity [  1.78, 150.  ] deg&gt;,</span>
+<span class="go"> &#39;i6&#39;: &lt;Quantity [   1.78, -150.  ] deg&gt;}</span>
+</pre></div>
+</div>
+<p>You can save this <a class="reference internal" href="classes.html#scanning.camera.Instrument" title="scanning.camera.Instrument"><code class="xref py py-class docutils literal notranslate"><span class="pre">Instrument</span></code></a> object’s data as a json file (or dictionary if no path is specified).
+It will contain the <code class="docutils literal notranslate"><span class="pre">instr_offset</span></code>, <code class="docutils literal notranslate"><span class="pre">instr_rot</span></code>, and all info about each <a class="reference internal" href="classes.html#scanning.camera.Module" title="scanning.camera.Module"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a> object.
+To re-generate the same <a class="reference internal" href="classes.html#scanning.camera.Instrument" title="scanning.camera.Instrument"><code class="xref py py-class docutils literal notranslate"><span class="pre">Instrument</span></code></a> object, pass that json file or dictionary into the constructor.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">prime_cam</span><span class="o">.</span><span class="n">save_data</span><span class="p">(</span><span class="s1">&#39;PrimeCam.json&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">scanning</span><span class="o">.</span><span class="n">PrimeCam</span><span class="p">(</span><span class="s1">&#39;PrimeCam.json&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="representing-scan-patterns">
+<h2>Representing Scan Patterns<a class="headerlink" href="#representing-scan-patterns" title="Permalink to this headline"></a></h2>
+<p>It is useful to represent the path of the detector array on the sky.
+<a class="reference internal" href="classes.html#scanning.coordinates.SkyPattern" title="scanning.coordinates.SkyPattern"><code class="xref py py-class docutils literal notranslate"><span class="pre">SkyPattern</span></code></a> can represent the RA/DEC offsets of an arbitray pattern, which can be used on any source.</p>
+<p><a class="reference internal" href="classes.html#scanning.coordinates.Daisy" title="scanning.coordinates.Daisy"><code class="xref py py-class docutils literal notranslate"><span class="pre">Daisy</span></code></a> is a specific example of such a pattern and is optimized for point sources.
+There is also the <a class="reference internal" href="classes.html#scanning.coordinates.Pong" title="scanning.coordinates.Pong"><code class="xref py py-class docutils literal notranslate"><span class="pre">Pong</span></code></a> pattern, which is are optimized for regions a few square degrees.</p>
+<p>Pass in appropriate parameters to generate a pattern.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">scanning</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">daisy</span> <span class="o">=</span> <span class="n">scanning</span><span class="o">.</span><span class="n">Daisy</span><span class="p">(</span><span class="n">velocity</span><span class="o">=</span><span class="mi">1</span><span class="o">/</span><span class="mi">3</span><span class="p">,</span> <span class="n">start_acc</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">R0</span><span class="o">=</span><span class="mf">0.47</span><span class="p">,</span> <span class="n">Rt</span><span class="o">=</span><span class="mi">800</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">,</span> <span class="n">Ra</span><span class="o">=</span><span class="mi">600</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">,</span> <span class="n">T</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">sample_interval</span><span class="o">=</span><span class="mi">1</span><span class="o">/</span><span class="mi">400</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Using <a class="reference internal" href="visualization.html#id1" title="scanning.visualization.sky_path"><code class="xref py py-func docutils literal notranslate"><span class="pre">scanning.visualization.sky_path()</span></code></a>, this is what the above pattern looks like in RA/DEC offsets.</p>
+<a class="reference internal image-reference" href="_images/sample_daisy.png"><img alt="_images/sample_daisy.png" src="_images/sample_daisy.png" style="width: 400px;" /></a>
+<p>Those parameters can then be saved as a json file (or returned as a dictionary if no path is specified)
+and passed into the constructor to re-generate the same pattern.
+Use keyword arguments to overwrite specific parameters.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">daisy</span><span class="o">.</span><span class="n">save_param</span><span class="p">(</span><span class="s1">&#39;sample_daisy.json&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">scanning</span><span class="o">.</span><span class="n">Daisy</span><span class="p">(</span><span class="s1">&#39;sample_daisy.json&#39;</span><span class="p">,</span> <span class="n">Ra</span><span class="o">=</span><span class="mi">1200</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>You can also save the data as a csv file and specify desired units and columns.
+Note that if done this way, information about the parameters are not saved,
+so this csv file cannot be passed into the same subclass constructor (such as <a class="reference internal" href="classes.html#scanning.coordinates.Daisy" title="scanning.coordinates.Daisy"><code class="xref py py-class docutils literal notranslate"><span class="pre">Daisy</span></code></a> or <a class="reference internal" href="classes.html#scanning.coordinates.Pong" title="scanning.coordinates.Pong"><code class="xref py py-class docutils literal notranslate"><span class="pre">Pong</span></code></a>).
+Instead, you can pass the csv file or dictionary (so long as “time_offset”, “x_coord”, and “y_coord” are columns) into the <a class="reference internal" href="classes.html#scanning.coordinates.SkyPattern" title="scanning.coordinates.SkyPattern"><code class="xref py py-class docutils literal notranslate"><span class="pre">SkyPattern</span></code></a> constructor.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">daisy</span><span class="o">.</span><span class="n">save_data</span><span class="p">(</span><span class="s1">&#39;sample_sky_pattern.csv&#39;</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;time_offset&#39;</span><span class="p">:</span> <span class="s1">&#39;s&#39;</span><span class="p">,</span> <span class="s1">&#39;x_coord&#39;</span><span class="p">:</span> <span class="s1">&#39;arcsec&#39;</span><span class="p">,</span> <span class="s1">&#39;y_coord&#39;</span><span class="p">:</span> <span class="s1">&#39;arcsec&#39;</span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">scanning</span><span class="o">.</span><span class="n">SkyPattern</span><span class="p">(</span><span class="s1">&#39;sample_sky_pattern.csv&#39;</span><span class="p">,</span> <span class="n">units</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;time_offset&#39;</span><span class="p">:</span> <span class="s1">&#39;s&#39;</span><span class="p">,</span> <span class="s1">&#39;x_coord&#39;</span><span class="p">:</span> <span class="s1">&#39;arcsec&#39;</span><span class="p">,</span> <span class="s1">&#39;y_coord&#39;</span><span class="p">:</span> <span class="s1">&#39;arcsec&#39;</span><span class="p">})</span>
+</pre></div>
+</div>
+</section>
+<section id="simulating-scan-patterns">
+<h2>Simulating Scan Patterns<a class="headerlink" href="#simulating-scan-patterns" title="Permalink to this headline"></a></h2>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="install.html" class="btn btn-neutral float-left" title="Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="classes.html" class="btn btn-neutral float-right" title="Classes" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Kristin Wu, Doug Johnstone, Erik Rosolowsky.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

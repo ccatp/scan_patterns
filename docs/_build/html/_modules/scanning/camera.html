@@ -1,35 +1,70 @@
-
 <!DOCTYPE html>
-
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>scanning.camera &#8212; mapping  documentation</title>
-    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css" />
-    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-    <script src="../../_static/jquery.js"></script>
-    <script src="../../_static/underscore.js"></script>
-    <script src="../../_static/doctools.js"></script>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>scanning.camera &mdash; mapping  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
-    <link rel="search" title="Search" href="../../search.html" />
-   
-  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
-  
-  
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
 
-  </head><body>
-  
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> mapping
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorial.html">How to Use</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../classes.html">Classes</a></li>
+</ul>
 
-    <div class="document">
-      <div class="documentwrapper">
-        <div class="bodywrapper">
-          
+        </div>
+      </div>
+    </nav>
 
-          <div class="body" role="main">
-            
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">mapping</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+      <li>scanning.camera</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
   <h1>Source code for scanning.camera</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">math</span>
 <span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">cos</span><span class="p">,</span> <span class="n">sin</span><span class="p">,</span> <span class="n">radians</span><span class="p">,</span> <span class="n">degrees</span><span class="p">,</span> <span class="n">sqrt</span>
@@ -46,7 +81,7 @@
 <span class="c1">#   CAMERA MODULE</span>
 <span class="c1">#####################</span>
 
-<span class="k">class</span> <span class="nc">Module</span><span class="p">():</span>
+<div class="viewcode-block" id="Module"><a class="viewcode-back" href="../../classes.html#scanning.camera.Module">[docs]</a><span class="k">class</span> <span class="nc">Module</span><span class="p">():</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Class for a single camera module (e.g. EoRSpec, CMBPol, SFH). Each module </span>
 <span class="sd">    consists of three wafers/detector arrays. Each wafter contains three rhombuses. </span>
@@ -57,10 +92,12 @@
     <span class="c1"># other attributes (for development):</span>
     <span class="c1"># _stored_units</span>
     <span class="c1"># _data: x, y, pol, pixel_num, rhombus, wafer</span>
+    <span class="c1"># _ang_res</span>
+    <span class="c1"># _freq</span>
 
     <span class="c1"># INITIALIZATION  </span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<div class="viewcode-block" id="Module.__init__"><a class="viewcode-back" href="../../classes.html#scanning.camera.Module.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Create a camera module either through:</span>
 <span class="sd">            | option1 : Module(data, units)</span>
@@ -129,7 +166,7 @@
                 <span class="k">for</span> <span class="n">col</span><span class="p">,</span> <span class="n">unit</span> <span class="ow">in</span> <span class="n">units</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">Unit</span><span class="p">(</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_stored_units</span><span class="p">[</span><span class="n">col</span><span class="p">])</span>
 
-            <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">astype</span><span class="p">({</span><span class="s1">&#39;pixel_num&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="s1">&#39;pol&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">,</span> <span class="s1">&#39;rhombus&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">,</span> <span class="s1">&#39;wafer&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">})</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">astype</span><span class="p">({</span><span class="s1">&#39;pixel_num&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="s1">&#39;pol&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">,</span> <span class="s1">&#39;rhombus&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">,</span> <span class="s1">&#39;wafer&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">})</span>
 
             <span class="c1"># find angular resolution and freq</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_ang_res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_ang_res</span><span class="p">()</span>
@@ -155,7 +192,7 @@
                 <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;unneccary keywords passed: </span><span class="si">{</span><span class="n">kwargs</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">_freq</span> <span class="o">=</span> <span class="n">freq</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_ang_res</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_module</span><span class="p">(</span><span class="n">freq</span><span class="p">,</span> <span class="n">F_lambda</span><span class="p">)</span>        
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ang_res</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_module</span><span class="p">(</span><span class="n">freq</span><span class="p">,</span> <span class="n">F_lambda</span><span class="p">)</span>        </div>
   
     <span class="k">def</span> <span class="nf">_find_ang_res</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">ang_res</span> <span class="o">=</span> <span class="p">[]</span>
@@ -333,7 +370,7 @@
 
     <span class="c1"># METHODS</span>
 
-    <span class="k">def</span> <span class="nf">save_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path_or_buf</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="s1">&#39;all&#39;</span><span class="p">):</span>
+<div class="viewcode-block" id="Module.save_data"><a class="viewcode-back" href="../../classes.html#scanning.camera.Module.save_data">[docs]</a>    <span class="k">def</span> <span class="nf">save_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path_or_buf</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="s1">&#39;all&#39;</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Write Module object to csv file.</span>
 
@@ -377,7 +414,7 @@
         <span class="k">if</span> <span class="n">path_or_buf</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">data</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(</span><span class="s1">&#39;list&#39;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">data</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">path_or_buf</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">data</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">path_or_buf</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
 
     <span class="c1"># ATTRIBUTES </span>
 
@@ -446,7 +483,7 @@
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        int array: Wafer number.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;wafer&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="s1">&#39;wafer&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span></div>
     
 
 <span class="c1"># some standard modules </span>
@@ -459,15 +496,18 @@
 <span class="c1">#     INSTRUMENT</span>
 <span class="c1">#######################</span>
 
-<div class="viewcode-block" id="Instrument"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument">[docs]</a><span class="k">class</span> <span class="nc">Instrument</span><span class="p">():</span>
+<div class="viewcode-block" id="Instrument"><a class="viewcode-back" href="../../classes.html#scanning.camera.Instrument">[docs]</a><span class="k">class</span> <span class="nc">Instrument</span><span class="p">():</span>
     <span class="sd">&quot;&quot;&quot; A configurable instrument that holds modules. &quot;&quot;&quot;</span>
 
     <span class="c1"># other attributes (for development)</span>
     <span class="c1"># _modules: mod_rot, distance, theta, module</span>
+    <span class="c1"># _slots</span>
+    <span class="c1"># _instr_rot</span>
+    <span class="c1"># _instr_offset</span>
 
     <span class="n">_slots</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
 
-<div class="viewcode-block" id="Instrument.__init__"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">instr_offset</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">instr_rot</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<div class="viewcode-block" id="Instrument.__init__"><a class="viewcode-back" href="../../classes.html#scanning.camera.Instrument.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">instr_offset</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">instr_rot</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initialize a filled Instrument:</span>
 <span class="sd">            option 1: Instrument(data) </span>
@@ -546,7 +586,7 @@
 
     <span class="c1"># CHANGING INSTRUMENT CONFIGURATION</span>
 
-<div class="viewcode-block" id="Instrument.add_module"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument.add_module">[docs]</a>    <span class="k">def</span> <span class="nf">add_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">,</span> <span class="n">location</span><span class="p">,</span> <span class="n">mod_rot</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<div class="viewcode-block" id="Instrument.add_module"><a class="viewcode-back" href="../../classes.html#scanning.camera.Instrument.add_module">[docs]</a>    <span class="k">def</span> <span class="nf">add_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">,</span> <span class="n">location</span><span class="p">,</span> <span class="n">mod_rot</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Add a module to the instrument.</span>
 
@@ -557,8 +597,8 @@
 <span class="sd">        location : (float/Quantity/str, float/Quantity/str) or str; default unit deg</span>
 <span class="sd">            A `tuple` containing the (distance, theta) from the center of the instrument in polar coordinates.</span>
 <span class="sd">            Or a `str` of one of the default slot options. </span>
-<span class="sd">        idenitifier : str or None</span>
-<span class="sd">            Name of the module. If user chose a default `module` option and this is `None`, then `identifier` will be its corresponging name. </span>
+<span class="sd">        identifier : str or None</span>
+<span class="sd">            Name of the module. If user chose a default `module` option and this is `None`, then `identifier` will be its corresponding name. </span>
 <span class="sd">        mod_rot : float/Quantity/str; default 0, default unit deg</span>
 <span class="sd">            CCW rotation of the module.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -597,14 +637,14 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;module&#39;</span><span class="p">:</span> <span class="n">module</span><span class="p">,</span> <span class="s1">&#39;dist&#39;</span><span class="p">:</span> <span class="n">location</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;theta&#39;</span><span class="p">:</span> <span class="n">location</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s1">&#39;mod_rot&#39;</span><span class="p">:</span> <span class="n">mod_rot</span><span class="p">}</span></div>
 
-<div class="viewcode-block" id="Instrument.change_module"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument.change_module">[docs]</a>    <span class="nd">@_check_identifier</span>
+<div class="viewcode-block" id="Instrument.change_module"><a class="viewcode-back" href="../../classes.html#scanning.camera.Instrument.change_module">[docs]</a>    <span class="nd">@_check_identifier</span>
     <span class="k">def</span> <span class="nf">change_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">new_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">new_mod_rot</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">new_identifier</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Change a module in the instrument.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        -------------------------</span>
-<span class="sd">        idenitifier : str</span>
+<span class="sd">        identifier : str</span>
 <span class="sd">            Name of the module to change. </span>
 <span class="sd">        new_location : (float/Quantity/str, float/Quantity/str) or str; default unit deg, optional</span>
 <span class="sd">            A `tuple` containing the (distance, theta) from the center of the instrument in polar coordinates.</span>
@@ -647,14 +687,14 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">new_mod_rot</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;mod_rot&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">new_mod_rot</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span><span class="o">.</span><span class="n">value</span></div>
 
-<div class="viewcode-block" id="Instrument.delete_module"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument.delete_module">[docs]</a>    <span class="nd">@_check_identifier</span>
+<div class="viewcode-block" id="Instrument.delete_module"><a class="viewcode-back" href="../../classes.html#scanning.camera.Instrument.delete_module">[docs]</a>    <span class="nd">@_check_identifier</span>
     <span class="k">def</span> <span class="nf">delete_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Delete a module in the instrument. </span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        -------------------------</span>
-<span class="sd">        idenitifier : str</span>
+<span class="sd">        identifier : str</span>
 <span class="sd">            Name of the module. </span>
 
 <span class="sd">        Raises</span>
@@ -666,7 +706,7 @@
 
     <span class="c1"># GETTERS </span>
 
-<div class="viewcode-block" id="Instrument.save_data"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument.save_data">[docs]</a>    <span class="k">def</span> <span class="nf">save_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path_or_buf</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="Instrument.save_data"><a class="viewcode-back" href="../../classes.html#scanning.camera.Instrument.save_data">[docs]</a>    <span class="k">def</span> <span class="nf">save_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path_or_buf</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Saves as a dictionary like in a json format.</span>
 
@@ -704,12 +744,12 @@
             <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path_or_buf</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                 <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span></div>
     
-<div class="viewcode-block" id="Instrument.get_module"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument.get_module">[docs]</a>    <span class="nd">@_check_identifier</span>
+<div class="viewcode-block" id="Instrument.get_module"><a class="viewcode-back" href="../../classes.html#scanning.camera.Instrument.get_module">[docs]</a>    <span class="nd">@_check_identifier</span>
     <span class="k">def</span> <span class="nf">get_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">with_mod_rot</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">with_instr_rot</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">with_instr_offset</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">with_mod_offset</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Module</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;        </span>
 <span class="sd">        Parameters</span>
 <span class="sd">        -------------------------</span>
-<span class="sd">        idenitifier : str</span>
+<span class="sd">        identifier : str</span>
 <span class="sd">            Name of the module. </span>
 <span class="sd">        with_mod_rot, with_instr_rot, with_instr_offset, with_mod_offset : bool; default False</span>
 <span class="sd">            Whether to apply instrument and module rotation and offset to the returned `Module`. </span>
@@ -747,12 +787,12 @@
 
             <span class="k">return</span> <span class="n">Module</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Instrument.get_dist"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument.get_dist">[docs]</a>    <span class="nd">@_check_identifier</span>
+<div class="viewcode-block" id="Instrument.get_dist"><a class="viewcode-back" href="../../classes.html#scanning.camera.Instrument.get_dist">[docs]</a>    <span class="nd">@_check_identifier</span>
     <span class="k">def</span> <span class="nf">get_dist</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">from_boresight</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Parameters</span>
 <span class="sd">        -------------------------</span>
-<span class="sd">        idenitifier : str</span>
+<span class="sd">        identifier : str</span>
 <span class="sd">            Name of the module. </span>
 <span class="sd">        from_boresight : bool; default False</span>
 <span class="sd">            From the boresight (`True`) or from the center of the instrument (`False`). </span>
@@ -769,12 +809,12 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_location</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">from_boresight</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="Instrument.get_theta"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument.get_theta">[docs]</a>    <span class="nd">@_check_identifier</span>
+<div class="viewcode-block" id="Instrument.get_theta"><a class="viewcode-back" href="../../classes.html#scanning.camera.Instrument.get_theta">[docs]</a>    <span class="nd">@_check_identifier</span>
     <span class="k">def</span> <span class="nf">get_theta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">from_boresight</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Parameters</span>
 <span class="sd">        -------------------------</span>
-<span class="sd">        idenitifier : str</span>
+<span class="sd">        identifier : str</span>
 <span class="sd">            Name of the module. </span>
 <span class="sd">        from_boresight : bool; default False</span>
 <span class="sd">            From the boresight (`True`) or from the center of the instrument (`False`). </span>
@@ -791,14 +831,14 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_location</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">from_boresight</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span></div>
     
-<div class="viewcode-block" id="Instrument.get_mod_rot"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument.get_mod_rot">[docs]</a>    <span class="nd">@_check_identifier</span>
+<div class="viewcode-block" id="Instrument.get_mod_rot"><a class="viewcode-back" href="../../classes.html#scanning.camera.Instrument.get_mod_rot">[docs]</a>    <span class="nd">@_check_identifier</span>
     <span class="k">def</span> <span class="nf">get_mod_rot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">with_instr_rot</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get rotation of module from the center of the instrument.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        -------------------------</span>
-<span class="sd">        idenitifier : str</span>
+<span class="sd">        identifier : str</span>
 <span class="sd">            Name of the module. </span>
 <span class="sd">        with_instr_rot : bool; default False</span>
 <span class="sd">            Whether to include instrument rotation. </span>
@@ -818,16 +858,16 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modules</span><span class="p">[</span><span class="n">identifier</span><span class="p">][</span><span class="s1">&#39;mod_rot&#39;</span><span class="p">]</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span></div>
 
-<div class="viewcode-block" id="Instrument.get_location"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument.get_location">[docs]</a>    <span class="nd">@_check_identifier</span>
+<div class="viewcode-block" id="Instrument.get_location"><a class="viewcode-back" href="../../classes.html#scanning.camera.Instrument.get_location">[docs]</a>    <span class="nd">@_check_identifier</span>
     <span class="k">def</span> <span class="nf">get_location</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">from_boresight</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">polar</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Parameters</span>
 <span class="sd">        -------------------------</span>
-<span class="sd">        idenitifier : str</span>
+<span class="sd">        identifier : str</span>
 <span class="sd">            Name of the module. </span>
 <span class="sd">        from_boresight : bool; default False</span>
 <span class="sd">            From the boresight (`True`) or from the center of the instrument (`False`). </span>
-<span class="sd">        polar : bool; default False</span>
+<span class="sd">        polar : bool; default True</span>
 <span class="sd">            In polar coordinates (`True`) or in cartesian coordinates (`False`)</span>
 
 <span class="sd">        Returns</span>
@@ -871,7 +911,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">(</span><span class="n">dist</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">radians</span><span class="p">(</span><span class="n">theta</span><span class="p">)),</span> <span class="n">dist</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">radians</span><span class="p">(</span><span class="n">theta</span><span class="p">)))</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span></div>
 
-<div class="viewcode-block" id="Instrument.get_slot"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument.get_slot">[docs]</a>    <span class="k">def</span> <span class="nf">get_slot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot_name</span><span class="p">,</span> <span class="n">from_boresight</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">polar</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<div class="viewcode-block" id="Instrument.get_slot"><a class="viewcode-back" href="../../classes.html#scanning.camera.Instrument.get_slot">[docs]</a>    <span class="k">def</span> <span class="nf">get_slot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot_name</span><span class="p">,</span> <span class="n">from_boresight</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">polar</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Parameters</span>
 <span class="sd">        -------------------------</span>
@@ -879,7 +919,7 @@
 <span class="sd">            Name of slot. </span>
 <span class="sd">        from_boresight : bool; default False</span>
 <span class="sd">            From the boresight (`True`) or from the center of the instrument (`False`). </span>
-<span class="sd">        polar : bool; default False</span>
+<span class="sd">        polar : bool; default True</span>
 <span class="sd">            In polar coordinates (`True`) or in cartesian coordinates (`False`)</span>
 
 <span class="sd">        Returns</span>
@@ -908,7 +948,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">(</span><span class="n">dist</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">radians</span><span class="p">(</span><span class="n">theta</span><span class="p">)),</span> <span class="n">dist</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">radians</span><span class="p">(</span><span class="n">theta</span><span class="p">)))</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span></div>
 
-<div class="viewcode-block" id="Instrument.location_from_boresight"><a class="viewcode-back" href="../../intro.html#scanning.camera.Instrument.location_from_boresight">[docs]</a>    <span class="k">def</span> <span class="nf">location_from_boresight</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="n">polar</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<div class="viewcode-block" id="Instrument.location_from_boresight"><a class="viewcode-back" href="../../classes.html#scanning.camera.Instrument.location_from_boresight">[docs]</a>    <span class="k">def</span> <span class="nf">location_from_boresight</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="n">polar</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Given a location relative to the center of the instrument, find the </span>
 <span class="sd">        location relative to the boresight. </span>
@@ -919,7 +959,7 @@
 <span class="sd">            Distance away from the center of the instrument.</span>
 <span class="sd">        theta : float, Quantity, or str; default unit deg</span>
 <span class="sd">            Angle away from the center of the instrument in polar coordinates. </span>
-<span class="sd">        polar : bool; default False</span>
+<span class="sd">        polar : bool; default True</span>
 <span class="sd">            In polar coordinates (`True`) or in cartesian coordinates (`False`)</span>
 
 <span class="sd">        Returns</span>
@@ -984,10 +1024,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_instr_rot</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span><span class="o">.</span><span class="n">value</span></div>
 
 
-<span class="k">class</span> <span class="nc">ModCam</span><span class="p">(</span><span class="n">Instrument</span><span class="p">):</span> 
-    <span class="n">_slots</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)}</span>
+<div class="viewcode-block" id="ModCam"><a class="viewcode-back" href="../../classes.html#scanning.camera.ModCam">[docs]</a><span class="k">class</span> <span class="nc">ModCam</span><span class="p">(</span><span class="n">Instrument</span><span class="p">):</span> 
+    <span class="n">_slots</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)}</span></div>
 
-<span class="k">class</span> <span class="nc">PrimeCam</span><span class="p">(</span><span class="n">Instrument</span><span class="p">):</span>
+<div class="viewcode-block" id="PrimeCam"><a class="viewcode-back" href="../../classes.html#scanning.camera.PrimeCam">[docs]</a><span class="k">class</span> <span class="nc">PrimeCam</span><span class="p">(</span><span class="n">Instrument</span><span class="p">):</span>
 
     <span class="c1"># default configuration of optics tubes at 0 deg elevation </span>
     <span class="c1"># in terms of (radius from center [deg], angle [deg])</span>
@@ -995,72 +1035,35 @@
     <span class="n">_slots</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> 
         <span class="s1">&#39;i1&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">_default_ir</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">),</span> <span class="s1">&#39;i2&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">_default_ir</span><span class="p">,</span> <span class="o">-</span><span class="mi">30</span><span class="p">),</span> <span class="s1">&#39;i3&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">_default_ir</span><span class="p">,</span> <span class="mi">30</span><span class="p">),</span> <span class="s1">&#39;i4&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">_default_ir</span><span class="p">,</span> <span class="mi">90</span><span class="p">),</span> <span class="s1">&#39;i5&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">_default_ir</span><span class="p">,</span> <span class="mi">150</span><span class="p">),</span> <span class="s1">&#39;i6&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">_default_ir</span><span class="p">,</span> <span class="o">-</span><span class="mi">150</span><span class="p">),</span>
-    <span class="p">}</span>
+    <span class="p">}</span></div>
     
 </pre></div>
 
+           </div>
           </div>
-          
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Kristin Wu, Doug Johnstone, Erik Rosolowsky.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
         </div>
       </div>
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
-        <div class="sphinxsidebarwrapper">
-<h1 class="logo"><a href="../../index.html">mapping</a></h1>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
 
-
-
-
-
-
-
-
-<h3>Navigation</h3>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../intro.html">Introduction</a></li>
-</ul>
-
-<div class="relations">
-<h3>Related Topics</h3>
-<ul>
-  <li><a href="../../index.html">Documentation overview</a><ul>
-  <li><a href="../index.html">Module code</a><ul>
-  </ul></li>
-  </ul></li>
-</ul>
-</div>
-<div id="searchbox" style="display: none" role="search">
-  <h3 id="searchlabel">Quick search</h3>
-    <div class="searchformwrapper">
-    <form class="search" action="../../search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
-      <input type="submit" value="Go" />
-    </form>
-    </div>
-</div>
-<script>$('#searchbox').show(0);</script>
-
-
-
-
-
-
-
-
-        </div>
-      </div>
-      <div class="clearer"></div>
-    </div>
-    <div class="footer">
-      &copy;2021, Kristin Wu, Doug Johnstone, Erik Rosolowsky.
-      
-      |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.3.1</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
-      
-    </div>
-
-    
-
-    
-  </body>
+</body>
 </html>

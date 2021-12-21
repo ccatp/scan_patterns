@@ -162,6 +162,7 @@ def instrument_config(instrument, path=None, show_plot=True):
 # Sky Patterns and Telescope Patterns
 
 def sky_path(pattern, module=None, path=None, show_plot=True):
+    """ TODO """
 
     fig_coord = plt.figure('coordinates', figsize=(8, 8))
     ax_coord = plt.subplot2grid((1, 1), (0, 0))
@@ -210,6 +211,7 @@ def sky_path(pattern, module=None, path=None, show_plot=True):
         plt.close()
 
 def telescope_path(telescope_pattern, module=None, path=None, show_plot=True):
+    """ TODO """
 
     if module is None:
         module = ['boresight']
@@ -247,6 +249,7 @@ def telescope_path(telescope_pattern, module=None, path=None, show_plot=True):
         plt.close()
     
 def telescope_kinematics(telescope_pattern, module=None, plots=['coord', 'vel', 'acc', 'jerk'], path=None, show_plot=True):
+    """ TODO """
 
     if not module is None:
         telescope_pattern = telescope_pattern.view_module(module)
@@ -316,6 +319,7 @@ def telescope_kinematics(telescope_pattern, module=None, plots=['coord', 'vel', 
         plt.close()
     
 def sky_kinematics(pattern, module=None, plots=['coord', 'vel', 'acc', 'jerk'], path=None, show_plot=True):
+    """TODO"""
 
     if isinstance(pattern, TelescopePattern):
         if module is None:
@@ -387,6 +391,7 @@ def sky_kinematics(pattern, module=None, plots=['coord', 'vel', 'acc', 'jerk'], 
 # Observation
 
 def filter_observation(obs, plot='elevation', min_elev=30, max_elev=75, min_rot_rate=0, path=None, show_plot=True):
+    """TODO"""
 
     if plot not in ['elevation', 'airmass', 'para_angle', 'rot_angle', 'rot_rate']:
         raise ValueError(f'"plot" = {plot} is not a valid choice')
@@ -550,6 +555,7 @@ def filter_observation(obs, plot='elevation', min_elev=30, max_elev=75, min_rot_
         plt.close()
 
 def field_rotation_hist(obs, min_elev=30, max_elev=75, min_rot_rate=0, path=None, show_plot=True):
+    """TODO"""
     ax_ncols = 2
     ax_nrows = math.ceil(len(obs.dec)/ax_ncols)
     fig, ax = plt.subplots(ax_nrows, ax_ncols, sharex=True, sharey=True, figsize=(8, 3*ax_nrows))
@@ -1071,6 +1077,7 @@ def pxan_polarization(sim, norm_pxan=True, norm_time=False, kept_hits=True, remo
         plt.close()
 
 def polarization_histogram(sim, kept_hits=True, removed_hits=False, total_hits=False, stacked=False, path=None, show_plot=True):
+    """TODO"""
 
     # initialize figure
     num_hitmaps = np.count_nonzero([kept_hits, removed_hits, total_hits])

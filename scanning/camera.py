@@ -98,7 +98,7 @@ class Module():
                 for col, unit in units.items():
                     self._data[col] = self._data[col]*u.Unit(unit).to(self._stored_units[col])
 
-            self._data.astype({'pixel_num': int, 'pol': np.int16, 'rhombus': np.uint8, 'wafer': np.uint8})
+            self._data = self._data.astype({'pixel_num': int, 'pol': np.int16, 'rhombus': np.uint8, 'wafer': np.uint8})
 
             # find angular resolution and freq
             self._ang_res = self._find_ang_res()

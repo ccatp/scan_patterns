@@ -1,2 +1,8 @@
 Undocumented Python objects
 ===========================
+scanning.visualization
+----------------------
+Functions:
+ * field_rotation_hist
+ * filter_observation
+

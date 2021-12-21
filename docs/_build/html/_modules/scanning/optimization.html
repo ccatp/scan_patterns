@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>scanning.optimization &mdash; mapping  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> mapping
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../classes.html">Classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorial.html">How to Use</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">mapping</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+      <li>scanning.optimization</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for scanning.optimization</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">cos</span><span class="p">,</span> <span class="n">sin</span>
+<span class="kn">import</span> <span class="nn">csv</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">wraps</span>
+<span class="kn">from</span> <span class="nn">astropy.convolution.convolve</span> <span class="kn">import</span> <span class="n">convolve_fft</span>
+<span class="kn">from</span> <span class="nn">astropy.convolution.kernels</span> <span class="kn">import</span> <span class="n">Gaussian2DKernel</span>
+<span class="kn">from</span> <span class="nn">astropy.utils.misc</span> <span class="kn">import</span> <span class="n">isiterable</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">astropy.units</span> <span class="k">as</span> <span class="nn">u</span>
+<span class="kn">from</span> <span class="nn">astropy.utils</span> <span class="kn">import</span> <span class="n">isiterable</span>
+<span class="kn">from</span> <span class="nn">fast_histogram</span> <span class="kn">import</span> <span class="n">histogram2d</span>
+
+<div class="viewcode-block" id="Simulation"><a class="viewcode-back" href="../../classes.html#scanning.optimization.Simulation">[docs]</a><span class="k">class</span> <span class="nc">Simulation</span><span class="p">():</span>
+
+    <span class="c1"># other attributes (for development)</span>
+    <span class="c1"># _sky_hist, _sky_hist_rem</span>
+    <span class="c1"># _det_hist, _det_hist_rem</span>
+    <span class="c1"># _time_hist, _time_hist_rem</span>
+
+    <span class="c1"># _param_unit</span>
+    <span class="c1"># _sky_pattern</span>
+    <span class="c1"># _field_rotation (degrees)</span>
+    <span class="c1"># _module</span>
+    <span class="c1"># _mem_limit</span>
+
+    <span class="c1"># _pxan</span>
+    <span class="c1"># _param: ...</span>
+    <span class="c1"># _prep: max_pixel, x_range_pxan, y_range_pxan, num_pxan</span>
+    <span class="c1"># _det_mask</span>
+    <span class="c1"># _validity_mask</span>
+
+    <span class="c1"># what unit each parameter is stored in</span>
+    <span class="n">_param_units</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;pixel_size&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;max_acc&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="o">/</span><span class="n">u</span><span class="o">.</span><span class="n">s</span><span class="o">/</span><span class="n">u</span><span class="o">.</span><span class="n">s</span><span class="p">,</span> <span class="s1">&#39;min_speed&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="o">/</span><span class="n">u</span><span class="o">.</span><span class="n">s</span><span class="p">,</span> <span class="s1">&#39;det_radius&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;det_lim&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;det_list&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;pxan_list&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;pxan_lim&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">sky_pattern</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;SkyPattern : Associated `SkyPattern` object.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sky_pattern</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">module</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Module : `Module` object. &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">field_rotation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Quantity array : Field rotation.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_field_rotation</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">param</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="n">val</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_units</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_param</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">det_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; bool array : Mask for detector elements that are turned on.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_det_mask</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">validity_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;bool array : Mask for samples that are within the acceleration/speed limits.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validity_mask</span>
+
+    <span class="c1"># INITIALIZATION</span>
+
+<div class="viewcode-block" id="Simulation.__init__"><a class="viewcode-back" href="../../classes.html#scanning.optimization.Simulation.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">telescope_pattern</span><span class="p">,</span> <span class="n">module</span><span class="p">,</span> <span class="n">sim_param</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mem_limit</span><span class="o">=</span><span class="mi">640</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Run a simulation on `telescope_pattern` with `module`. Use **kwargs to specify conditions. </span>
+<span class="sd">        Note that if multiple detector filters are used (`pols_on`, `det_lim`, etc.), only detector</span>
+<span class="sd">        elements that satisfy all will be used. </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------------------------</span>
+<span class="sd">        telescope_pattern : TelescopePattern</span>
+<span class="sd">            A `TelescopePattern` object.</span>
+<span class="sd">        module : str or Module</span>
+<span class="sd">            If `str`: Gets the Module and AZ/ALT coordinates from a string indicating a module name in the instrument e.g. &#39;SFH&#39;. </span>
+<span class="sd">            Recommended if `telescope_pattern` holds intrument data. </span>
+<span class="sd">            If `Module`: Uses `telescope_pattern`&#39;s &quot;boresight&quot; coordinates and uses `module` for its pixel positions. </span>
+<span class="sd">            Recommended if `telescope_pattern` does not hold instrument data. </span>
+<span class="sd">        sim_param : str</span>
+<span class="sd">            File path to a json file containing parameters for simulation (see **kwargs).</span>
+<span class="sd">        mem_limit : int; default 640 MB</span>
+<span class="sd">            Approximate memory limit in megabytes when simulating the scan. </span>
+<span class="sd">            </span>
+
+<span class="sd">        Keyword Args</span>
+<span class="sd">        --------------------------</span>
+<span class="sd">        pixel_size : float/Quantity/str; default 10 arcsec, default unit arcsec</span>
+<span class="sd">            Length of a square pixel in x-y offsets. </span>
+<span class="sd">        max_acc : float/Quantity/str; default None, default unit deg/s^2</span>
+<span class="sd">            Maximum absolute accleration in x-y offsets. If `None`, all points are considered valid.</span>
+<span class="sd">        min_acc : float/Quantity/str; default None, default unit deg/s</span>
+<span class="sd">            Minimum speed in x-y offsets. If `None`, all points are considered valid.</span>
+<span class="sd">        </span>
+<span class="sd">        pols_on : int, int sequence or None; default None FIXME allow other units</span>
+<span class="sd">            Which polarization geometries (in degrees) of the detector elements to keep on. If `None`, include all. </span>
+<span class="sd">        rhombi_on : int, int sequence or None; default None</span>
+<span class="sd">            Which rhombi to keep on. If `None`, include all rhombi. </span>
+<span class="sd">        wafers_on : int, int sequence or None; default None</span>
+<span class="sd">            Which wafers to keep on. If `None`, include all wafers. </span>
+<span class="sd">        det_radius : two-length tuple or None; default None; default unit arcsec</span>
+<span class="sd">            Take the (min_radius, max_radius) of detector elements to keep. Use `None` in the tuple for an unspecified limit. If `None`, include all. </span>
+<span class="sd">        det_lim : two-length sequence of two-length tuples or None; default None; default unit arcsec</span>
+<span class="sd">            Take the [(x_min, x_max), (y_min, y_max)] range of detector elements to keep. Use `None` in the tuple for an unspecified limit. If `None`, include all.</span>
+<span class="sd">            FIXME is this with mod_rot? instr_rot? field rotation? </span>
+<span class="sd">        det_list : sequence of int, sequence of two-length tuples, or None; default None </span>
+<span class="sd">            If a sequence of `int`, a list of detector numbers to keep on exact detector elements.</span>
+<span class="sd">            If a sequence of two-length tuples, a list of (x, y) positions to keep on the detector element closest to each position; default unit arcsec</span>
+<span class="sd">            If `None, include all. </span>
+<span class="sd">            FIXME is this with mod_rot? instr_rot? field rotation?</span>
+<span class="sd">        </span>
+<span class="sd">        pxan_lim : two-length sequence of two-length tuples or None; default None; default unit arcsec</span>
+<span class="sd">            A recutangular range of x-y pixels within [(xmin, xmax), (ymin, ymax)] to perform analysis.</span>
+<span class="sd">            Cannot be used with `pxan_list`. If both are `None`, no pixel analysis is performed.</span>
+<span class="sd">        pxan_list : sequence of two-length tuples, or None; default None; default unit arcsec</span>
+<span class="sd">            A list of pixels such as [(x1, y1), (x2, y2)] to analyze. Each point (x, y) corresponds to a singular pixel that contains this point. </span>
+<span class="sd">            Cannot be used with `pxan_lim`. If both are `None`, no pixel analysis is performed.</span>
+<span class="sd">        </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mem_limit</span> <span class="o">=</span> <span class="n">mem_limit</span>
+        
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">module_name</span> <span class="o">=</span> <span class="n">module</span>
+            <span class="n">module</span> <span class="o">=</span> <span class="n">telescope_pattern</span><span class="o">.</span><span class="n">instrument</span><span class="o">.</span><span class="n">get_module</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">with_instr_rot</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">with_mod_rot</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">telescope_pattern</span> <span class="o">=</span> <span class="n">telescope_pattern</span><span class="o">.</span><span class="n">view_module</span><span class="p">(</span><span class="n">module_name</span><span class="p">)</span>
+        
+        <span class="c1"># store sky pattern, field rotation, and module</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sky_pattern</span> <span class="o">=</span> <span class="n">telescope_pattern</span><span class="o">.</span><span class="n">get_sky_pattern</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_field_rotation</span> <span class="o">=</span> <span class="n">telescope_pattern</span><span class="o">.</span><span class="n">rot_angle</span><span class="o">.</span><span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_module</span> <span class="o">=</span> <span class="n">module</span> 
+
+        <span class="c1"># clean parameters</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">sim_param</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">kwargs</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;passed &quot;sim_param&quot; but also passed keywords&#39;</span><span class="p">)</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">sim_param</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">kwargs</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clean_param</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_prep</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_preprocessing</span><span class="p">()</span>
+
+        <span class="c1"># filer detector elements</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_det_mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filter_detectors</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validity_mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filter_ts</span><span class="p">()</span>
+
+        <span class="c1"># initialize histograms</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sky_hist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sky_hist_rem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_det_hist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_det_hist_rem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_time_hist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_time_hist_rem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pol_hist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pol_hist_rem</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+    <span class="k">def</span> <span class="nf">_clean_param</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">new_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+        <span class="n">new_kwargs</span><span class="p">[</span><span class="s1">&#39;pixel_size&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;pixel_size&#39;</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_units</span><span class="p">[</span><span class="s1">&#39;pixel_size&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">value</span>
+
+        <span class="n">max_acc</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;max_acc&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">max_acc</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">new_kwargs</span><span class="p">[</span><span class="s1">&#39;max_acc&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">max_acc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_param_units</span><span class="p">[</span><span class="s1">&#39;max_acc&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">value</span>
+
+        <span class="n">min_speed</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;min_speed&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">min_speed</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">new_kwargs</span><span class="p">[</span><span class="s1">&#39;min_speed&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">min_speed</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_param_units</span><span class="p">[</span><span class="s1">&#39;min_speed&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">value</span>
+
+        <span class="c1"># parameters for keeping on certain parts of the module</span>
+
+        <span class="n">pols_on</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;pols_on&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">pols_on</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">all_pols</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="o">.</span><span class="n">pol</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">isiterable</span><span class="p">(</span><span class="n">pols_on</span><span class="p">):</span>
+                <span class="n">pols_on</span> <span class="o">=</span> <span class="p">[</span><span class="n">pols_on</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">set</span><span class="p">(</span><span class="n">pols_on</span><span class="p">)</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">all_pols</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;pols_on = </span><span class="si">{</span><span class="n">pols_on</span><span class="si">}</span><span class="s1"> is not a subset of available polarizations </span><span class="si">{</span><span class="n">all_pols</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">new_kwargs</span><span class="p">[</span><span class="s1">&#39;pols_on&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pols_on</span>
+  
+        <span class="n">rhombi_on</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;rhombi_on&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">rhombi_on</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">all_rhombi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="o">.</span><span class="n">rhombus</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">isiterable</span><span class="p">(</span><span class="n">rhombi_on</span><span class="p">):</span>
+                <span class="n">rhombi_on</span> <span class="o">=</span> <span class="p">[</span><span class="n">rhombi_on</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">set</span><span class="p">(</span><span class="n">rhombi_on</span><span class="p">)</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">all_rhombi</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;rhombi_on = </span><span class="si">{</span><span class="n">rhombi_on</span><span class="si">}</span><span class="s1"> is not a subset of available rhombuses </span><span class="si">{</span><span class="n">all_rhombi</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">new_kwargs</span><span class="p">[</span><span class="s1">&#39;rhombi_on&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rhombi_on</span>
+
+        <span class="n">wafers_on</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;wafers_on&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">wafers_on</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">all_wafers</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="o">.</span><span class="n">wafer</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">isiterable</span><span class="p">(</span><span class="n">wafers_on</span><span class="p">):</span>
+                <span class="n">wafers_on</span> <span class="o">=</span> <span class="p">[</span><span class="n">wafers_on</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">set</span><span class="p">(</span><span class="n">wafers_on</span><span class="p">)</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">all_wafers</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;wafers_on = </span><span class="si">{</span><span class="n">wafers_on</span><span class="si">}</span><span class="s1"> is not a subset of available wafers </span><span class="si">{</span><span class="n">all_wafers</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">new_kwargs</span><span class="p">[</span><span class="s1">&#39;wafers_on&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">wafers_on</span>
+        
+        <span class="n">det_radius</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;det_radius&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">det_radius</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">min_radius</span> <span class="o">=</span> <span class="n">det_radius</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">min_radius</span> <span class="o">=</span> <span class="o">-</span><span class="n">math</span><span class="o">.</span><span class="n">inf</span> <span class="k">if</span> <span class="n">min_radius</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">min_radius</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_units</span><span class="p">[</span><span class="s1">&#39;det_radius&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">value</span>
+                <span class="n">max_radius</span> <span class="o">=</span> <span class="n">det_radius</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">max_radius</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">inf</span> <span class="k">if</span> <span class="n">max_radius</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">max_radius</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_units</span><span class="p">[</span><span class="s1">&#39;det_radius&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">value</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">IndexError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;&quot;det_radius&quot; is of incorrect shape&#39;</span><span class="p">)</span>
+            <span class="n">new_kwargs</span><span class="p">[</span><span class="s1">&#39;det_radius&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">min_radius</span><span class="p">,</span> <span class="n">max_radius</span><span class="p">)</span>
+        
+        <span class="n">det_lim</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;det_lim&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">det_lim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">min_x</span> <span class="o">=</span> <span class="n">det_lim</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">min_x</span> <span class="o">=</span> <span class="o">-</span><span class="n">math</span><span class="o">.</span><span class="n">inf</span> <span class="k">if</span> <span class="n">min_x</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">min_x</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_units</span><span class="p">[</span><span class="s1">&#39;det_lim&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">value</span>
+                <span class="n">max_x</span> <span class="o">=</span> <span class="n">det_lim</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">max_x</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">inf</span> <span class="k">if</span> <span class="n">max_x</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">max_x</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_units</span><span class="p">[</span><span class="s1">&#39;det_lim&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">value</span>
+                <span class="n">min_y</span> <span class="o">=</span> <span class="n">det_lim</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">min_y</span> <span class="o">=</span> <span class="o">-</span><span class="n">math</span><span class="o">.</span><span class="n">inf</span> <span class="k">if</span> <span class="n">min_y</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">min_y</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_units</span><span class="p">[</span><span class="s1">&#39;det_lim&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">value</span>
+                <span class="n">max_y</span> <span class="o">=</span> <span class="n">det_lim</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">max_y</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">inf</span> <span class="k">if</span> <span class="n">max_y</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">max_y</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_units</span><span class="p">[</span><span class="s1">&#39;det_lim&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">value</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">IndexError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;&quot;det_lim&quot; is of incorrect shape or type&#39;</span><span class="p">)</span>
+            <span class="n">new_kwargs</span><span class="p">[</span><span class="s1">&#39;det_lim&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">((</span><span class="n">min_x</span><span class="p">,</span> <span class="n">max_x</span><span class="p">),</span> <span class="p">(</span><span class="n">min_y</span><span class="p">,</span> <span class="n">max_y</span><span class="p">))</span>
+        
+        <span class="n">det_list</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;det_list&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">det_list</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">new_det_list</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">point</span> <span class="ow">in</span> <span class="n">det_list</span><span class="p">:</span>
+                    <span class="n">new_det_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">point</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_units</span><span class="p">[</span><span class="s1">&#39;det_list&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">point</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_units</span><span class="p">[</span><span class="s1">&#39;det_list&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">value</span><span class="p">)</span> <span class="p">)</span>
+                <span class="n">new_kwargs</span><span class="p">[</span><span class="s1">&#39;det_list&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">new_det_list</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">det_list</span><span class="p">))</span> <span class="o">==</span> <span class="mi">1</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;&quot;det_list&quot; is of incorrect shape or type&#39;</span><span class="p">)</span>
+                <span class="n">new_kwargs</span><span class="p">[</span><span class="s1">&#39;det_list&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">det_list</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+        <span class="c1"># for pixel analysis</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pxan</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">pxan_list</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;pxan_list&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">pxan_lim</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;pxan_lim&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">pxan_list</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">pxan_lim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;pxan_list and pxan_lim cannot be used at the same time&#39;</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="ow">not</span> <span class="n">pxan_lim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_pxan</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">x_min</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">pxan_lim</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+                <span class="n">x_max</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">pxan_lim</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+                <span class="n">y_min</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">pxan_lim</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+                <span class="n">y_max</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">pxan_lim</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">IndexError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;&quot;pxan_lim&quot; is of incorrect shape or type&#39;</span><span class="p">)</span>
+            <span class="n">new_kwargs</span><span class="p">[</span><span class="s1">&#39;pxan_lim&#39;</span><span class="p">]</span><span class="o">=</span> <span class="p">[(</span><span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">),</span> <span class="p">(</span><span class="n">y_min</span><span class="p">,</span> <span class="n">y_max</span><span class="p">)]</span>
+
+        <span class="k">elif</span> <span class="ow">not</span> <span class="n">pxan_list</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_pxan</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">new_pxan_list</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">px</span> <span class="ow">in</span> <span class="n">pxan_list</span><span class="p">:</span>
+                    <span class="n">x</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">px</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+                    <span class="n">y</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">px</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+                    <span class="n">new_pxan_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="p">)</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">IndexError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;&quot;pxan_lim&quot; is of incorrect shape or type&#39;</span><span class="p">)</span>
+            <span class="n">new_kwargs</span><span class="p">[</span><span class="s1">&#39;pxan_list&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_pxan_list</span>
+
+        <span class="c1"># return</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;uncessary keywords: </span><span class="si">{</span><span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">new_kwargs</span>
+
+    <span class="k">def</span> <span class="nf">_preprocessing</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">pixel_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_param</span><span class="p">[</span><span class="s1">&#39;pixel_size&#39;</span><span class="p">]</span>
+
+        <span class="n">farthest_det_elem</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">value</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">value</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="p">))</span>
+        <span class="n">farthest_ts</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sky_pattern</span><span class="o">.</span><span class="n">distance</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
+        <span class="n">max_pixel</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">((</span><span class="n">farthest_det_elem</span> <span class="o">+</span> <span class="n">farthest_ts</span><span class="p">)</span><span class="o">/</span><span class="n">pixel_size</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pxan</span><span class="p">:</span>
+
+            <span class="n">pxan_lim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_param</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;pxan_lim&#39;</span><span class="p">)</span>
+            <span class="n">pxan_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_param</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;pxan_list&#39;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">pxan_lim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">x_min</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">pxan_lim</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="n">pixel_size</span><span class="p">)</span>
+                <span class="n">x_max</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">pxan_lim</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="o">/</span><span class="n">pixel_size</span><span class="p">)</span>
+                <span class="n">y_min</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">pxan_lim</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="n">pixel_size</span><span class="p">)</span>
+                <span class="n">y_max</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">pxan_lim</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="o">/</span><span class="n">pixel_size</span><span class="p">)</span>
+                <span class="n">x_range_pxan</span> <span class="o">=</span> <span class="p">[</span> <span class="p">(</span><span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">)</span> <span class="p">]</span>
+                <span class="n">y_range_pxan</span> <span class="o">=</span> <span class="p">[</span> <span class="p">(</span><span class="n">y_min</span><span class="p">,</span> <span class="n">y_max</span><span class="p">)</span> <span class="p">]</span>
+                <span class="n">num_pxan</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_max</span><span class="o">-</span><span class="n">x_min</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="n">y_max</span><span class="o">-</span><span class="n">y_min</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">x_range_pxan</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">y_range_pxan</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">px</span> <span class="ow">in</span> <span class="n">pxan_list</span><span class="p">:</span>
+                    <span class="n">x_min</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">px</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="n">pixel_size</span><span class="p">)</span>
+                    <span class="n">x_range_pxan</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="p">(</span><span class="n">x_min</span><span class="p">,</span> <span class="n">x_min</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="p">)</span>
+
+                    <span class="n">y_min</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">px</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">/</span><span class="n">pixel_size</span><span class="p">)</span>
+                    <span class="n">y_range_pxan</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="p">(</span><span class="n">y_min</span><span class="p">,</span> <span class="n">y_min</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="p">)</span>
+                
+                <span class="n">num_pxan</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_range_pxan</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">x_range_pxan</span> <span class="o">=</span> <span class="n">y_range_pxan</span> <span class="o">=</span> <span class="n">num_pxan</span> <span class="o">=</span> <span class="kc">None</span>
+        
+
+        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;max_pixel&#39;</span><span class="p">:</span> <span class="n">max_pixel</span><span class="p">,</span> <span class="s1">&#39;x_range_pxan&#39;</span><span class="p">:</span> <span class="n">x_range_pxan</span><span class="p">,</span> <span class="s1">&#39;y_range_pxan&#39;</span><span class="p">:</span> <span class="n">y_range_pxan</span><span class="p">,</span> <span class="s1">&#39;num_pxan&#39;</span><span class="p">:</span> <span class="n">num_pxan</span><span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">_filter_detectors</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        
+        <span class="n">module</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module</span>
+        <span class="n">det_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">module</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="n">param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_param</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">param</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;pols_on&#39;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">det_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">in1d</span><span class="p">(</span><span class="n">module</span><span class="o">.</span><span class="n">pol</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">param</span><span class="p">[</span><span class="s1">&#39;pols_on&#39;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">param</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;rhombi_on&#39;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">det_mask</span> <span class="o">=</span> <span class="n">det_mask</span> <span class="o">&amp;</span> <span class="n">np</span><span class="o">.</span><span class="n">in1d</span><span class="p">(</span><span class="n">module</span><span class="o">.</span><span class="n">rhombus</span><span class="p">,</span> <span class="n">param</span><span class="p">[</span><span class="s1">&#39;rhombi_on&#39;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">param</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;wafers_on&#39;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">det_mask</span> <span class="o">=</span> <span class="n">det_mask</span> <span class="o">&amp;</span> <span class="n">np</span><span class="o">.</span><span class="n">in1d</span><span class="p">(</span><span class="n">module</span><span class="o">.</span><span class="n">wafer</span><span class="p">,</span> <span class="n">param</span><span class="p">[</span><span class="s1">&#39;wafers_on&#39;</span><span class="p">])</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">param</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;det_radius&#39;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">radius</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">module</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">value</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">module</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">value</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+            <span class="n">det_mask</span> <span class="o">=</span> <span class="n">det_mask</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">radius</span> <span class="o">&gt;=</span> <span class="n">param</span><span class="p">[</span><span class="s1">&#39;det_radius&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">radius</span> <span class="o">&lt;=</span> <span class="n">param</span><span class="p">[</span><span class="s1">&#39;det_radius&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">param</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;det_lim&#39;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">det_lim</span> <span class="o">=</span> <span class="n">param</span><span class="p">[</span><span class="s1">&#39;det_lim&#39;</span><span class="p">]</span>
+            <span class="n">det_mask</span> <span class="o">=</span> <span class="n">det_mask</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">module</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">value</span> <span class="o">&gt;=</span> <span class="n">det_lim</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">module</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">value</span> <span class="o">&lt;=</span> <span class="n">det_lim</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">module</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">value</span> <span class="o">&gt;=</span> <span class="n">det_lim</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">module</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">value</span> <span class="o">&lt;=</span> <span class="n">det_lim</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">param</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;det_list&#39;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">det_list</span> <span class="o">=</span> <span class="n">param</span><span class="p">[</span><span class="s1">&#39;det_list&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">det_list</span><span class="p">))</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">det_mask</span> <span class="o">=</span> <span class="n">det_mask</span> <span class="o">&amp;</span> <span class="n">np</span><span class="o">.</span><span class="n">in1d</span><span class="p">(</span><span class="n">module</span><span class="o">.</span><span class="n">pixel_num</span><span class="p">,</span> <span class="n">det_list</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">det_list_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">module</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">point</span> <span class="ow">in</span> <span class="n">det_list</span><span class="p">:</span>
+                    <span class="n">distance_away</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">module</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">value</span> <span class="o">-</span> <span class="n">point</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">module</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">value</span> <span class="o">-</span> <span class="n">point</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+                    <span class="n">point_i</span> <span class="o">=</span> <span class="n">distance_away</span><span class="o">.</span><span class="n">argmin</span><span class="p">()</span>
+                    <span class="n">det_list_mask</span><span class="p">[</span><span class="n">point_i</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="n">det_mask</span> <span class="o">=</span> <span class="n">det_mask</span> <span class="o">&amp;</span> <span class="n">det_list_mask</span>
+
+        <span class="k">return</span> <span class="n">det_mask</span>
+
+    <span class="k">def</span> <span class="nf">_filter_ts</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_param</span>
+        
+        <span class="c1"># filter ts (rows)</span>
+        <span class="n">ts_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sky_pattern</span><span class="o">.</span><span class="n">x_coord</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">param</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;max_acc&#39;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">ts_mask</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sky_pattern</span><span class="o">.</span><span class="n">acc</span><span class="o">.</span><span class="n">value</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">param</span><span class="p">[</span><span class="s1">&#39;max_acc&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">param</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;min_speed&#39;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">ts_mask</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sky_pattern</span><span class="o">.</span><span class="n">vel</span><span class="o">.</span><span class="n">value</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">param</span><span class="p">[</span><span class="s1">&#39;min_speed&#39;</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">ts_mask</span>
+    
+    <span class="c1"># SIMULATING SCAN</span>
+
+    <span class="k">def</span> <span class="nf">_set_histograms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kept</span><span class="p">):</span>
+
+        <span class="c1"># select (in)valid points</span>
+        <span class="k">if</span> <span class="n">kept</span><span class="p">:</span>
+            <span class="n">validity_mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validity_mask</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Generating histograms for kept hits...&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">validity_mask</span> <span class="o">=</span> <span class="o">~</span><span class="bp">self</span><span class="o">.</span><span class="n">_validity_mask</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Generating histograms for removed hits...&#39;</span><span class="p">)</span>
+
+        <span class="c1"># prep x_coord, y_coord, and rot_angle for simulating</span>
+        <span class="n">pixel_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_param</span><span class="p">[</span><span class="s1">&#39;pixel_size&#39;</span><span class="p">]</span>
+        <span class="n">x_coord_px</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sky_pattern</span><span class="o">.</span><span class="n">x_coord</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="n">validity_mask</span><span class="p">]</span><span class="o">/</span><span class="n">pixel_size</span>
+        <span class="n">y_coord_px</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sky_pattern</span><span class="o">.</span><span class="n">y_coord</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="n">validity_mask</span><span class="p">]</span><span class="o">/</span><span class="n">pixel_size</span>
+        <span class="n">rot_angle_rad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_field_rotation</span><span class="p">[</span><span class="n">validity_mask</span><span class="p">])</span>
+
+        <span class="n">sky_hist</span><span class="p">,</span> <span class="n">det_hist</span><span class="p">,</span> <span class="n">time_hist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_simulate_scan</span><span class="p">(</span><span class="n">x_coord_px</span><span class="p">,</span> <span class="n">y_coord_px</span><span class="p">,</span> <span class="n">rot_angle_rad</span><span class="p">)</span>
+
+        <span class="c1"># clean up histograms</span>
+        <span class="n">hitmap_range</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">_prep</span><span class="p">[</span><span class="s1">&#39;max_pixel&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prep</span><span class="p">[</span><span class="s1">&#39;max_pixel&#39;</span><span class="p">])</span>
+        <span class="n">sky_hist</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">sky_hist</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">hitmap_range</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">hitmap_range</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pxan</span><span class="p">:</span>
+            <span class="n">det_num</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="o">.</span><span class="n">pixel_num</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_det_mask</span><span class="p">]</span>
+            <span class="n">det_hist</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">det_hist</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">det_num</span><span class="p">)</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="o">.</span><span class="n">pixel_num</span><span class="p">)</span>
+
+            <span class="n">sky_pattern_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sky_pattern</span><span class="o">.</span><span class="n">x_coord</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+            <span class="n">time_num</span> <span class="o">=</span> <span class="n">sky_pattern_index</span><span class="p">[</span><span class="n">validity_mask</span><span class="p">]</span>
+            <span class="n">time_hist</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">time_hist</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">time_num</span><span class="p">)</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">sky_pattern_index</span><span class="p">)</span>
+            <span class="n">time_hist</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sky_pattern</span><span class="o">.</span><span class="n">time_offset</span><span class="o">.</span><span class="n">value</span>
+
+        <span class="c1"># store histograms</span>
+        <span class="k">if</span> <span class="n">kept</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_sky_hist</span> <span class="o">=</span> <span class="n">sky_hist</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_det_hist</span> <span class="o">=</span> <span class="n">det_hist</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_time_hist</span> <span class="o">=</span> <span class="n">time_hist</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_sky_hist_rem</span> <span class="o">=</span> <span class="n">sky_hist</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_det_hist_rem</span> <span class="o">=</span> <span class="n">det_hist</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_time_hist_rem</span> <span class="o">=</span> <span class="n">time_hist</span>
+
+    <span class="k">def</span> <span class="nf">_simulate_scan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_coord_px</span><span class="p">,</span> <span class="n">y_coord_px</span><span class="p">,</span> <span class="n">rot_angle_rad</span><span class="p">):</span>
+
+        <span class="n">max_pixel</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prep</span><span class="p">[</span><span class="s1">&#39;max_pixel&#39;</span><span class="p">]</span>
+        <span class="n">num_bins</span> <span class="o">=</span> <span class="mi">2</span><span class="o">*</span><span class="n">max_pixel</span>
+
+        <span class="n">x_range_pxan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prep</span><span class="p">[</span><span class="s1">&#39;x_range_pxan&#39;</span><span class="p">]</span>
+        <span class="n">y_range_pxan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prep</span><span class="p">[</span><span class="s1">&#39;y_range_pxan&#39;</span><span class="p">]</span>
+
+        <span class="c1"># get detector elements</span>
+        <span class="n">pixel_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_param</span><span class="p">[</span><span class="s1">&#39;pixel_size&#39;</span><span class="p">]</span>
+        <span class="n">x_mod</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_det_mask</span><span class="p">]</span><span class="o">/</span><span class="n">pixel_size</span>
+        <span class="n">y_mod</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_det_mask</span><span class="p">]</span><span class="o">/</span><span class="n">pixel_size</span>
+        <span class="n">num_det_elem</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_mod</span><span class="p">)</span>
+
+        <span class="c1"># number of timestamps</span>
+        <span class="n">num_ts</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_coord_px</span><span class="p">)</span>
+
+        <span class="c1"># initialize histograms to be returned</span>
+        <span class="n">sky_hist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">num_bins</span><span class="p">,</span> <span class="n">num_bins</span><span class="p">))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pxan</span><span class="p">:</span>
+            <span class="n">det_hist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_det_elem</span><span class="p">)</span>
+            <span class="n">time_hist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_ts</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">det_hist</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">time_hist</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># this section if for removed hits (if there are none)</span>
+        <span class="k">if</span> <span class="n">num_ts</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">num_det_elem</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">sky_hist</span><span class="p">,</span> <span class="n">det_hist</span><span class="p">,</span> <span class="n">time_hist</span>
+
+        <span class="c1"># Divide process into chunks to abide by memory limits </span>
+        <span class="c1"># We store using np.float16, which takes 2 bytes for each additional value</span>
+        <span class="n">max_number_points</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mem_limit</span><span class="o">*</span><span class="mi">10</span><span class="o">**</span><span class="mi">6</span><span class="p">)</span><span class="o">/</span><span class="mi">2</span>
+
+        <span class="n">chunk_ts</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">max_number_points</span><span class="o">/</span><span class="n">num_det_elem</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">num_ts</span><span class="o">/</span><span class="n">chunk_ts</span><span class="p">)):</span>
+
+            <span class="c1"># initialize empty arrays (rows of ts and cols of det elements) to store hits </span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">chunk</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="n">chunk_ts</span> <span class="o">&lt;=</span> <span class="n">num_ts</span><span class="p">:</span>
+                <span class="n">num_rows</span> <span class="o">=</span> <span class="n">chunk_ts</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">num_rows</span> <span class="o">=</span> <span class="n">num_ts</span> <span class="o">-</span> <span class="n">chunk</span><span class="o">*</span><span class="n">chunk_ts</span>
+
+            <span class="n">all_x_coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">num_rows</span><span class="p">,</span> <span class="n">num_det_elem</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float16</span><span class="p">)</span>
+            <span class="n">all_y_coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">num_rows</span><span class="p">,</span> <span class="n">num_det_elem</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float16</span><span class="p">)</span>
+
+            <span class="c1"># range of ts to loop over</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">*</span><span class="n">chunk_ts</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="n">num_rows</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;...</span><span class="si">{</span><span class="n">start</span><span class="si">}</span><span class="s1">/</span><span class="si">{</span><span class="n">num_ts</span><span class="si">}</span><span class="s1"> completed...&#39;</span><span class="p">)</span>
+
+            <span class="c1"># add all hits from the detector elements at each ts </span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">x_coord1</span><span class="p">,</span> <span class="n">y_coord1</span><span class="p">,</span> <span class="n">rot1</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">num_rows</span><span class="p">),</span> <span class="n">x_coord_px</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">],</span> <span class="n">y_coord_px</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">],</span> <span class="n">rot_angle_rad</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]):</span>
+                <span class="n">all_x_coords</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x_coord1</span> <span class="o">+</span> <span class="n">x_mod</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">rot1</span><span class="p">)</span> <span class="o">-</span> <span class="n">y_mod</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">rot1</span><span class="p">)</span>
+                <span class="n">all_y_coords</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">y_coord1</span> <span class="o">+</span> <span class="n">x_mod</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">rot1</span><span class="p">)</span> <span class="o">+</span> <span class="n">y_mod</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">rot1</span><span class="p">)</span>
+
+            <span class="n">sky_hist</span> <span class="o">+=</span> <span class="n">histogram2d</span><span class="p">(</span><span class="n">all_x_coords</span><span class="p">,</span> <span class="n">all_y_coords</span><span class="p">,</span> <span class="nb">range</span><span class="o">=</span><span class="p">[[</span><span class="o">-</span><span class="n">max_pixel</span><span class="p">,</span> <span class="n">max_pixel</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="n">max_pixel</span><span class="p">,</span> <span class="n">max_pixel</span><span class="p">]],</span> <span class="n">bins</span><span class="o">=</span><span class="p">[</span><span class="n">num_bins</span><span class="p">,</span> <span class="n">num_bins</span><span class="p">])</span>
+
+            <span class="c1"># apply pixel(s) analysis</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pxan</span><span class="p">:</span>
+                <span class="n">mask</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">for</span> <span class="n">x_range</span><span class="p">,</span> <span class="n">y_range</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">x_range_pxan</span><span class="p">,</span> <span class="n">y_range_pxan</span><span class="p">):</span>
+                    <span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span> <span class="o">|</span> <span class="p">(</span> <span class="p">(</span><span class="n">all_x_coords</span> <span class="o">&gt;=</span> <span class="n">x_range</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">all_x_coords</span> <span class="o">&lt;</span> <span class="n">x_range</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">all_y_coords</span> <span class="o">&gt;=</span> <span class="n">y_range</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">all_y_coords</span> <span class="o">&lt;</span> <span class="n">y_range</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="p">)</span>
+
+                <span class="n">det_hist</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                <span class="n">time_hist</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;total number of hits </span><span class="si">{</span><span class="n">num_ts</span><span class="o">*</span><span class="n">num_det_elem</span><span class="si">}</span><span class="s1"> == </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">sky_hist</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="c1"># note that we transpose sky_hist, since histogram2d has rows and columns flipped</span>
+        <span class="k">return</span> <span class="n">sky_hist</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">det_hist</span><span class="p">,</span> <span class="n">time_hist</span>
+
+    <span class="k">def</span> <span class="nf">_check_histograms</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
+        <span class="nd">@wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">wrapper</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hits</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">hits</span> <span class="o">==</span> <span class="s1">&#39;total&#39;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sky_hist</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_set_histograms</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sky_hist_rem</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_set_histograms</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+            
+            <span class="k">elif</span> <span class="n">hits</span> <span class="o">==</span> <span class="s1">&#39;kept&#39;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sky_hist</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_set_histograms</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+            
+            <span class="k">elif</span> <span class="n">hits</span> <span class="o">==</span> <span class="s1">&#39;removed&#39;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sky_hist_rem</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_set_histograms</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;&quot;hits&quot; = </span><span class="si">{</span><span class="n">hits</span><span class="si">}</span><span class="s1"> is not one of &quot;total&quot;, &quot;kept&quot;, or &quot;removed&quot;&#39;</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hits</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">wrapper</span>
+
+    <span class="c1"># USER FUNCTIONS</span>
+
+<div class="viewcode-block" id="Simulation.sky_histogram"><a class="viewcode-back" href="../../classes.html#scanning.optimization.Simulation.sky_histogram">[docs]</a>    <span class="nd">@_check_histograms</span>
+    <span class="k">def</span> <span class="nf">sky_histogram</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hits</span><span class="o">=</span><span class="s1">&#39;kept&#39;</span><span class="p">,</span> <span class="n">convolve</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">norm_time</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">path_or_buf</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get a 2D histogram of the resultant hitmap. </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ------------------------------</span>
+<span class="sd">        hits : str; default &#39;kept&#39;</span>
+<span class="sd">            One of &#39;kept&#39;, &#39;removed&#39;, or &#39;total&#39; hits. </span>
+<span class="sd">        convolve : bool; default True</span>
+<span class="sd">            Whether to convolve the hitmap. </span>
+<span class="sd">        norm_time : bool; default False</span>
+<span class="sd">            `True` for hits/px per total scan duration. `False` for hits/px.</span>
+<span class="sd">        path_or_buf : str, file handle or None; default None</span>
+<span class="sd">            File path or object, if `None` is provided the result is returned.</span>
+<span class="sd">            The file is saved as a csv with the header and columns representing the bin edges (in deg). </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------------------------</span>
+<span class="sd">        None or (2d float array, Quantity array)</span>
+<span class="sd">            If `path_or_buf` is `None`, returns a 2D histogram of the hits as well as the bin edges.</span>
+<span class="sd">            Otherwise returns `None`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">hits</span> <span class="o">==</span> <span class="s1">&#39;kept&#39;</span><span class="p">:</span>
+            <span class="n">sky_hist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sky_hist</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">hits</span> <span class="o">==</span> <span class="s1">&#39;removed&#39;</span><span class="p">:</span>
+            <span class="n">sky_hist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sky_hist_rem</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">sky_hist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sky_hist</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sky_hist_rem</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+
+        <span class="n">pixel_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_param</span><span class="p">[</span><span class="s1">&#39;pixel_size&#39;</span><span class="p">]</span>
+        
+        <span class="c1"># convolution</span>
+        <span class="k">if</span> <span class="n">convolve</span><span class="p">:</span>
+            <span class="n">ang_res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="o">.</span><span class="n">ang_res</span><span class="o">.</span><span class="n">value</span>
+            <span class="k">if</span> <span class="n">isiterable</span><span class="p">(</span><span class="n">ang_res</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Unable to convolve since ang_res is not constant.&#39;</span><span class="p">)</span>
+            <span class="n">stddev</span> <span class="o">=</span> <span class="p">(</span><span class="n">ang_res</span><span class="o">/</span><span class="n">pixel_size</span><span class="p">)</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">8</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+            <span class="n">kernel</span> <span class="o">=</span> <span class="n">Gaussian2DKernel</span><span class="p">(</span><span class="n">stddev</span><span class="p">)</span>
+            <span class="n">sky_hist</span> <span class="o">=</span> <span class="n">convolve_fft</span><span class="p">(</span><span class="n">sky_hist</span><span class="p">,</span> <span class="n">kernel</span><span class="p">,</span> <span class="n">boundary</span><span class="o">=</span><span class="s1">&#39;fill&#39;</span><span class="p">,</span> <span class="n">fill_value</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    
+        <span class="c1"># normalize time</span>
+        <span class="k">if</span> <span class="n">norm_time</span><span class="p">:</span>
+            <span class="n">total_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sky_pattern</span><span class="o">.</span><span class="n">scan_duration</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">sky_hist</span> <span class="o">=</span> <span class="n">sky_hist</span><span class="o">/</span><span class="n">total_time</span>
+        
+        <span class="c1"># return</span>
+        <span class="n">max_pixel</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prep</span><span class="p">[</span><span class="s1">&#39;max_pixel&#39;</span><span class="p">]</span>
+        <span class="n">bin_edges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="n">max_pixel</span><span class="p">,</span> <span class="n">max_pixel</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">max_pixel</span><span class="o">+</span><span class="mi">1</span><span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">*</span><span class="n">pixel_size</span>
+
+        <span class="n">_shape</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">sky_hist</span><span class="p">)</span>
+        <span class="k">assert</span><span class="p">((</span><span class="n">_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="ow">and</span> <span class="p">(</span><span class="n">_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">bin_edges</span><span class="o">.</span><span class="n">size</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">path_or_buf</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">sky_hist</span><span class="p">,</span> <span class="n">bin_edges</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_units</span><span class="p">[</span><span class="s1">&#39;pixel_size&#39;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">sky_hist</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">sky_hist</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">bin_edges</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">bin_edges</span><span class="p">)</span>
+            <span class="n">sky_hist</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">path_or_buf</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+                
+<div class="viewcode-block" id="Simulation.det_histogram"><a class="viewcode-back" href="../../classes.html#scanning.optimization.Simulation.det_histogram">[docs]</a>    <span class="nd">@_check_histograms</span>
+    <span class="k">def</span> <span class="nf">det_histogram</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hits</span><span class="o">=</span><span class="s1">&#39;kept&#39;</span><span class="p">,</span> <span class="n">norm_pxan</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">norm_time</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get a histogram of the number of hits per detector element on a pixel on the sky (specified in `pxan_list` or `pxan_lim`).</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ------------------------------</span>
+<span class="sd">        hits : str; default &#39;kept&#39;</span>
+<span class="sd">            One of &#39;kept&#39;, &#39;removed&#39;, or &#39;total&#39; hits. </span>
+<span class="sd">        norm_pxan : bool; default True</span>
+<span class="sd">            Whether to average the hits by dividing the total hits by the number of pixels. </span>
+<span class="sd">        norm_time : bool; default False</span>
+<span class="sd">            `True` for hits/px per total scan duration. `False` for hits/px.</span>
+<span class="sd">        path_or_buf : str, file handle or None; default None</span>
+<span class="sd">            File path or object, if `None` is provided the result is returned. The file is saved as a csv.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------------------------</span>
+<span class="sd">        None or (float array, int array)</span>
+<span class="sd">            If `path_or_buf` is `None`, returns the counts for each detector element as well as the corresponding detector number.</span>
+<span class="sd">            `NaN` values mean that detector element has been filtered off. Otherwise returns `None`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pxan</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">hits</span> <span class="o">==</span> <span class="s1">&#39;kept&#39;</span><span class="p">:</span>
+            <span class="n">det_hist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_det_hist</span>
+        <span class="k">elif</span> <span class="n">hits</span> <span class="o">==</span> <span class="s1">&#39;removed&#39;</span><span class="p">:</span>
+            <span class="n">det_hist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_det_hist_rem</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">det_hist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_det_hist</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_det_hist_rem</span>
+        
+        <span class="c1"># divide by number of pixels in pixel analysis</span>
+        <span class="k">if</span> <span class="n">norm_pxan</span><span class="p">:</span>
+            <span class="n">num_pxan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prep</span><span class="p">[</span><span class="s1">&#39;num_pxan&#39;</span><span class="p">]</span>
+            <span class="n">det_hist</span> <span class="o">=</span> <span class="n">det_hist</span><span class="o">/</span><span class="n">num_pxan</span>
+    
+        <span class="c1"># normalize time</span>
+        <span class="k">if</span> <span class="n">norm_time</span><span class="p">:</span>
+            <span class="n">total_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sky_pattern</span><span class="o">.</span><span class="n">scan_duration</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">det_hist</span> <span class="o">=</span> <span class="n">det_hist</span><span class="o">/</span><span class="n">total_time</span>
+        
+        <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">det_hist</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">det_hist</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">det_hist</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Simulation.time_histogram"><a class="viewcode-back" href="../../classes.html#scanning.optimization.Simulation.time_histogram">[docs]</a>    <span class="nd">@_check_histograms</span>
+    <span class="k">def</span> <span class="nf">time_histogram</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hits</span><span class="o">=</span><span class="s1">&#39;kept&#39;</span><span class="p">,</span> <span class="n">norm_pxan</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">norm_time</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get a histogram of the number of hits at each time step on a pixel on the sky (specified in `pxan_list` or `pxan_lim`).</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ------------------------------</span>
+<span class="sd">        hits : str; default &#39;kept&#39;</span>
+<span class="sd">            One of &#39;kept&#39;, &#39;removed&#39;, or &#39;total&#39; hits. </span>
+<span class="sd">        norm_pxan : bool; default True</span>
+<span class="sd">            Whether to average the hits by dividing the total hits by the number of pixels. </span>
+<span class="sd">        norm_time : bool; default False</span>
+<span class="sd">            `True` for hits/px per total scan duration. `False` for hits/px.</span>
+<span class="sd">        path_or_buf : str, file handle or None; default None</span>
+<span class="sd">            File path or object, if `None` is provided the result is returned. The file is saved as a csv.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------------------------</span>
+<span class="sd">        None or (float array, int array)</span>
+<span class="sd">            If `path_or_buf` is `None`, returns the counts for each time step as well as the corresponding time offset.</span>
+<span class="sd">            `NaN` values mean that time step is out/in the speed/accleration limits. Otherwise returns `None`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">hits</span> <span class="o">==</span> <span class="s1">&#39;kept&#39;</span><span class="p">:</span>
+            <span class="n">time_hist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_time_hist</span>
+            <span class="n">time_offset</span> <span class="o">=</span> <span class="n">time_hist</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+            <span class="n">time_hist</span> <span class="o">=</span> <span class="n">time_hist</span><span class="o">.</span><span class="n">values</span>
+        <span class="k">elif</span> <span class="n">hits</span> <span class="o">==</span> <span class="s1">&#39;removed&#39;</span><span class="p">:</span>
+            <span class="n">time_hist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_time_hist_rem</span>
+            <span class="n">time_offset</span> <span class="o">=</span> <span class="n">time_hist</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+            <span class="n">time_hist</span> <span class="o">=</span> <span class="n">time_hist</span><span class="o">.</span><span class="n">values</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">time_hist1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_time_hist</span>
+            <span class="n">time_hist2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_time_hist_rem</span>
+            <span class="n">time_offset</span> <span class="o">=</span> <span class="n">time_hist1</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+            <span class="n">time_hist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">time_hist1</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">time_hist2</span><span class="p">)</span>
+        
+        <span class="c1"># divide by number of pixels in pixel analysis</span>
+        <span class="k">if</span> <span class="n">norm_pxan</span><span class="p">:</span>
+            <span class="n">num_pxan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prep</span><span class="p">[</span><span class="s1">&#39;num_pxan&#39;</span><span class="p">]</span>
+            <span class="n">time_hist</span> <span class="o">=</span> <span class="n">time_hist</span><span class="o">/</span><span class="n">num_pxan</span>
+    
+        <span class="c1"># normalize time</span>
+        <span class="k">if</span> <span class="n">norm_time</span><span class="p">:</span>
+            <span class="n">total_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sky_pattern</span><span class="o">.</span><span class="n">scan_duration</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">time_hist</span> <span class="o">=</span> <span class="n">time_hist</span><span class="o">/</span><span class="n">total_time</span>
+        
+        <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">time_hist</span><span class="p">,</span> <span class="n">time_offset</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">time_hist</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">time_offset</span><span class="p">)</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Simulation.pol_histogram"><a class="viewcode-back" href="../../classes.html#scanning.optimization.Simulation.pol_histogram">[docs]</a>    <span class="k">def</span> <span class="nf">pol_histogram</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hits</span><span class="o">=</span><span class="s1">&#39;kept&#39;</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        TODO add documentation</span>
+<span class="sd">        </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="k">if</span> <span class="n">hits</span> <span class="o">==</span> <span class="s1">&#39;kept&#39;</span><span class="p">:</span>
+            <span class="n">field_rotation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_field_rotation</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_validity_mask</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">hits</span> <span class="o">==</span><span class="s1">&#39;removed&#39;</span><span class="p">:</span>
+            <span class="n">field_rotation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_field_rotation</span><span class="p">[</span><span class="o">~</span><span class="bp">self</span><span class="o">.</span><span class="n">_validity_mask</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">field_rotation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_field_rotation</span>
+        
+        <span class="n">all_pol</span><span class="p">,</span> <span class="n">all_pol_counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_module</span><span class="o">.</span><span class="n">pol</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_det_mask</span><span class="p">],</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">pol_grid</span><span class="p">,</span> <span class="n">rot_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">all_pol</span><span class="p">,</span> <span class="n">field_rotation</span><span class="p">)</span>
+        <span class="n">total_rot</span> <span class="o">=</span>  <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">((</span><span class="n">pol_grid</span> <span class="o">+</span> <span class="n">rot_grid</span><span class="p">)</span><span class="o">%</span><span class="mi">90</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">all_pol</span><span class="p">)</span> 
+
+        <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">total_rot</span><span class="p">,</span> <span class="n">all_pol_counts</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">total_rot</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div></div>
+
+        
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Kristin Wu, Doug Johnstone, Erik Rosolowsky.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

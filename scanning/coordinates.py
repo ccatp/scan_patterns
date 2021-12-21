@@ -186,7 +186,7 @@ class SkyPattern():
 
         Examples
         ---------------------
-        >>> skypattern.save_data('file.csv', columns={'time_offset': 'sec', 'x_coord': 'arcsec', 'y_coord': None})
+        >>> skypattern.save_data('file.csv', columns={'time_offset': 's', 'x_coord': 'arcsec', 'y_coord': None})
         """
 
         # replace str options
