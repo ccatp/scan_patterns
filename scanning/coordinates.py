@@ -10,8 +10,6 @@ from astropy.time import Time
 import astropy.units as u
 from astropy.coordinates import EarthLocation
 
-from scanning.camera import PrimeCam
-
 def _central_diff(a, h=None, time=None):
 
     # get dt
@@ -781,7 +779,7 @@ class TelescopePattern():
             Columns must contain 'time_offset, 'az_coord', and 'alt_coord'. If 'lst' is included as a column, certain observation parameters are not required (see options).
             Otherwise, `data` is a `SkyPattern` object. 
 
-        instrument : Instrument, default empty PrimeCam
+        instrument : Instrument or None, default None
             An `Instrument` object. 
         data_loc : str or two-tuple; default 'boresight'
             Location relative to the center of the instrument where observation parameters are applied:
@@ -876,7 +874,7 @@ class TelescopePattern():
 
         # --- Instrument and module --- 
 
-        self._instrument = instrument if not instrument is None else PrimeCam()
+        self._instrument = instrument
         dist, theta = self._true_module_loc(data_loc)
         
         # az_coord and alt_coord are for the module's location
@@ -1049,7 +1047,7 @@ class TelescopePattern():
         return (az - lowest_az)%(360) + lowest_az 
 
     def _true_module_loc(self, module):
-        """ Gets the (dist, theta) of the module from the boresight (not necessarily central tube)"""
+        # Gets the (dist, theta) of the module from the boresight (not necessarily central tube)
 
         if module == 'boresight':
             return 0, 0
@@ -1057,10 +1055,12 @@ class TelescopePattern():
         # passed by module identifier or instrument slot name
         if isinstance(module, str):
             try:
-                return self.instrument.get_location(module, from_boresight=True).value
+                return self.instrument.get_module_location(module, from_boresight=True).value
+            except AttributeError as e:
+                raise AttributeError(f'"instrument" is of type {type(self.instrument)}')
             except ValueError:
                 try:
-                    return self.instrument.get_slot(module, from_boresight=True).value
+                    return self.instrument.get_slot_location(module, from_boresight=True).value
                 except KeyError:
                     raise ValueError(f'{module} is not an existing module name or instrument slot')
         else:
@@ -1277,6 +1277,10 @@ class TelescopePattern():
     def instrument(self):
         """ Insturment: Insturment object."""
         return self._instrument
+
+    @instrument.setter
+    def instrument(self, value):
+        self._instrument = value
 
     @property
     def scan_duration(self):

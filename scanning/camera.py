@@ -198,15 +198,15 @@ class Module():
 
         if isinstance(center_freq, int) or isinstance(center_freq, float):
             center1 = center2 = center3 = center_freq
-            ang_res = ang_res1 = ang_res2 = ang_res3 = F_lambda*math.degrees((3*10**8)/(center_freq*10**9)/6)
+            ang_res = ang_res1 = ang_res2 = ang_res3 = F_lambda*math.degrees((speed_of_light)/(center_freq*10**9)/6)
         elif len(center_freq) == 3:
             center1 = center_freq[0]
             center2 = center_freq[1]
             center3 = center_freq[2]
 
-            ang_res1 = F_lambda*math.degrees((3*10**8)/(center1*10**9)/6)
-            ang_res2 = F_lambda*math.degrees((3*10**8)/(center2*10**9)/6)
-            ang_res3 = F_lambda*math.degrees((3*10**8)/(center3*10**9)/6)
+            ang_res1 = F_lambda*math.degrees((speed_of_light)/(center1*10**9)/6)
+            ang_res2 = F_lambda*math.degrees((speed_of_light)/(center2*10**9)/6)
+            ang_res3 = F_lambda*math.degrees((speed_of_light)/(center3*10**9)/6)
             ang_res = [ang_res1, ang_res2, ang_res3]
         else:
             raise ValueError(f'freq {center_freq} is invalid')
@@ -360,6 +360,13 @@ class Module():
                 return prop
         else:
             raise AttributeError(f'type object "{type(self)}" has no attribute "{attr}"')
+
+    @property
+    def F_lambda(self):
+        """
+        Quantity: F lambda.
+        """
+        return self._ang_res/math.degrees(speed_of_light/self._freq.to(u.Hz)/6)
 
     @property
     def ang_res(self):
@@ -700,11 +707,11 @@ class Instrument():
         if not np.any([with_mod_rot, with_instr_rot, with_instr_offset, with_mod_offset]):
             return self._modules[identifier]['module']
         else:
-            mod_rot_rad = self.get_mod_rot(identifier).to(u.rad).value if with_mod_rot else 0
+            mod_rot_rad = self.get_module_rot(identifier).to(u.rad).value if with_mod_rot else 0
             instr_rot_rad = self.instr_rot.to(u.rad).value if with_instr_rot else 0
 
-            mod_dist = self.get_dist(identifier).value if with_mod_offset else 0
-            mod_theta_rad = self.get_theta(identifier).to(u.rad).value if with_mod_offset else 0
+            mod_dist = self.get_module_dist(identifier).value if with_mod_offset else 0
+            mod_theta_rad = self.get_module_theta(identifier).to(u.rad).value if with_mod_offset else 0
             mod_x = mod_dist*cos(mod_theta_rad)
             mod_y = mod_dist*sin(mod_theta_rad)
 
@@ -720,7 +727,7 @@ class Instrument():
             return Module(data)
 
     @_check_identifier
-    def get_dist(self, identifier, from_boresight=False):
+    def get_module_dist(self, identifier, from_boresight=False):
         """
         Parameters
         -------------------------
@@ -739,10 +746,10 @@ class Instrument():
         ValueError
             "identifier" is not valid
         """
-        return self.get_location(identifier, from_boresight)[0]
+        return self.get_module_location(identifier, from_boresight)[0]
 
     @_check_identifier
-    def get_theta(self, identifier, from_boresight=False):
+    def get_module_theta(self, identifier, from_boresight=False):
         """
         Parameters
         -------------------------
@@ -761,10 +768,10 @@ class Instrument():
         ValueError
             "identifier" is not valid
         """
-        return self.get_location(identifier, from_boresight)[1]
+        return self.get_module_location(identifier, from_boresight)[1]
     
     @_check_identifier
-    def get_mod_rot(self, identifier, with_instr_rot=False):
+    def get_module_rot(self, identifier, with_instr_rot=False):
         """
         Get rotation of module from the center of the instrument.
 
@@ -791,7 +798,7 @@ class Instrument():
             return self._modules[identifier]['mod_rot']*u.deg
 
     @_check_identifier
-    def get_location(self, identifier, from_boresight=False, polar=True):
+    def get_module_location(self, identifier, from_boresight=False, polar=True):
         """
         Parameters
         -------------------------
@@ -843,7 +850,7 @@ class Instrument():
         else:
             return (dist*cos(radians(theta)), dist*sin(radians(theta)))*u.deg
 
-    def get_slot(self, slot_name, from_boresight=False, polar=True):
+    def get_slot_location(self, slot_name, from_boresight=False, polar=True):
         """
         Parameters
         -------------------------

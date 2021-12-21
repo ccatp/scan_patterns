@@ -66,21 +66,23 @@ class Simulation():
 
     # INITIALIZATION
 
-    def __init__(self, telescope_pattern, module, sim_param=None, mem_limit=640, **kwargs) -> None:
+    def __init__(self, telescope_pattern, instrument, module_identifier, sim_param=None, mem_limit=640, **kwargs) -> None:
         """
-        Run a simulation on `telescope_pattern` with `module`. Use **kwargs to specify conditions. 
-        Note that if multiple detector filters are used (`pols_on`, `det_lim`, etc.), only detector
-        elements that satisfy all will be used. 
+        Creating a `Simulation` object works by passing a `TelescopePattern` object, which stores the AZ/EL coordinates of 
+        the telescope boresight. By passing an `Instrument` object and the name of one of its modules, we use the detector 
+        element positions of that camera module and use the coordinates of the scan pattern that that camera module would make. 
+        
+        Use **kwargs to specify conditions. Note that if multiple detector filters are used (`pols_on`, `det_lim`, etc.), 
+        only detector elements that satisfy all will be used. 
 
         Parameters
         ----------------------------
         telescope_pattern : TelescopePattern
-            A `TelescopePattern` object.
-        module : str or Module
-            If `str`: Gets the Module and AZ/ALT coordinates from a string indicating a module name in the instrument e.g. 'SFH'. 
-            Recommended if `telescope_pattern` holds intrument data. 
-            If `Module`: Uses `telescope_pattern`'s "boresight" coordinates and uses `module` for its pixel positions. 
-            Recommended if `telescope_pattern` does not hold instrument data. 
+            A `TelescopePattern` object representing the boresight. 
+        instrument : Instrument
+            `Instrument` object to get `module` from. 
+        module_identifier : str
+            Gets the `Module` and AZ/ALT coordinates from a string indicating a module name in the instrument e.g. 'SFH'. 
         sim_param : str
             File path to a json file containing parameters for simulation (see **kwargs).
         mem_limit : int; default 640 MB
@@ -123,16 +125,16 @@ class Simulation():
         """
 
         self._mem_limit = mem_limit
+
+        # get Module object from instrument
+        self._module = instrument.get_module(module_identifier, with_instr_rot=True, with_mod_rot=True)
+
+        # get the telescope pattern
+        module_loc = instrument.get_module_location(module_identifier, from_boresight=True)
+        telescope_pattern = telescope_pattern.view_module(module_loc, includes_instr_offset=True)
         
-        if isinstance(module, str):
-            module_name = module
-            module = telescope_pattern.instrument.get_module(module, with_instr_rot=True, with_mod_rot=True)
-            telescope_pattern = telescope_pattern.view_module(module_name)
-        
-        # store sky pattern, field rotation, and module
         self._sky_pattern = telescope_pattern.get_sky_pattern()
         self._field_rotation = telescope_pattern.rot_angle.value
-        self._module = module 
 
         # clean parameters
         if not sim_param is None:

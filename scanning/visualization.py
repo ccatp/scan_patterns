@@ -132,7 +132,7 @@ def instrument_config(instrument, path=None, show_plot=True):
         circle1_y = np.array([sin(2*pi/n*x)*radius for x in range(0,n+1)])
 
         # apply offset
-        slot_x, slot_y = instrument.get_slot(slot_name, from_boresight=True, polar=False).value
+        slot_x, slot_y = instrument.get_slot_location(slot_name, from_boresight=True, polar=False).value
         circle2_x = circle1_x + slot_x
         circle2_y = circle1_y + slot_y
 
