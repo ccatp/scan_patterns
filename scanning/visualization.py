@@ -17,7 +17,6 @@ from scanning.coordinates import SkyPattern, TelescopePattern
 
 """
 TODO
-- add documentation to each function
 - add bin plots
 
 """
@@ -162,7 +161,25 @@ def instrument_config(instrument, path=None, show_plot=True):
 # Sky Patterns and Telescope Patterns
 
 def sky_path(pattern, module=None, path=None, show_plot=True):
-    """ TODO """
+    """
+    Trace the path of the pattern on the sky. 
+
+    Parameters
+    ------------------------
+    pattern : SkyPattern or TelescopePattern
+        If SkyPattern object, trace the path in x and y offsets. 
+        If TelescopePattern object, trace the path in RA/DEC. 
+    module : str or two-tuple or [list of str or two-tuple] or None, default None
+        Only applicable if pattern is TelescopePattern. Trace the paths of the listed modules/location. 
+        If `None`, use boresight. 
+        | 1. string indicating a module name in the instrument e.g. 'SFH'
+        | 2. string indicating one of the default slots in the instrument e.g. 'c', 'i1'
+        | 3. tuple of (distance, theta) indicating module's offset from the center of the instrument, default unit deg
+    path : str or None, default None
+        If not None, saves the image to the file path. 
+    show_plot : bool, default True
+        Whether to display the resulting figure.
+    """
 
     fig_coord = plt.figure('coordinates', figsize=(8, 8))
     ax_coord = plt.subplot2grid((1, 1), (0, 0))
@@ -190,6 +207,7 @@ def sky_path(pattern, module=None, path=None, show_plot=True):
 
             ax_coord.plot(temp.ra_coord.value, temp.dec_coord.value, label=m, linewidth=0.5)
         
+        ax_coord.invert_xaxis()
         ax_coord.legend(loc='upper right')
         ax_coord.set_aspect(1/cos(pattern.dec_coord[0].to(u.rad).value))
     else:
@@ -211,7 +229,24 @@ def sky_path(pattern, module=None, path=None, show_plot=True):
         plt.close()
 
 def telescope_path(telescope_pattern, module=None, path=None, show_plot=True):
-    """ TODO """
+    """
+    Trace the path of the pattern in AZ/EL. 
+
+    Parameters
+    ------------------------
+    pattern : TelescopePattern
+        A TelescopePattern object.  
+    module : str or two-tuple or [list of str or two-tuple] or None, default None
+        Trace the paths of the listed modules/location. 
+        If `None`, use boresight. 
+        | 1. string indicating a module name in the instrument e.g. 'SFH'
+        | 2. string indicating one of the default slots in the instrument e.g. 'c', 'i1'
+        | 3. tuple of (distance, theta) indicating module's offset from the center of the instrument, default unit deg
+    path : str or None, default None
+        If not None, saves the image to the file path. 
+    show_plot : bool, default True
+        Whether to display the resulting figure.
+    """
 
     if module is None:
         module = ['boresight']
@@ -249,7 +284,25 @@ def telescope_path(telescope_pattern, module=None, path=None, show_plot=True):
         plt.close()
     
 def telescope_kinematics(telescope_pattern, module=None, plots=['coord', 'vel', 'acc', 'jerk'], path=None, show_plot=True):
-    """ TODO """
+    """
+    Plot time vs. azimuthal and elevation kinematics. 
+
+    Parameters
+    ------------------------
+    pattern : TelescopePattern
+        A TelescopePattern object.  
+    module : str or two-tuple or None, default None
+        Select the module to use. If `None`, use boresight, otherwise:
+        | 1. string indicating a module name in the instrument e.g. 'SFH'
+        | 2. string indicating one of the default slots in the instrument e.g. 'c', 'i1'
+        | 3. tuple of (distance, theta) indicating module's offset from the center of the instrument, default unit deg
+    plots : list of str, default ['coord', 'vel', 'acc', 'jerk']
+        List of which time plots to include. By default, includes all. 
+    path : str or None, default None
+        If not None, saves the image to the file path. 
+    show_plot : bool, default True
+        Whether to display the resulting figure.
+    """
 
     if not module is None:
         telescope_pattern = telescope_pattern.view_module(module)
@@ -319,7 +372,25 @@ def telescope_kinematics(telescope_pattern, module=None, plots=['coord', 'vel', 
         plt.close()
     
 def sky_kinematics(pattern, module=None, plots=['coord', 'vel', 'acc', 'jerk'], path=None, show_plot=True):
-    """TODO"""
+    """
+    Plot time vs. x and y kinematics. 
+
+    Parameters
+    ------------------------
+    pattern : SkyPattern or TelescopePattern
+        A SkyPattern or TelescopePattern object.
+    module : str or two-tuple or None, default None
+        Select the module to use. If `None`, use boresight, otherwise:
+        | 1. string indicating a module name in the instrument e.g. 'SFH'
+        | 2. string indicating one of the default slots in the instrument e.g. 'c', 'i1'
+        | 3. tuple of (distance, theta) indicating module's offset from the center of the instrument, default unit deg
+    plots : list of str, default ['coord', 'vel', 'acc', 'jerk']
+        List of which time plots to include. By default, includes all. 
+    path : str or None, default None
+        If not None, saves the image to the file path. 
+    show_plot : bool, default True
+        Whether to display the resulting figure.
+    """
 
     if isinstance(pattern, TelescopePattern):
         if module is None:
@@ -992,6 +1063,8 @@ def pxan_time(sim, bin=1, norm_pxan=True, norm_time=False, kept_hits=True, remov
 
 def pxan_polarization(sim, norm_pxan=True, norm_time=False, kept_hits=True, removed_hits=False, total_hits=False, path=None, show_plot=True):
     """
+    Get a histogram of how many times each detector element, grouped by their initial pixel positions, hit that region
+
     Parameters
     ------------------------------
     sim : Simulation
@@ -1077,7 +1150,21 @@ def pxan_polarization(sim, norm_pxan=True, norm_time=False, kept_hits=True, remo
         plt.close()
 
 def polarization_histogram(sim, kept_hits=True, removed_hits=False, total_hits=False, stacked=False, path=None, show_plot=True):
-    """TODO"""
+    """
+    Get a histogram of which polarization geometries have been captured.
+     Parameters
+    ------------------------------
+    sim : Simulation
+        A simulation object. 
+    kept_hits removed_hits total_hits : bool; default True False False respectively
+        Whether to plot seperate hitmaps for kept/rem/total hits (`True`) or not (False`). 
+    stacked : bool; default False
+        Whether to display histogram as stacked bars (`True`) or overlaying bars (`False`). 
+    path : str or None; default None
+        If not `None`, saves the image to the file path. 
+    show_plot : bool; default True
+        Whether to display the resulting figure.
+    """
 
     # initialize figure
     num_hitmaps = np.count_nonzero([kept_hits, removed_hits, total_hits])
