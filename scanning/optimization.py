@@ -1,6 +1,5 @@
 import math
 from math import cos, sin
-import csv
 import json
 from functools import wraps
 from astropy.convolution.convolve import convolve_fft
@@ -12,6 +11,8 @@ import pandas as pd
 import astropy.units as u
 from astropy.utils import isiterable
 from fast_histogram import histogram2d
+
+from scanning.coordinates import TelescopePattern
 
 class Simulation():
 
@@ -35,38 +36,9 @@ class Simulation():
     # what unit each parameter is stored in
     _param_units = {'pixel_size': u.deg, 'max_acc': u.deg/u.s/u.s, 'min_speed': u.deg/u.s, 'det_radius': u.deg, 'det_lim': u.deg, 'det_list': u.deg, 'pxan_list': u.deg, 'pxan_lim': u.deg}
 
-    @property
-    def sky_pattern(self):
-        """SkyPattern : Associated `SkyPattern` object."""
-        return self._sky_pattern
-    
-    @property
-    def module(self):
-        """Module : `Module` object. """
-        return self._module
-    
-    @property
-    def field_rotation(self):
-        """Quantity array : Field rotation."""
-        return self._field_rotation*u.deg
-    
-    @property
-    def param(self):
-        return {p: val*self._param_units[p] for p, val in self._param.items()}
-
-    @property
-    def det_mask(self):
-        """ bool array : Mask for detector elements that are turned on."""
-        return self._det_mask
-    
-    @property
-    def validity_mask(self):
-        """bool array : Mask for samples that are within the acceleration/speed limits."""
-        return self._validity_mask
-
     # INITIALIZATION
 
-    def __init__(self, telescope_pattern, instrument, module_identifier, sim_param=None, mem_limit=640, **kwargs) -> None:
+    def __init__(self, telescope_pattern, instrument, module_identifier, sim_param=None, **kwargs) -> None:
         """
         Creating a `Simulation` object works by passing a `TelescopePattern` object, which stores the AZ/EL coordinates of 
         the telescope boresight. By passing an `Instrument` object and the name of one of its modules, we use the detector 
@@ -85,12 +57,12 @@ class Simulation():
             Gets the `Module` and AZ/ALT coordinates from a string indicating a module name in the instrument e.g. 'SFH'. 
         sim_param : str
             File path to a json file containing parameters for simulation (see **kwargs).
-        mem_limit : int; default 640 MB
-            Approximate memory limit in megabytes when simulating the scan. 
             
 
         Keyword Args
         --------------------------
+        mem_limit : int; default 640 MB
+            Approximate memory limit in megabytes when simulating the scan. 
         pixel_size : float/Quantity/str; default 10 arcsec, default unit arcsec
             Length of a square pixel in x-y offsets. 
         max_acc : float/Quantity/str; default None, default unit deg/s^2
@@ -124,8 +96,6 @@ class Simulation():
         
         """
 
-        self._mem_limit = mem_limit
-
         # get Module object from instrument
         self._module = instrument.get_module(module_identifier, with_instr_rot=True, with_mod_rot=True)
 
@@ -155,6 +125,8 @@ class Simulation():
 
     def _clean_param(self, **kwargs):
         new_kwargs = dict()
+
+        new_kwargs['mem_limit'] = kwargs.pop('mem_limit', 640)
 
         new_kwargs['pixel_size'] = u.Quantity(kwargs.pop('pixel_size', 10), u.arcsec).to(self._param_units['pixel_size']).value
 
@@ -428,7 +400,7 @@ class Simulation():
 
         # Divide process into chunks to abide by memory limits 
         # We store using np.float16, which takes 2 bytes for each additional value
-        max_number_points = (self._mem_limit*10**6)/2
+        max_number_points = (self._param['mem_limit']*10**6)/2
 
         chunk_ts = math.floor(max_number_points/num_det_elem)
         for chunk in range(math.ceil(num_ts/chunk_ts)):
@@ -674,4 +646,79 @@ class Simulation():
         else:
             total_rot.to_csv(path, index=True)
 
-        
+    @property
+    def sky_pattern(self):
+        """SkyPattern : Associated `SkyPattern` object."""
+        return self._sky_pattern
+    
+    @property
+    def module(self):
+        """Module : `Module` object. """
+        return self._module
+    
+    @property
+    def field_rotation(self):
+        """Quantity array : Field rotation."""
+        return self._field_rotation*u.deg
+    
+    @property
+    def param(self):
+        return {p: val*self._param_units[p] for p, val in self._param.items()}
+
+    @property
+    def det_mask(self):
+        """ bool array : Mask for detector elements that are turned on."""
+        return self._det_mask
+    
+    @property
+    def validity_mask(self):
+        """bool array : Mask for samples that are within the acceleration/speed limits."""
+        return self._validity_mask
+
+
+"""def accumulation(max_duration=None, num_repeat=1, intermission_time=10**u.s, **kwargs):
+
+    # get the sky pattern and telescope pattern
+    # and other info needed to create new telescope patterns
+
+    try:
+        telescope_pattern = kwargs['telescope_pattern']
+    except KeyError:
+        raise TypeError('missing keyword(s)')
+
+    sky_pattern = telescope_pattern.get_sky_pattern()
+
+    obs_param = {
+        'lat': telescope_pattern._param['lat'],
+        'start_ra': telescope_pattern.ra_coord[0].value,
+        'start_dec': telescope_pattern.dec_coord[0].value,
+        'start_lst': telescope_pattern.lst[0].value
+    }
+
+    # get number of repeats and one duration 
+
+    pattern_time = telescope_pattern.scan_duration
+    one_duration = (pattern_time + u.Quantity(intermission_time, u.s)).value 
+
+    if not max_duration is None:
+        max_duration = u.Quantity(max_duration, u.s).value
+        num_repeat = math.floor(max_duration/one_duration)
+
+    # get initial simulation stuff
+    sim0 = Simulation(**kwargs)
+    sky_hist, bin_edges = sim0.sky_histogram('kept')
+
+    # loop
+
+    SIDEREAL_TO_UT1 = 1.002737909350795
+
+    for i in range(1, num_repeat):
+        obs_param['start_lst'] = obs_param['start_lst'] + one_duration/3600*SIDEREAL_TO_UT1
+        telescope_pattern = TelescopePattern(sky_pattern, **obs_param)
+
+        kwargs['telescope_pattern'] = telescope_pattern
+        sim0 = Simulation(**kwargs)
+
+        sky_hist += sim0.sky_histogram('kept')
+
+"""
