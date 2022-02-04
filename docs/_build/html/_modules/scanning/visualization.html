@@ -85,7 +85,6 @@
 
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">TODO</span>
-<span class="sd">- add documentation to each function</span>
 <span class="sd">- add bin plots</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
@@ -230,7 +229,25 @@
 <span class="c1"># Sky Patterns and Telescope Patterns</span>
 
 <div class="viewcode-block" id="sky_path"><a class="viewcode-back" href="../../visualization.html#scanning.visualization.sky_path">[docs]</a><span class="k">def</span> <span class="nf">sky_path</span><span class="p">(</span><span class="n">pattern</span><span class="p">,</span> <span class="n">module</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">show_plot</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot; TODO &quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Trace the path of the pattern on the sky. </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ------------------------</span>
+<span class="sd">    pattern : SkyPattern or TelescopePattern</span>
+<span class="sd">        If SkyPattern object, trace the path in x and y offsets. </span>
+<span class="sd">        If TelescopePattern object, trace the path in RA/DEC. </span>
+<span class="sd">    module : str or two-tuple or [list of str or two-tuple] or None, default None</span>
+<span class="sd">        Only applicable if pattern is TelescopePattern. Trace the paths of the listed modules/location. </span>
+<span class="sd">        If `None`, use boresight. </span>
+<span class="sd">        | 1. string indicating a module name in the instrument e.g. &#39;SFH&#39;</span>
+<span class="sd">        | 2. string indicating one of the default slots in the instrument e.g. &#39;c&#39;, &#39;i1&#39;</span>
+<span class="sd">        | 3. tuple of (distance, theta) indicating module&#39;s offset from the center of the instrument, default unit deg</span>
+<span class="sd">    path : str or None, default None</span>
+<span class="sd">        If not None, saves the image to the file path. </span>
+<span class="sd">    show_plot : bool, default True</span>
+<span class="sd">        Whether to display the resulting figure.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">fig_coord</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="s1">&#39;coordinates&#39;</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
     <span class="n">ax_coord</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot2grid</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
@@ -258,6 +275,7 @@
 
             <span class="n">ax_coord</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">temp</span><span class="o">.</span><span class="n">ra_coord</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">temp</span><span class="o">.</span><span class="n">dec_coord</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">m</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
         
+        <span class="n">ax_coord</span><span class="o">.</span><span class="n">invert_xaxis</span><span class="p">()</span>
         <span class="n">ax_coord</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s1">&#39;upper right&#39;</span><span class="p">)</span>
         <span class="n">ax_coord</span><span class="o">.</span><span class="n">set_aspect</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="n">cos</span><span class="p">(</span><span class="n">pattern</span><span class="o">.</span><span class="n">dec_coord</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rad</span><span class="p">)</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
     <span class="k">else</span><span class="p">:</span>
@@ -279,7 +297,24 @@
         <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="telescope_path"><a class="viewcode-back" href="../../visualization.html#scanning.visualization.telescope_path">[docs]</a><span class="k">def</span> <span class="nf">telescope_path</span><span class="p">(</span><span class="n">telescope_pattern</span><span class="p">,</span> <span class="n">module</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">show_plot</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot; TODO &quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Trace the path of the pattern in AZ/EL. </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ------------------------</span>
+<span class="sd">    pattern : TelescopePattern</span>
+<span class="sd">        A TelescopePattern object.  </span>
+<span class="sd">    module : str or two-tuple or [list of str or two-tuple] or None, default None</span>
+<span class="sd">        Trace the paths of the listed modules/location. </span>
+<span class="sd">        If `None`, use boresight. </span>
+<span class="sd">        | 1. string indicating a module name in the instrument e.g. &#39;SFH&#39;</span>
+<span class="sd">        | 2. string indicating one of the default slots in the instrument e.g. &#39;c&#39;, &#39;i1&#39;</span>
+<span class="sd">        | 3. tuple of (distance, theta) indicating module&#39;s offset from the center of the instrument, default unit deg</span>
+<span class="sd">    path : str or None, default None</span>
+<span class="sd">        If not None, saves the image to the file path. </span>
+<span class="sd">    show_plot : bool, default True</span>
+<span class="sd">        Whether to display the resulting figure.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">if</span> <span class="n">module</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">module</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;boresight&#39;</span><span class="p">]</span>
@@ -317,7 +352,25 @@
         <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
     
 <div class="viewcode-block" id="telescope_kinematics"><a class="viewcode-back" href="../../visualization.html#scanning.visualization.telescope_kinematics">[docs]</a><span class="k">def</span> <span class="nf">telescope_kinematics</span><span class="p">(</span><span class="n">telescope_pattern</span><span class="p">,</span> <span class="n">module</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">plots</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;coord&#39;</span><span class="p">,</span> <span class="s1">&#39;vel&#39;</span><span class="p">,</span> <span class="s1">&#39;acc&#39;</span><span class="p">,</span> <span class="s1">&#39;jerk&#39;</span><span class="p">],</span> <span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">show_plot</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot; TODO &quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plot time vs. azimuthal and elevation kinematics. </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ------------------------</span>
+<span class="sd">    pattern : TelescopePattern</span>
+<span class="sd">        A TelescopePattern object.  </span>
+<span class="sd">    module : str or two-tuple or None, default None</span>
+<span class="sd">        Select the module to use. If `None`, use boresight, otherwise:</span>
+<span class="sd">        | 1. string indicating a module name in the instrument e.g. &#39;SFH&#39;</span>
+<span class="sd">        | 2. string indicating one of the default slots in the instrument e.g. &#39;c&#39;, &#39;i1&#39;</span>
+<span class="sd">        | 3. tuple of (distance, theta) indicating module&#39;s offset from the center of the instrument, default unit deg</span>
+<span class="sd">    plots : list of str, default [&#39;coord&#39;, &#39;vel&#39;, &#39;acc&#39;, &#39;jerk&#39;]</span>
+<span class="sd">        List of which time plots to include. By default, includes all. </span>
+<span class="sd">    path : str or None, default None</span>
+<span class="sd">        If not None, saves the image to the file path. </span>
+<span class="sd">    show_plot : bool, default True</span>
+<span class="sd">        Whether to display the resulting figure.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">module</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">telescope_pattern</span> <span class="o">=</span> <span class="n">telescope_pattern</span><span class="o">.</span><span class="n">view_module</span><span class="p">(</span><span class="n">module</span><span class="p">)</span>
@@ -387,7 +440,25 @@
         <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
     
 <div class="viewcode-block" id="sky_kinematics"><a class="viewcode-back" href="../../visualization.html#scanning.visualization.sky_kinematics">[docs]</a><span class="k">def</span> <span class="nf">sky_kinematics</span><span class="p">(</span><span class="n">pattern</span><span class="p">,</span> <span class="n">module</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">plots</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;coord&#39;</span><span class="p">,</span> <span class="s1">&#39;vel&#39;</span><span class="p">,</span> <span class="s1">&#39;acc&#39;</span><span class="p">,</span> <span class="s1">&#39;jerk&#39;</span><span class="p">],</span> <span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">show_plot</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;TODO&quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plot time vs. x and y kinematics. </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ------------------------</span>
+<span class="sd">    pattern : SkyPattern or TelescopePattern</span>
+<span class="sd">        A SkyPattern or TelescopePattern object.</span>
+<span class="sd">    module : str or two-tuple or None, default None</span>
+<span class="sd">        Select the module to use. If `None`, use boresight, otherwise:</span>
+<span class="sd">        | 1. string indicating a module name in the instrument e.g. &#39;SFH&#39;</span>
+<span class="sd">        | 2. string indicating one of the default slots in the instrument e.g. &#39;c&#39;, &#39;i1&#39;</span>
+<span class="sd">        | 3. tuple of (distance, theta) indicating module&#39;s offset from the center of the instrument, default unit deg</span>
+<span class="sd">    plots : list of str, default [&#39;coord&#39;, &#39;vel&#39;, &#39;acc&#39;, &#39;jerk&#39;]</span>
+<span class="sd">        List of which time plots to include. By default, includes all. </span>
+<span class="sd">    path : str or None, default None</span>
+<span class="sd">        If not None, saves the image to the file path. </span>
+<span class="sd">    show_plot : bool, default True</span>
+<span class="sd">        Whether to display the resulting figure.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pattern</span><span class="p">,</span> <span class="n">TelescopePattern</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">module</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -458,7 +529,7 @@
 
 <span class="c1"># Observation</span>
 
-<span class="k">def</span> <span class="nf">filter_observation</span><span class="p">(</span><span class="n">obs</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="s1">&#39;elevation&#39;</span><span class="p">,</span> <span class="n">min_elev</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">max_elev</span><span class="o">=</span><span class="mi">75</span><span class="p">,</span> <span class="n">min_rot_rate</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">show_plot</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<div class="viewcode-block" id="filter_observation"><a class="viewcode-back" href="../../visualization.html#scanning.visualization.filter_observation">[docs]</a><span class="k">def</span> <span class="nf">filter_observation</span><span class="p">(</span><span class="n">obs</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="s1">&#39;elevation&#39;</span><span class="p">,</span> <span class="n">min_elev</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">max_elev</span><span class="o">=</span><span class="mi">75</span><span class="p">,</span> <span class="n">min_rot_rate</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">show_plot</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;TODO&quot;&quot;&quot;</span>
 
     <span class="k">if</span> <span class="n">plot</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;elevation&#39;</span><span class="p">,</span> <span class="s1">&#39;airmass&#39;</span><span class="p">,</span> <span class="s1">&#39;para_angle&#39;</span><span class="p">,</span> <span class="s1">&#39;rot_angle&#39;</span><span class="p">,</span> <span class="s1">&#39;rot_rate&#39;</span><span class="p">]:</span>
@@ -620,9 +691,9 @@
     <span class="k">if</span> <span class="n">show_plot</span><span class="p">:</span>
         <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
-<span class="k">def</span> <span class="nf">field_rotation_hist</span><span class="p">(</span><span class="n">obs</span><span class="p">,</span> <span class="n">min_elev</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">max_elev</span><span class="o">=</span><span class="mi">75</span><span class="p">,</span> <span class="n">min_rot_rate</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">show_plot</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<div class="viewcode-block" id="field_rotation_hist"><a class="viewcode-back" href="../../visualization.html#scanning.visualization.field_rotation_hist">[docs]</a><span class="k">def</span> <span class="nf">field_rotation_hist</span><span class="p">(</span><span class="n">obs</span><span class="p">,</span> <span class="n">min_elev</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">max_elev</span><span class="o">=</span><span class="mi">75</span><span class="p">,</span> <span class="n">min_rot_rate</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">show_plot</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;TODO&quot;&quot;&quot;</span>
     <span class="n">ax_ncols</span> <span class="o">=</span> <span class="mi">2</span>
     <span class="n">ax_nrows</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">obs</span><span class="o">.</span><span class="n">dec</span><span class="p">)</span><span class="o">/</span><span class="n">ax_ncols</span><span class="p">)</span>
@@ -693,7 +764,7 @@
     <span class="k">if</span> <span class="n">show_plot</span><span class="p">:</span>
         <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
 <span class="c1"># Simulation </span>
 
@@ -1060,6 +1131,8 @@
 
 <div class="viewcode-block" id="pxan_polarization"><a class="viewcode-back" href="../../visualization.html#scanning.visualization.pxan_polarization">[docs]</a><span class="k">def</span> <span class="nf">pxan_polarization</span><span class="p">(</span><span class="n">sim</span><span class="p">,</span> <span class="n">norm_pxan</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">norm_time</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">kept_hits</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">removed_hits</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">total_hits</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">show_plot</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get a histogram of how many times each detector element, grouped by their initial pixel positions, hit that region</span>
+
 <span class="sd">    Parameters</span>
 <span class="sd">    ------------------------------</span>
 <span class="sd">    sim : Simulation</span>
@@ -1145,7 +1218,21 @@
         <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="polarization_histogram"><a class="viewcode-back" href="../../visualization.html#scanning.visualization.polarization_histogram">[docs]</a><span class="k">def</span> <span class="nf">polarization_histogram</span><span class="p">(</span><span class="n">sim</span><span class="p">,</span> <span class="n">kept_hits</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">removed_hits</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">total_hits</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">stacked</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">show_plot</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;TODO&quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get a histogram of which polarization geometries have been captured.</span>
+<span class="sd">     Parameters</span>
+<span class="sd">    ------------------------------</span>
+<span class="sd">    sim : Simulation</span>
+<span class="sd">        A simulation object. </span>
+<span class="sd">    kept_hits removed_hits total_hits : bool; default True False False respectively</span>
+<span class="sd">        Whether to plot seperate hitmaps for kept/rem/total hits (`True`) or not (False`). </span>
+<span class="sd">    stacked : bool; default False</span>
+<span class="sd">        Whether to display histogram as stacked bars (`True`) or overlaying bars (`False`). </span>
+<span class="sd">    path : str or None; default None</span>
+<span class="sd">        If not `None`, saves the image to the file path. </span>
+<span class="sd">    show_plot : bool; default True</span>
+<span class="sd">        Whether to display the resulting figure.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="c1"># initialize figure</span>
     <span class="n">num_hitmaps</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">([</span><span class="n">kept_hits</span><span class="p">,</span> <span class="n">removed_hits</span><span class="p">,</span> <span class="n">total_hits</span><span class="p">])</span>

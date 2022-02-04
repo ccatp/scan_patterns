@@ -68,7 +68,6 @@
   <h1>Source code for scanning.optimization</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">math</span>
 <span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">cos</span><span class="p">,</span> <span class="n">sin</span>
-<span class="kn">import</span> <span class="nn">csv</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">wraps</span>
 <span class="kn">from</span> <span class="nn">astropy.convolution.convolve</span> <span class="kn">import</span> <span class="n">convolve_fft</span>
@@ -80,6 +79,8 @@
 <span class="kn">import</span> <span class="nn">astropy.units</span> <span class="k">as</span> <span class="nn">u</span>
 <span class="kn">from</span> <span class="nn">astropy.utils</span> <span class="kn">import</span> <span class="n">isiterable</span>
 <span class="kn">from</span> <span class="nn">fast_histogram</span> <span class="kn">import</span> <span class="n">histogram2d</span>
+
+<span class="kn">from</span> <span class="nn">scanning.coordinates</span> <span class="kn">import</span> <span class="n">TelescopePattern</span>
 
 <div class="viewcode-block" id="Simulation"><a class="viewcode-back" href="../../classes.html#scanning.optimization.Simulation">[docs]</a><span class="k">class</span> <span class="nc">Simulation</span><span class="p">():</span>
 
@@ -103,38 +104,9 @@
     <span class="c1"># what unit each parameter is stored in</span>
     <span class="n">_param_units</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;pixel_size&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;max_acc&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="o">/</span><span class="n">u</span><span class="o">.</span><span class="n">s</span><span class="o">/</span><span class="n">u</span><span class="o">.</span><span class="n">s</span><span class="p">,</span> <span class="s1">&#39;min_speed&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="o">/</span><span class="n">u</span><span class="o">.</span><span class="n">s</span><span class="p">,</span> <span class="s1">&#39;det_radius&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;det_lim&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;det_list&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;pxan_list&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="s1">&#39;pxan_lim&#39;</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">}</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">sky_pattern</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;SkyPattern : Associated `SkyPattern` object.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sky_pattern</span>
-    
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">module</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Module : `Module` object. &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module</span>
-    
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">field_rotation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Quantity array : Field rotation.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_field_rotation</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span>
-    
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">param</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="n">val</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_units</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_param</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">det_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot; bool array : Mask for detector elements that are turned on.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_det_mask</span>
-    
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">validity_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;bool array : Mask for samples that are within the acceleration/speed limits.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validity_mask</span>
-
     <span class="c1"># INITIALIZATION</span>
 
-<div class="viewcode-block" id="Simulation.__init__"><a class="viewcode-back" href="../../classes.html#scanning.optimization.Simulation.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">telescope_pattern</span><span class="p">,</span> <span class="n">instrument</span><span class="p">,</span> <span class="n">module_identifier</span><span class="p">,</span> <span class="n">sim_param</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mem_limit</span><span class="o">=</span><span class="mi">640</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<div class="viewcode-block" id="Simulation.__init__"><a class="viewcode-back" href="../../classes.html#scanning.optimization.Simulation.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">telescope_pattern</span><span class="p">,</span> <span class="n">instrument</span><span class="p">,</span> <span class="n">module_identifier</span><span class="p">,</span> <span class="n">sim_param</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Creating a `Simulation` object works by passing a `TelescopePattern` object, which stores the AZ/EL coordinates of </span>
 <span class="sd">        the telescope boresight. By passing an `Instrument` object and the name of one of its modules, we use the detector </span>
@@ -153,12 +125,12 @@
 <span class="sd">            Gets the `Module` and AZ/ALT coordinates from a string indicating a module name in the instrument e.g. &#39;SFH&#39;. </span>
 <span class="sd">        sim_param : str</span>
 <span class="sd">            File path to a json file containing parameters for simulation (see **kwargs).</span>
-<span class="sd">        mem_limit : int; default 640 MB</span>
-<span class="sd">            Approximate memory limit in megabytes when simulating the scan. </span>
 <span class="sd">            </span>
 
 <span class="sd">        Keyword Args</span>
 <span class="sd">        --------------------------</span>
+<span class="sd">        mem_limit : int; default 640 MB</span>
+<span class="sd">            Approximate memory limit in megabytes when simulating the scan. </span>
 <span class="sd">        pixel_size : float/Quantity/str; default 10 arcsec, default unit arcsec</span>
 <span class="sd">            Length of a square pixel in x-y offsets. </span>
 <span class="sd">        max_acc : float/Quantity/str; default None, default unit deg/s^2</span>
@@ -192,8 +164,6 @@
 <span class="sd">        </span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_mem_limit</span> <span class="o">=</span> <span class="n">mem_limit</span>
-
         <span class="c1"># get Module object from instrument</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_module</span> <span class="o">=</span> <span class="n">instrument</span><span class="o">.</span><span class="n">get_module</span><span class="p">(</span><span class="n">module_identifier</span><span class="p">,</span> <span class="n">with_instr_rot</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">with_mod_rot</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
@@ -223,6 +193,8 @@
 
     <span class="k">def</span> <span class="nf">_clean_param</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="n">new_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+        <span class="n">new_kwargs</span><span class="p">[</span><span class="s1">&#39;mem_limit&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;mem_limit&#39;</span><span class="p">,</span> <span class="mi">640</span><span class="p">)</span>
 
         <span class="n">new_kwargs</span><span class="p">[</span><span class="s1">&#39;pixel_size&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;pixel_size&#39;</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_units</span><span class="p">[</span><span class="s1">&#39;pixel_size&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">value</span>
 
@@ -496,7 +468,7 @@
 
         <span class="c1"># Divide process into chunks to abide by memory limits </span>
         <span class="c1"># We store using np.float16, which takes 2 bytes for each additional value</span>
-        <span class="n">max_number_points</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mem_limit</span><span class="o">*</span><span class="mi">10</span><span class="o">**</span><span class="mi">6</span><span class="p">)</span><span class="o">/</span><span class="mi">2</span>
+        <span class="n">max_number_points</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_param</span><span class="p">[</span><span class="s1">&#39;mem_limit&#39;</span><span class="p">]</span><span class="o">*</span><span class="mi">10</span><span class="o">**</span><span class="mi">6</span><span class="p">)</span><span class="o">/</span><span class="mi">2</span>
 
         <span class="n">chunk_ts</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">max_number_points</span><span class="o">/</span><span class="n">num_det_elem</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">num_ts</span><span class="o">/</span><span class="n">chunk_ts</span><span class="p">)):</span>
@@ -740,9 +712,84 @@
         <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">total_rot</span><span class="p">,</span> <span class="n">all_pol_counts</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">total_rot</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div></div>
+            <span class="n">total_rot</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
 
-        
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">sky_pattern</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;SkyPattern : Associated `SkyPattern` object.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sky_pattern</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">module</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Module : `Module` object. &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">field_rotation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Quantity array : Field rotation.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_field_rotation</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">param</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="n">val</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_param_units</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_param</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">det_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; bool array : Mask for detector elements that are turned on.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_det_mask</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">validity_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;bool array : Mask for samples that are within the acceleration/speed limits.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validity_mask</span></div>
+
+
+<span class="sd">&quot;&quot;&quot;def accumulation(max_duration=None, num_repeat=1, intermission_time=10**u.s, **kwargs):</span>
+
+<span class="sd">    # get the sky pattern and telescope pattern</span>
+<span class="sd">    # and other info needed to create new telescope patterns</span>
+
+<span class="sd">    try:</span>
+<span class="sd">        telescope_pattern = kwargs[&#39;telescope_pattern&#39;]</span>
+<span class="sd">    except KeyError:</span>
+<span class="sd">        raise TypeError(&#39;missing keyword(s)&#39;)</span>
+
+<span class="sd">    sky_pattern = telescope_pattern.get_sky_pattern()</span>
+
+<span class="sd">    obs_param = {</span>
+<span class="sd">        &#39;lat&#39;: telescope_pattern._param[&#39;lat&#39;],</span>
+<span class="sd">        &#39;start_ra&#39;: telescope_pattern.ra_coord[0].value,</span>
+<span class="sd">        &#39;start_dec&#39;: telescope_pattern.dec_coord[0].value,</span>
+<span class="sd">        &#39;start_lst&#39;: telescope_pattern.lst[0].value</span>
+<span class="sd">    }</span>
+
+<span class="sd">    # get number of repeats and one duration </span>
+
+<span class="sd">    pattern_time = telescope_pattern.scan_duration</span>
+<span class="sd">    one_duration = (pattern_time + u.Quantity(intermission_time, u.s)).value </span>
+
+<span class="sd">    if not max_duration is None:</span>
+<span class="sd">        max_duration = u.Quantity(max_duration, u.s).value</span>
+<span class="sd">        num_repeat = math.floor(max_duration/one_duration)</span>
+
+<span class="sd">    # get initial simulation stuff</span>
+<span class="sd">    sim0 = Simulation(**kwargs)</span>
+<span class="sd">    sky_hist, bin_edges = sim0.sky_histogram(&#39;kept&#39;)</span>
+
+<span class="sd">    # loop</span>
+
+<span class="sd">    SIDEREAL_TO_UT1 = 1.002737909350795</span>
+
+<span class="sd">    for i in range(1, num_repeat):</span>
+<span class="sd">        obs_param[&#39;start_lst&#39;] = obs_param[&#39;start_lst&#39;] + one_duration/3600*SIDEREAL_TO_UT1</span>
+<span class="sd">        telescope_pattern = TelescopePattern(sky_pattern, **obs_param)</span>
+
+<span class="sd">        kwargs[&#39;telescope_pattern&#39;] = telescope_pattern</span>
+<span class="sd">        sim0 = Simulation(**kwargs)</span>
+
+<span class="sd">        sky_hist += sim0.sky_histogram(&#39;kept&#39;)</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
 </pre></div>
 
            </div>

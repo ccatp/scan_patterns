@@ -25,13 +25,13 @@ Below are a list of visualization functions and examples for visualzing scan pat
 .. autofunction:: scanning.visualization.sky_path
 
 .. image:: images/sky_path-daisy.png
-    :width: 150
+    :width: 200
 
 .. image:: images/sky_path-pong.png
-    :width: 150
+    :width: 200
 
 .. image:: images/sky_path.png
-    :width: 300
+    :width: 200
 
 .. autofunction:: scanning.visualization.telescope_path
 
@@ -41,20 +41,42 @@ Below are a list of visualization functions and examples for visualzing scan pat
 .. autofunction:: scanning.visualization.telescope_kinematics
 
 .. image:: images/telescope_kinematics.png
-    :width: 500
+    :width: 650
 
 .. autofunction:: scanning.visualization.sky_kinematics
 
 .. image:: images/sky_kinematics.png
-    :width: 500
+    :width: 650
 
 Simulations
 ====================================
 
 Below are a list of visualization functions and examples for visualzing simulation outputs. 
 
-.. automodule:: scanning.visualization
-    :members: hitmap, pxan_detector, pxan_time, pxan_polarization, polarization_histogram
+.. autofunction:: scanning.visualization.hitmap
+
+.. image:: images/hitmap.png
+    :width: 650
+
+.. autofunction:: scanning.visualization.pxan_detector
+
+.. image:: images/pxan_detector.png
+    :width: 650
+
+.. autofunction:: scanning.visualization.pxan_time
+
+.. image:: images/pxan_time.png
+    :width: 650
+
+.. autofunction:: scanning.visualization.pxan_polarization
+
+.. image:: images/pxan_polarization.png
+    :width: 650
+
+.. autofunction:: scanning.visualization.polarization_histogram
+
+.. image:: images/polarization_histogram.png
+    :width: 650
 
 Observations
 ====================================

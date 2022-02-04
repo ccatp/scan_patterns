@@ -121,38 +121,95 @@
 <dl class="py function">
 <dt class="sig sig-object py" id="scanning.visualization.sky_path">
 <span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">sky_path</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pattern</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#sky_path"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.visualization.sky_path" title="Permalink to this definition"></a></dt>
-<dd><p>TODO</p>
+<dd><p>Trace the path of the pattern on the sky.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pattern</strong> (<a class="reference internal" href="classes.html#scanning.coordinates.SkyPattern" title="scanning.coordinates.SkyPattern"><em>SkyPattern</em></a><em> or </em><a class="reference internal" href="classes.html#scanning.coordinates.TelescopePattern" title="scanning.coordinates.TelescopePattern"><em>TelescopePattern</em></a>) – If SkyPattern object, trace the path in x and y offsets.
+If TelescopePattern object, trace the path in RA/DEC.</p></li>
+<li><p><strong>module</strong> (<em>str</em><em> or </em><em>two-tuple</em><em> or </em><em>[</em><em>list of str</em><em> or </em><em>two-tuple</em><em>] or </em><em>None</em><em>, </em><em>default None</em>) – Only applicable if pattern is TelescopePattern. Trace the paths of the listed modules/location.
+If <cite>None</cite>, use boresight.
+| 1. string indicating a module name in the instrument e.g. ‘SFH’
+| 2. string indicating one of the default slots in the instrument e.g. ‘c’, ‘i1’
+| 3. tuple of (distance, theta) indicating module’s offset from the center of the instrument, default unit deg</p></li>
+<li><p><strong>path</strong> (<em>str</em><em> or </em><em>None</em><em>, </em><em>default None</em>) – If not None, saves the image to the file path.</p></li>
+<li><p><strong>show_plot</strong> (<em>bool</em><em>, </em><em>default True</em>) – Whether to display the resulting figure.</p></li>
+</ul>
+</dd>
+</dl>
 </dd></dl>
 
-<a class="reference internal image-reference" href="_images/sky_path-daisy.png"><img alt="_images/sky_path-daisy.png" src="_images/sky_path-daisy.png" style="width: 150px;" /></a>
-<a class="reference internal image-reference" href="_images/sky_path-pong.png"><img alt="_images/sky_path-pong.png" src="_images/sky_path-pong.png" style="width: 150px;" /></a>
-<a class="reference internal image-reference" href="_images/sky_path.png"><img alt="_images/sky_path.png" src="_images/sky_path.png" style="width: 300px;" /></a>
+<a class="reference internal image-reference" href="_images/sky_path-daisy.png"><img alt="_images/sky_path-daisy.png" src="_images/sky_path-daisy.png" style="width: 200px;" /></a>
+<a class="reference internal image-reference" href="_images/sky_path-pong.png"><img alt="_images/sky_path-pong.png" src="_images/sky_path-pong.png" style="width: 200px;" /></a>
+<a class="reference internal image-reference" href="_images/sky_path.png"><img alt="_images/sky_path.png" src="_images/sky_path.png" style="width: 200px;" /></a>
 <dl class="py function">
 <dt class="sig sig-object py" id="scanning.visualization.telescope_path">
 <span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">telescope_path</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">telescope_pattern</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#telescope_path"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.visualization.telescope_path" title="Permalink to this definition"></a></dt>
-<dd><p>TODO</p>
+<dd><p>Trace the path of the pattern in AZ/EL.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pattern</strong> (<a class="reference internal" href="classes.html#scanning.coordinates.TelescopePattern" title="scanning.coordinates.TelescopePattern"><em>TelescopePattern</em></a>) – A TelescopePattern object.</p></li>
+<li><p><strong>module</strong> (<em>str</em><em> or </em><em>two-tuple</em><em> or </em><em>[</em><em>list of str</em><em> or </em><em>two-tuple</em><em>] or </em><em>None</em><em>, </em><em>default None</em>) – Trace the paths of the listed modules/location.
+If <cite>None</cite>, use boresight.
+| 1. string indicating a module name in the instrument e.g. ‘SFH’
+| 2. string indicating one of the default slots in the instrument e.g. ‘c’, ‘i1’
+| 3. tuple of (distance, theta) indicating module’s offset from the center of the instrument, default unit deg</p></li>
+<li><p><strong>path</strong> (<em>str</em><em> or </em><em>None</em><em>, </em><em>default None</em>) – If not None, saves the image to the file path.</p></li>
+<li><p><strong>show_plot</strong> (<em>bool</em><em>, </em><em>default True</em>) – Whether to display the resulting figure.</p></li>
+</ul>
+</dd>
+</dl>
 </dd></dl>
 
 <a class="reference internal image-reference" href="_images/telescope_path.png"><img alt="_images/telescope_path.png" src="_images/telescope_path.png" style="width: 500px;" /></a>
 <dl class="py function">
 <dt class="sig sig-object py" id="scanning.visualization.telescope_kinematics">
 <span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">telescope_kinematics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">telescope_pattern</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plots</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['coord',</span> <span class="pre">'vel',</span> <span class="pre">'acc',</span> <span class="pre">'jerk']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#telescope_kinematics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.visualization.telescope_kinematics" title="Permalink to this definition"></a></dt>
-<dd><p>TODO</p>
+<dd><p>Plot time vs. azimuthal and elevation kinematics.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pattern</strong> (<a class="reference internal" href="classes.html#scanning.coordinates.TelescopePattern" title="scanning.coordinates.TelescopePattern"><em>TelescopePattern</em></a>) – A TelescopePattern object.</p></li>
+<li><p><strong>module</strong> (<em>str</em><em> or </em><em>two-tuple</em><em> or </em><em>None</em><em>, </em><em>default None</em>) – Select the module to use. If <cite>None</cite>, use boresight, otherwise:
+| 1. string indicating a module name in the instrument e.g. ‘SFH’
+| 2. string indicating one of the default slots in the instrument e.g. ‘c’, ‘i1’
+| 3. tuple of (distance, theta) indicating module’s offset from the center of the instrument, default unit deg</p></li>
+<li><p><strong>plots</strong> (<em>list of str</em><em>, </em><em>default</em><em> [</em><em>'coord'</em><em>, </em><em>'vel'</em><em>, </em><em>'acc'</em><em>, </em><em>'jerk'</em><em>]</em>) – List of which time plots to include. By default, includes all.</p></li>
+<li><p><strong>path</strong> (<em>str</em><em> or </em><em>None</em><em>, </em><em>default None</em>) – If not None, saves the image to the file path.</p></li>
+<li><p><strong>show_plot</strong> (<em>bool</em><em>, </em><em>default True</em>) – Whether to display the resulting figure.</p></li>
+</ul>
+</dd>
+</dl>
 </dd></dl>
 
-<a class="reference internal image-reference" href="_images/telescope_kinematics.png"><img alt="_images/telescope_kinematics.png" src="_images/telescope_kinematics.png" style="width: 500px;" /></a>
+<a class="reference internal image-reference" href="_images/telescope_kinematics.png"><img alt="_images/telescope_kinematics.png" src="_images/telescope_kinematics.png" style="width: 650px;" /></a>
 <dl class="py function">
 <dt class="sig sig-object py" id="scanning.visualization.sky_kinematics">
 <span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">sky_kinematics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pattern</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plots</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['coord',</span> <span class="pre">'vel',</span> <span class="pre">'acc',</span> <span class="pre">'jerk']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#sky_kinematics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.visualization.sky_kinematics" title="Permalink to this definition"></a></dt>
-<dd><p>TODO</p>
+<dd><p>Plot time vs. x and y kinematics.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pattern</strong> (<a class="reference internal" href="classes.html#scanning.coordinates.SkyPattern" title="scanning.coordinates.SkyPattern"><em>SkyPattern</em></a><em> or </em><a class="reference internal" href="classes.html#scanning.coordinates.TelescopePattern" title="scanning.coordinates.TelescopePattern"><em>TelescopePattern</em></a>) – A SkyPattern or TelescopePattern object.</p></li>
+<li><p><strong>module</strong> (<em>str</em><em> or </em><em>two-tuple</em><em> or </em><em>None</em><em>, </em><em>default None</em>) – Select the module to use. If <cite>None</cite>, use boresight, otherwise:
+| 1. string indicating a module name in the instrument e.g. ‘SFH’
+| 2. string indicating one of the default slots in the instrument e.g. ‘c’, ‘i1’
+| 3. tuple of (distance, theta) indicating module’s offset from the center of the instrument, default unit deg</p></li>
+<li><p><strong>plots</strong> (<em>list of str</em><em>, </em><em>default</em><em> [</em><em>'coord'</em><em>, </em><em>'vel'</em><em>, </em><em>'acc'</em><em>, </em><em>'jerk'</em><em>]</em>) – List of which time plots to include. By default, includes all.</p></li>
+<li><p><strong>path</strong> (<em>str</em><em> or </em><em>None</em><em>, </em><em>default None</em>) – If not None, saves the image to the file path.</p></li>
+<li><p><strong>show_plot</strong> (<em>bool</em><em>, </em><em>default True</em>) – Whether to display the resulting figure.</p></li>
+</ul>
+</dd>
+</dl>
 </dd></dl>
 
-<a class="reference internal image-reference" href="_images/sky_kinematics.png"><img alt="_images/sky_kinematics.png" src="_images/sky_kinematics.png" style="width: 500px;" /></a>
+<a class="reference internal image-reference" href="_images/sky_kinematics.png"><img alt="_images/sky_kinematics.png" src="_images/sky_kinematics.png" style="width: 650px;" /></a>
 </section>
 <section id="simulations">
 <h2>Simulations<a class="headerlink" href="#simulations" title="Permalink to this headline"></a></h2>
 <p>Below are a list of visualization functions and examples for visualzing simulation outputs.</p>
-<span class="target" id="module-scanning.visualization"></span><dl class="py function">
+<dl class="py function">
 <dt class="sig sig-object py" id="scanning.visualization.hitmap">
 <span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">hitmap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">convolve</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norm_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kept_hits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">removed_hits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_hits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_rot0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#hitmap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.visualization.hitmap" title="Permalink to this definition"></a></dt>
 <dd><p>Get a hitmap.</p>
@@ -172,12 +229,7 @@ If an integer is passed, the corresponding plot will show, with the color bar ma
 </dl>
 </dd></dl>
 
-<dl class="py function">
-<dt class="sig sig-object py" id="scanning.visualization.polarization_histogram">
-<span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">polarization_histogram</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kept_hits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">removed_hits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_hits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stacked</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#polarization_histogram"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.visualization.polarization_histogram" title="Permalink to this definition"></a></dt>
-<dd><p>TODO</p>
-</dd></dl>
-
+<a class="reference internal image-reference" href="_images/hitmap.png"><img alt="_images/hitmap.png" src="_images/hitmap.png" style="width: 650px;" /></a>
 <dl class="py function">
 <dt class="sig sig-object py" id="scanning.visualization.pxan_detector">
 <span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">pxan_detector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norm_pxan</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norm_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kept_hits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">removed_hits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_hits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#pxan_detector"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.visualization.pxan_detector" title="Permalink to this definition"></a></dt>
@@ -197,23 +249,7 @@ If an integer is passed, the corresponding plot will show, with the color bar ma
 </dl>
 </dd></dl>
 
-<dl class="py function">
-<dt class="sig sig-object py" id="scanning.visualization.pxan_polarization">
-<span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">pxan_polarization</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norm_pxan</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norm_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kept_hits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">removed_hits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_hits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#pxan_polarization"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.visualization.pxan_polarization" title="Permalink to this definition"></a></dt>
-<dd><dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>sim</strong> (<a class="reference internal" href="classes.html#scanning.optimization.Simulation" title="scanning.optimization.Simulation"><em>Simulation</em></a>) – A simulation object.</p></li>
-<li><p><strong>norm_pxan</strong> (<em>bool; default True</em>) – Whether to average the hits by dividing the total hits by the number of pixels.</p></li>
-<li><p><strong>norm_time</strong> (<em>bool; default False</em>) – <cite>True</cite> for hits/px per total scan duration. <cite>False</cite> for hits/px.</p></li>
-<li><p><strong>total_hits</strong> (<em>kept_hits removed_hits</em>) – Whether to plot seperate hitmaps for kept/rem/total hits (<cite>True</cite>) or not (Fal`se).</p></li>
-<li><p><strong>path</strong> (<em>str</em><em> or </em><em>None; default None</em>) – If not <cite>None</cite>, saves the image to the file path.</p></li>
-<li><p><strong>show_plot</strong> (<em>bool; default True</em>) – Whether to display the resulting figure.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
+<a class="reference internal image-reference" href="_images/pxan_detector.png"><img alt="_images/pxan_detector.png" src="_images/pxan_detector.png" style="width: 650px;" /></a>
 <dl class="py function">
 <dt class="sig sig-object py" id="scanning.visualization.pxan_time">
 <span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">pxan_time</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norm_pxan</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norm_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kept_hits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">removed_hits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_hits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#pxan_time"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.visualization.pxan_time" title="Permalink to this definition"></a></dt>
@@ -233,6 +269,48 @@ If an integer is passed, the corresponding plot will show, with the color bar ma
 </dl>
 </dd></dl>
 
+<a class="reference internal image-reference" href="_images/pxan_time.png"><img alt="_images/pxan_time.png" src="_images/pxan_time.png" style="width: 650px;" /></a>
+<dl class="py function">
+<dt class="sig sig-object py" id="scanning.visualization.pxan_polarization">
+<span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">pxan_polarization</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norm_pxan</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norm_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kept_hits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">removed_hits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_hits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#pxan_polarization"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.visualization.pxan_polarization" title="Permalink to this definition"></a></dt>
+<dd><p>Get a histogram of how many times each detector element, grouped by their initial pixel positions, hit that region</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sim</strong> (<a class="reference internal" href="classes.html#scanning.optimization.Simulation" title="scanning.optimization.Simulation"><em>Simulation</em></a>) – A simulation object.</p></li>
+<li><p><strong>norm_pxan</strong> (<em>bool; default True</em>) – Whether to average the hits by dividing the total hits by the number of pixels.</p></li>
+<li><p><strong>norm_time</strong> (<em>bool; default False</em>) – <cite>True</cite> for hits/px per total scan duration. <cite>False</cite> for hits/px.</p></li>
+<li><p><strong>total_hits</strong> (<em>kept_hits removed_hits</em>) – Whether to plot seperate hitmaps for kept/rem/total hits (<cite>True</cite>) or not (Fal`se).</p></li>
+<li><p><strong>path</strong> (<em>str</em><em> or </em><em>None; default None</em>) – If not <cite>None</cite>, saves the image to the file path.</p></li>
+<li><p><strong>show_plot</strong> (<em>bool; default True</em>) – Whether to display the resulting figure.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<a class="reference internal image-reference" href="_images/pxan_polarization.png"><img alt="_images/pxan_polarization.png" src="_images/pxan_polarization.png" style="width: 650px;" /></a>
+<dl class="py function">
+<dt class="sig sig-object py" id="scanning.visualization.polarization_histogram">
+<span class="sig-prename descclassname"><span class="pre">scanning.visualization.</span></span><span class="sig-name descname"><span class="pre">polarization_histogram</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kept_hits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">removed_hits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_hits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stacked</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scanning/visualization.html#polarization_histogram"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#scanning.visualization.polarization_histogram" title="Permalink to this definition"></a></dt>
+<dd><dl class="simple">
+<dt>Get a histogram of which polarization geometries have been captured.</dt><dd><p>Parameters</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>sim<span class="classifier">Simulation</span></dt><dd><p>A simulation object.</p>
+</dd>
+<dt>kept_hits removed_hits total_hits<span class="classifier">bool; default True False False respectively</span></dt><dd><p>Whether to plot seperate hitmaps for kept/rem/total hits (<cite>True</cite>) or not (False`).</p>
+</dd>
+<dt>stacked<span class="classifier">bool; default False</span></dt><dd><p>Whether to display histogram as stacked bars (<cite>True</cite>) or overlaying bars (<cite>False</cite>).</p>
+</dd>
+<dt>path<span class="classifier">str or None; default None</span></dt><dd><p>If not <cite>None</cite>, saves the image to the file path.</p>
+</dd>
+<dt>show_plot<span class="classifier">bool; default True</span></dt><dd><p>Whether to display the resulting figure.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<a class="reference internal image-reference" href="_images/polarization_histogram.png"><img alt="_images/polarization_histogram.png" src="_images/polarization_histogram.png" style="width: 650px;" /></a>
 </section>
 <section id="observations">
 <h2>Observations<a class="headerlink" href="#observations" title="Permalink to this headline"></a></h2>

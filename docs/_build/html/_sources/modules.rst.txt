@@ -1,4 +1,0 @@
-Modules
-====================
-
-.. automodule:: scanning.camera

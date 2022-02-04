@@ -215,6 +215,8 @@ You can specify columns and units you would like to save. See docstrings for mor
 Simulating Scan Patterns
 ================================
 
+See tutorial Jupyter notebook. 
+
 Optimal Observation Times
 ===============================
 
