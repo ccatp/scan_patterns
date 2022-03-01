@@ -866,7 +866,10 @@ class TelescopePattern():
                 for col, unit in units.items():
                     self._data[col] = self._data[col]*u.Unit(unit).to(self._stored_units[col])
                 
-            self._param = self._clean_param_telescope_data(False, **param)
+            if 'lst' in self._data.columns:
+                self._param = self._clean_param_telescope_data(False, **param)
+            else:
+                self._param = self._clean_param_telescope_data(True, **param)
 
             try:
                 self._data[['time_offset', 'lst', 'az_coord', 'alt_coord']]
