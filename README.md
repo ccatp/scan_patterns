@@ -20,6 +20,11 @@ To interact with the [tutorial notebooks](tutorials) without installation, you c
 
 https://mybinder.org/v2/gh/KristinChengWu/mapping/HEAD
 
+Below are Overleaf reports of our investigations. 
+* [Effect of Field Rotation on Polarimetric Measurements](https://www.overleaf.com/read/xbwfsngdnvyc): Summarizes our investigation on the implications of field rotation in our scans.
+* [Pong Scan Motion Analysis](https://www.overleaf.com/read/wjtvgybbkmbj): Analyzes the motion of the “Curvy Pong” scan pattern. Highlights how speed, acceleration, and jerk changes with specific parameters and how it compares with limitations to the telescope. 
+* [Daisy Motion and Area Coverage Analysis](https://www.overleaf.com/read/xmphnjnfkkvg): A similar motion analysis for the Daisy pattern, which is optimized for point-sources. Also talks about how much area coverage one might expect. 
+
 ##  Installation
 
 For local installations, you can install the latest version
