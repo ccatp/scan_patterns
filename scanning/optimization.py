@@ -93,6 +93,9 @@ class Simulation():
         pxan_list : sequence of two-length tuples, or None; default None; default unit arcsec
             A list of pixels such as [(x1, y1), (x2, y2)] to analyze. Each point (x, y) corresponds to a singular pixel that contains this point. 
             Cannot be used with `pxan_lim`. If both are `None`, no pixel analysis is performed.
+        max_pixel : int;
+            In order to externally give the number of pixel of the simulation (length will be max_pixel*2)
+            If None, calculated from the range of the data.
         
         """
 
@@ -237,6 +240,10 @@ class Simulation():
                 raise TypeError('"pxan_lim" is of incorrect shape or type')
             new_kwargs['pxan_list'] = new_pxan_list
 
+        # max_pixel
+        max_pixel = kwargs.pop('max_pixel', None)
+        new_kwargs['max_pixel'] = max_pixel
+
         # return
         if kwargs:
             raise TypeError(f'uncessary keywords: {kwargs.keys()}')
@@ -246,9 +253,13 @@ class Simulation():
     def _preprocessing(self):
         pixel_size = self._param['pixel_size']
 
-        farthest_det_elem = math.sqrt(max( (self._module.x.value)**2 + (self._module.y.value)**2 ))
-        farthest_ts = math.sqrt(max(self._sky_pattern.distance.value))
-        max_pixel = math.ceil((farthest_det_elem + farthest_ts)/pixel_size)
+        if self._param['max_pixel'] is None:
+            farthest_det_elem = math.sqrt(max( (self._module.x.value)**2 + (self._module.y.value)**2 ))
+            #farthest_ts = math.sqrt(max(self._sky_pattern.distance.value))
+            farthest_ts = max(self._sky_pattern.distance.value)
+            max_pixel = math.ceil((farthest_det_elem + farthest_ts)/pixel_size)
+        else:
+            max_pixel = self._param['max_pixel']
 
         if self._pxan:
 
