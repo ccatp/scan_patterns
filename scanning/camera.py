@@ -194,19 +194,21 @@ class Module():
 
         # --- SETUP ---
 
-        # λ/D in rad (D = 6m, diameter of the telescope)
+        # λ/D in rad (D = 5.8m, diameter of the telescope)
+
+        tel_d = 5.8
 
         if isinstance(center_freq, int) or isinstance(center_freq, float):
             center1 = center2 = center3 = center_freq
-            ang_res = ang_res1 = ang_res2 = ang_res3 = F_lambda*math.degrees((speed_of_light)/(center_freq*10**9)/6)
+            ang_res = ang_res1 = ang_res2 = ang_res3 = F_lambda*math.degrees((speed_of_light)/(center_freq*10**9)/tel_d)
         elif len(center_freq) == 3:
             center1 = center_freq[0]
             center2 = center_freq[1]
             center3 = center_freq[2]
 
-            ang_res1 = F_lambda*math.degrees((speed_of_light)/(center1*10**9)/6)
-            ang_res2 = F_lambda*math.degrees((speed_of_light)/(center2*10**9)/6)
-            ang_res3 = F_lambda*math.degrees((speed_of_light)/(center3*10**9)/6)
+            ang_res1 = F_lambda*math.degrees((speed_of_light)/(center1*10**9)/tel_d)
+            ang_res2 = F_lambda*math.degrees((speed_of_light)/(center2*10**9)/tel_d)
+            ang_res3 = F_lambda*math.degrees((speed_of_light)/(center3*10**9)/tel_d)
             ang_res = [ang_res1, ang_res2, ang_res3]
         else:
             raise ValueError(f'freq {center_freq} is invalid')
@@ -366,7 +368,8 @@ class Module():
         """
         Quantity: F lambda.
         """
-        return self._ang_res/math.degrees(speed_of_light/self._freq.to(u.Hz)/6)
+        tel_d = 5.8
+        return self._ang_res/math.degrees(speed_of_light/self._freq.to(u.Hz)/tel_d)
 
     @property
     def ang_res(self):
