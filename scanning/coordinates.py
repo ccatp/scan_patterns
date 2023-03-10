@@ -357,7 +357,8 @@ class Pong(SkyPattern):
         'num_term': u.dimensionless_unscaled,
         'width': u.deg, 'height': u.deg, 'spacing': u.deg,
         'velocity': u.deg/u.s, 'angle': u.deg, 'sample_interval': SkyPattern._stored_units['time_offset'], 
-        'num_repeat': u.dimensionless_unscaled
+        'num_repeat': u.dimensionless_unscaled,
+        'period': u.s
     }
 
     def __init__(self, param_json=None, **kwargs) -> None:
