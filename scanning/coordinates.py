@@ -493,6 +493,8 @@ class Pong(SkyPattern):
             num_repeat = math.floor(max_scan_duration/period)
             self._param['num_repeat'] = num_repeat
 
+        self._param['period'] = period
+        
         pongcount = math.ceil(period*num_repeat/sample_interval)
         
         # Calculate the grid positions and apply rotation angle. Load
