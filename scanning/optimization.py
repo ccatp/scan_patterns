@@ -328,11 +328,16 @@ class Simulation():
         param = self._param
         
         # filter ts (rows)
-        ts_mask = np.full(self._sky_pattern.x_coord.value.size, True)
         if not param.get('max_acc') is None:
-            ts_mask = abs(self._sky_pattern.acc.value) <= param['max_acc']
+            ts_mask_acc = abs(self._sky_pattern.acc.value) <= param['max_acc']
+        else:
+            ts_mask_acc = np.full(self._sky_pattern.x_coord.value.size, True)
         if not param.get('min_speed') is None:
-            ts_mask = abs(self._sky_pattern.vel.value) >= param['min_speed']
+            ts_mask_speed = abs(self._sky_pattern.vel.value) >= param['min_speed']
+        else:
+            ts_mask_speed = np.full(self._sky_pattern.x_coord.value.size, True)
+
+        ts_mask = (ts_mask_acc & ts_mask_speed)
 
         return ts_mask
     
