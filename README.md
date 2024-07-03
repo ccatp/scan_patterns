@@ -2,6 +2,8 @@
 
 [![Documentation Status](https://readthedocs.org/projects/mapping-fyst/badge/?version=latest)](https://mapping-fyst.readthedocs.io/en/latest/?badge=latest)
 
+This package is forked from https://github.com/KristinChengWu/mapping with small modifications.
+
 ``mapping`` is a Python software package for simulating on-sky data acquisition and forecasting scanning performance. 
 The ``mapping`` package allows for tools that:
 
@@ -26,6 +28,15 @@ Below are Overleaf reports of our investigations.
 * [Daisy Motion and Area Coverage Analysis](https://www.overleaf.com/read/xmphnjnfkkvg): A similar motion analysis for the Daisy pattern, which is optimized for point-sources. Also talks about how much area coverage one might expect. 
 
 ##  Installation
+
+For local installations,
+
+```
+git clone git@github.com:ccatobs/scan_patterns
+cd scan_patterns
+pip install .
+```
+Below is the original instruction.
 
 For local installations, you can install the latest version
 

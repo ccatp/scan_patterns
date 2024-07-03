@@ -57,7 +57,7 @@ def plot_module(mod, mode=None, path=None, show_plot=True):
             num_def = len(categories)
             y_label = 'Default Orientation [deg]'
             tick_locs = (categories + 7.5)*(num_def-1)/num_def
-            c = mod.pol
+            c = mod.pol.value
         elif mode == 'rhombus':
             categories = np.unique(mod.rhombus)
             num_def = len(categories)
