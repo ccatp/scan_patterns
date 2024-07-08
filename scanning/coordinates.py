@@ -8,7 +8,7 @@ import pandas as pd
 from scipy.optimize import root_scalar
 from astropy.time import Time
 import astropy.units as u
-from astropy.coordinates import EarthLocation
+from astropy.coordinates import EarthLocation, SkyCoord
 
 def _central_diff(a, h=None, time=None):
 
@@ -1193,12 +1193,25 @@ class TelescopePattern():
 
         start_dec = self.dec_coord[0].to(u.rad).value 
 
+        # updated following the URL below
+        # Still be careful when the dec is high, if the result will be
+        # stored with the wcs with a certain projection
+        sc = SkyCoord(self.ra_coord, self.dec_coord)
+        sc0 = SkyCoord(self.ra_coord[0], self.dec_coord[0])
+        dra, ddec = sc.spherical_offsets_to(sc0)
+
         data = {
             'time_offset': self.time_offset.value, 
-            # FIXME fine for small regions, but consider checking out https://docs.astropy.org/en/stable/coordinates/matchsep.html for larger regions
-            'x_coord': self.ra_coord.value*cos(start_dec) - self.ra_coord[0].value*cos(start_dec),
-            'y_coord': self.dec_coord.value - self.dec_coord[0].value 
+            'x_coord': dra.value,
+            'y_coord': ddec.value
         }
+
+        # data = {
+        #     'time_offset': self.time_offset.value, 
+        #     # FIXME fine for small regions, but consider checking out https://docs.astropy.org/en/stable/coordinates/matchsep.html for larger regions
+        #     'x_coord': self.ra_coord.value*cos(start_dec) - self.ra_coord[0].value*cos(start_dec),
+        #     'y_coord': self.dec_coord.value - self.dec_coord[0].value 
+        # }
 
         if max(abs(data['x_coord'])) > 10:
             warnings.warn('This is a larger pattern and the conversion between x and y deltas and RA/DEC may be slightly off.')
