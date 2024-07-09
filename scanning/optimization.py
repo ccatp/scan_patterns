@@ -416,7 +416,14 @@ class Simulation():
 
         # Divide process into chunks to abide by memory limits 
         # We store using np.float16, which takes 2 bytes for each additional value
-        max_number_points = (self._param['mem_limit']*10**6)/2
+        # -> updated, adjust the precision depending on max_pixel
+        # max_pixel <= 256: float16 (interval 1/8)
+        # the rest should be sufficient with float32
+
+        if max_pixel <= 256:
+            max_number_points = (self._param['mem_limit']*10**6)/2
+        else:
+            max_number_points = (self._param['mem_limit']*10**6)/4
 
         chunk_ts = math.floor(max_number_points/num_det_elem)
         for chunk in range(math.ceil(num_ts/chunk_ts)):
@@ -427,8 +434,12 @@ class Simulation():
             else:
                 num_rows = num_ts - chunk*chunk_ts
 
-            all_x_coords = np.empty((num_rows, num_det_elem), dtype=np.float16)
-            all_y_coords = np.empty((num_rows, num_det_elem), dtype=np.float16)
+            if max_pixel <= 256:
+                all_x_coords = np.empty((num_rows, num_det_elem), dtype=np.float16)
+                all_y_coords = np.empty((num_rows, num_det_elem), dtype=np.float16)
+            else:
+                all_x_coords = np.empty((num_rows, num_det_elem), dtype=np.float32)
+                all_y_coords = np.empty((num_rows, num_det_elem), dtype=np.float32)
 
             # range of ts to loop over
             start = chunk*chunk_ts

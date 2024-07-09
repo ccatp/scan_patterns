@@ -1198,7 +1198,7 @@ class TelescopePattern():
         # stored with the wcs with a certain projection
         sc = SkyCoord(self.ra_coord, self.dec_coord)
         sc0 = SkyCoord(self.ra_coord[0], self.dec_coord[0])
-        dra, ddec = sc.spherical_offsets_to(sc0)
+        dra, ddec = sc0.spherical_offsets_to(sc)
 
         data = {
             'time_offset': self.time_offset.value, 
