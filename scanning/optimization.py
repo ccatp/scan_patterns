@@ -96,6 +96,9 @@ class Simulation():
         max_pixel : int;
             In order to externally give the number of pixel of the simulation (length will be max_pixel*2)
             If None, calculated from the range of the data.
+        high_precision : boolean;
+            If True, float64 is used for the coordinates. If False, float32 is used
+            for a map with max_pixel > 256, otherwise float16 is used. Default is True
         
         """
 
@@ -243,6 +246,10 @@ class Simulation():
         # max_pixel
         max_pixel = kwargs.pop('max_pixel', None)
         new_kwargs['max_pixel'] = max_pixel
+
+        # precision
+        high_precision = kwargs.pop('high_precision', True)
+        new_kwargs['high_precision'] = high_precision
 
         # return
         if kwargs:
@@ -416,14 +423,23 @@ class Simulation():
 
         # Divide process into chunks to abide by memory limits 
         # We store using np.float16, which takes 2 bytes for each additional value
-        # -> updated, adjust the precision depending on max_pixel
+        # -> updated, use float64 is high_precision is True.
+        # Otherwise adjust the precision depending on max_pixel
         # max_pixel <= 256: float16 (interval 1/8)
         # the rest should be sufficient with float32
 
-        if max_pixel <= 256:
-            max_number_points = (self._param['mem_limit']*10**6)/2
+        if self._param['high_precision']:
+            dtype = np.float64
+            byte_per_point = 8
         else:
-            max_number_points = (self._param['mem_limit']*10**6)/4
+            if max_pixel <= 256:
+                dtype = np.float32
+                byte_per_point = 4
+            else:
+                dtype = np.float16
+                byte_per_point = 2
+
+        max_number_points = (self._param['mem_limit']*10**6)/byte_per_point
 
         chunk_ts = math.floor(max_number_points/num_det_elem)
         for chunk in range(math.ceil(num_ts/chunk_ts)):
@@ -434,12 +450,8 @@ class Simulation():
             else:
                 num_rows = num_ts - chunk*chunk_ts
 
-            if max_pixel <= 256:
-                all_x_coords = np.empty((num_rows, num_det_elem), dtype=np.float16)
-                all_y_coords = np.empty((num_rows, num_det_elem), dtype=np.float16)
-            else:
-                all_x_coords = np.empty((num_rows, num_det_elem), dtype=np.float32)
-                all_y_coords = np.empty((num_rows, num_det_elem), dtype=np.float32)
+            all_x_coords = np.empty((num_rows, num_det_elem), dtype=dtype)
+            all_y_coords = np.empty((num_rows, num_det_elem), dtype=dtype)
 
             # range of ts to loop over
             start = chunk*chunk_ts
