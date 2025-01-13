@@ -758,7 +758,7 @@ class TelescopePattern():
     # _param, _param_units
 
     _param_units = {
-        'start_ra': u.deg, 'start_dec': u.deg, 'lat': u.deg,
+        'start_ra': u.deg, 'start_dec': u.deg, 'lat': u.deg, 'lon': u.deg,
         'start_hrang': u.hourangle, 
         'start_datetime': u.dimensionless_unscaled, 
         'start_lst': u.hourangle,
@@ -805,6 +805,8 @@ class TelescopePattern():
             Declination offset for sky_pattern.
         lat : float/Quantity/str; default unit deg, default FYST_LOC.lat
             Latitude of observation. 
+        lon : float/Quantity/str; default unit deg, default FYST_LOC.lon
+            Longitude of observation. 
 
         start_datetime : str or datetime; default timezone UTC
             Starting date and time of observation.
@@ -914,6 +916,7 @@ class TelescopePattern():
 
         # required
         new_kwargs['lat'] = u.Quantity(kwargs.pop('lat', FYST_LOC.lat), u.deg).value
+        new_kwargs['lon'] = u.Quantity(kwargs.pop('lon', FYST_LOC.lon), u.deg).value
         new_kwargs['start_ra'] = u.Quantity(kwargs.pop('start_ra'), u.deg).value
         new_kwargs['start_dec'] = u.Quantity(kwargs.pop('start_dec'), u.deg).value
 
@@ -942,6 +945,7 @@ class TelescopePattern():
 
         # required
         new_kwargs['lat'] = u.Quantity(kwargs.pop('lat', FYST_LOC.lat), u.deg).value
+        new_kwargs['lon'] = u.Quantity(kwargs.pop('lon', FYST_LOC.lon), u.deg).value
 
         if need_lst:
 
@@ -1001,7 +1005,8 @@ class TelescopePattern():
 
         # given a starting datetime
         if 'start_datetime' in param.keys():
-            start_datetime = Time(param['start_datetime'], location=(param['lat'], 0*u.deg))
+            #start_datetime = Time(param['start_datetime'], location=(param['lat'], 0*u.deg))
+            start_datetime = Time(param['start_datetime'], location=(param['lon'], param['lat']))
             start_lst = start_datetime.sidereal_time('apparent')
 
         # given a starting hourangle
@@ -1183,8 +1188,14 @@ class TelescopePattern():
 
         return TelescopePattern(data, lat=self.param['lat'])
 
-    def get_sky_pattern(self) -> SkyPattern:
+    def get_sky_pattern(self, ra_c=None, dec_c=None) -> SkyPattern:
         """
+        Parameters
+        ----------
+        ra_c, dec_c
+            Reference coordinates where the pixel (0, 0) corresponds
+            If set to None, the first data point is used
+
         Returns
         -------------------------
         SkyPattern
@@ -1193,11 +1204,21 @@ class TelescopePattern():
 
         start_dec = self.dec_coord[0].to(u.rad).value 
 
+        sc = SkyCoord(self.ra_coord, self.dec_coord)
+
+        if ra_c is None:
+            ra_c = self.ra_coord[0]
+        else:
+            ra_c = u.Quantity(ra_c, u.deg)
+        if dec_c is None:
+            dec_c = self.dec_coord[0]
+        else:
+            dec_c = u.Quantity(dec_c, u.deg)
+        sc0 = SkyCoord(ra_c, dec_c)
+
         # updated following the URL below
         # Still be careful when the dec is high, if the result will be
         # stored with the wcs with a certain projection
-        sc = SkyCoord(self.ra_coord, self.dec_coord)
-        sc0 = SkyCoord(self.ra_coord[0], self.dec_coord[0])
         dra, ddec = sc0.spherical_offsets_to(sc)
 
         data = {

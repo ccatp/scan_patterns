@@ -99,7 +99,9 @@ class Simulation():
         high_precision : boolean;
             If True, float64 is used for the coordinates. If False, float32 is used
             for a map with max_pixel > 256, otherwise float16 is used. Default is True
-        
+        ra_c, dec_c : float;
+            Reference coordinates in degrees where the pixel (0, 0) corresponds
+            If set to None, the first data point is used
         """
 
         # get Module object from instrument
@@ -109,7 +111,10 @@ class Simulation():
         module_loc = instrument.get_module_location(module_identifier, from_boresight=True)
         telescope_pattern = telescope_pattern.view_module(module_loc, includes_instr_offset=True)
         
-        self._sky_pattern = telescope_pattern.get_sky_pattern()
+        ra_c = kwargs.pop('ra_c', None)
+        dec_c = kwargs.pop('dec_c', None)
+
+        self._sky_pattern = telescope_pattern.get_sky_pattern(ra_c, dec_c)
         self._field_rotation = telescope_pattern.rot_angle.value
 
         # clean parameters
